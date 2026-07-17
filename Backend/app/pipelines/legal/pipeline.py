@@ -74,6 +74,84 @@ async def _index_khoan_vectors(
         return 0
 
 
+async def reindex_khoan_from_neo4j(
+    driver: Any,
+    qdrant: Any,
+    embedder: Any,
+    van_ban_id: str | None = None,
+    batch_size: int = 64,
+) -> dict[str, Any]:
+    """Backfill/repair Qdrant from Neo4j: embed every Khoản and upsert its vector.
+
+    This makes ALL knowledge that lives in Neo4j retrievable by the RAG QA engine, regardless of
+    how it got there (seed scripts, older ingests before vector indexing existed, etc). Idempotent:
+    point ids are uuid5(khoan_id), so re-running overwrites rather than duplicates.
+
+    Pass ``van_ban_id`` to reindex a single document, or leave None to reindex everything.
+    Returns {status, total, indexed, van_ban_id}.
+    """
+    if not (driver and hasattr(driver, "session")):
+        return {"status": "error", "message": "neo4j_unavailable", "total": 0, "indexed": 0}
+    if not (qdrant and embedder):
+        return {"status": "error", "message": "qdrant_or_embedder_unavailable", "total": 0, "indexed": 0}
+
+    where = "WHERE v.vb_id = $vb_id" if van_ban_id else ""
+    query = f"""
+    MATCH (v:VanBanPhapLuat)-[:CO_DIEU]->(d:Dieu)-[:CO_KHOAN]->(k:Khoan)
+    {where}
+    RETURN k.khoan_id AS khoan_id, k.noi_dung AS noi_dung, k.van_ban_id AS van_ban_id,
+           d.so AS dieu_so, coalesce(k.visibility, v.visibility, 'public') AS visibility,
+           v.so_hieu AS so_hieu
+    """
+    rows: list[dict[str, Any]] = []
+    async with driver.session() as session:
+        res = await session.run(query, vb_id=van_ban_id) if van_ban_id else await session.run(query)
+        async for record in res:
+            rows.append(dict(record))
+
+    entries = [r for r in rows if (r.get("noi_dung") or "").strip()]
+    total = len(rows)
+    indexed = 0
+    for start in range(0, len(entries), batch_size):
+        batch = entries[start : start + batch_size]
+        try:
+            vectors = await embedder.embed_texts([r["noi_dung"].strip() for r in batch])
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("reindex: embedding batch failed: %s", exc)
+            continue
+        points = []
+        for r, vector in zip(batch, vectors):
+            text = r["noi_dung"].strip()
+            points.append(
+                {
+                    "id": str(uuid.uuid5(_KHOAN_POINT_NAMESPACE, r["khoan_id"])),
+                    "vector": vector,
+                    "payload": {
+                        "khoan_id": r["khoan_id"],
+                        "van_ban_id": r.get("van_ban_id"),
+                        "dieu": r.get("dieu_so", ""),
+                        "noi_dung": text,
+                        "text_preview": text[:200],
+                        "visibility": r.get("visibility", "public"),
+                        "so_hieu": r.get("so_hieu", ""),
+                    },
+                }
+            )
+        try:
+            await qdrant.upsert("khoan", points)
+            indexed += len(points)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("reindex: qdrant upsert failed: %s", exc)
+
+    return {
+        "status": "success",
+        "van_ban_id": van_ban_id,
+        "total": total,
+        "indexed": indexed,
+        "message": f"Đã reindex {indexed}/{total} Khoản từ Neo4j vào Qdrant.",
+    }
+
+
 async def _resolve_text(url_or_content: str | None) -> str:
     """Return raw legal text: fetch it if a URL was given, else treat the value as the text."""
     if not url_or_content:

@@ -75,6 +75,19 @@ async def upload_legal_file(
     return success_response(data=res, request_id=get_request_id())
 
 
+@router.post("/legal/reindex", summary="Đồng bộ lại vector Qdrant từ Neo4j (để AI truy hồi được)")
+async def reindex_legal_vectors(
+    van_ban_id: str | None = None,
+    driver: Any = Depends(get_neo4j_driver),
+    qdrant: Any = Depends(get_qdrant_client),
+    embedder: Any = Depends(get_embedder),
+    user: UserToken = Depends(require_admin()),
+) -> dict[str, Any]:
+    facade = LegalDiffFacade(neo4j_driver=driver, qdrant=qdrant, embedder=embedder)
+    res = await facade.reindex_vectors(van_ban_id=van_ban_id)
+    return success_response(data=res, request_id=get_request_id())
+
+
 @router.post("/ingest/legal", summary="Đẩy văn bản pháp luật vào pipeline xử lý")
 async def ingest_legal(
     request: IngestLegalRequest,

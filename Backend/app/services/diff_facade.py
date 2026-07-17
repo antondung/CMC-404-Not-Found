@@ -8,7 +8,7 @@ from typing import Any
 from datetime import datetime, timezone
 from app.pipelines.legal.version_diff import VersionDiff
 from app.pipelines.legal.normalize import normalize_so_hieu, generate_van_ban_id
-from app.pipelines.legal.pipeline import run_legal_ingest
+from app.pipelines.legal.pipeline import run_legal_ingest, reindex_khoan_from_neo4j
 
 _JOB_STATUSES = {"queued", "running", "success", "error", "needs_review"}
 
@@ -174,6 +174,10 @@ class LegalDiffFacade:
             "needs_review": result.get("needs_review", False),
             "message": result.get("message", "Đã xử lý."),
         }
+
+    async def reindex_vectors(self, van_ban_id: str | None = None) -> dict[str, Any]:
+        """Backfill Qdrant from Neo4j so ALL digitized Khoản become retrievable by the AI."""
+        return await reindex_khoan_from_neo4j(self.driver, self.qdrant, self.embedder, van_ban_id)
 
     async def _insert_job(self, job_id: str, payload: dict[str, Any]) -> None:
         if not (self.pool and hasattr(self.pool, "acquire")):

@@ -1,0 +1,7 @@
+# Local scratch logs from background dev servers (BE2/BE3)
+_*.out
+_*.err
+_*.json
+
+# Local runtime env (loaded by app/main.py and be2_service.py)
+.env

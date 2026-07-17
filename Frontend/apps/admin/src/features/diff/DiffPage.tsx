@@ -15,10 +15,7 @@ interface DiffResponse {
   total_hunks: number;
 }
 
-const SAMPLE_OLD =
-  'Phạt tiền từ 2.000.000 đồng đến 3.000.000 đồng đối với người điều khiển xe mô tô trên đường mà trong máu hoặc hơi thở có nồng độ cồn chưa vượt quá 50 miligam/100 mililít máu.';
-const SAMPLE_NEW =
-  'Phạt tiền từ 6.000.000 đồng đến 8.000.000 đồng đối với người điều khiển xe mô tô trên đường mà trong máu hoặc hơi thở có nồng độ cồn chưa vượt quá 50 miligam/100 mililít máu. Tạm giữ phương tiện tối đa 07 ngày làm việc.';
+
 
 function mapType(t: BackendHunk['type']): DiffHunk['type'] {
   if (t === 'insert') return 'added';
@@ -27,8 +24,8 @@ function mapType(t: BackendHunk['type']): DiffHunk['type'] {
 }
 
 export default function DiffPage() {
-  const [oldText, setOldText] = useState(SAMPLE_OLD);
-  const [newText, setNewText] = useState(SAMPLE_NEW);
+  const [oldText, setOldText] = useState('');
+  const [newText, setNewText] = useState('');
   const [hunks, setHunks] = useState<DiffHunk[]>([]);
   const [method, setMethod] = useState<string>('');
   const [loading, setLoading] = useState(false);

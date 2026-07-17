@@ -13,35 +13,6 @@ interface Job {
   error?: string;
 }
 
-const mockFallbackJobs: Job[] = [
-  {
-    id: 'job-ingest-pdf',
-    type: 'legal_ingest',
-    status: 'running',
-    progress: 84,
-    details: 'Đang tải (200/238): 59-btc.signed.pdf',
-    started_at: new Date(Date.now() - 150000).toISOString(),
-  },
-  {
-    id: 'job-sync-qdrant',
-    type: 'vector_sync',
-    status: 'success',
-    progress: 100,
-    details: 'Đồng bộ 15,000 khoản vào Qdrant',
-    started_at: new Date(Date.now() - 3600000).toISOString(),
-    completed_at: new Date(Date.now() - 3500000).toISOString(),
-  },
-  {
-    id: 'job-social-fb',
-    type: 'social_crawl',
-    status: 'failed',
-    progress: 14,
-    details: 'Lỗi rate limit Facebook API',
-    error: "ConnectionPool(host='graph.facebook.com'): Read timed out.",
-    started_at: new Date(Date.now() - 7200000).toISOString(),
-    completed_at: new Date(Date.now() - 7190000).toISOString(),
-  }
-];
 
 export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -55,10 +26,9 @@ export default function JobsPage() {
       setJobs(Array.isArray(data) ? data : []);
       setError(null);
     } catch (err: any) {
-      console.warn('Lỗi kết nối Backend API /admin/jobs:', err.message);
-      setError('Backend chưa phản hồi. Hiển thị dữ liệu giả lập (Mock).');
-      // Fallback cho quá trình phát triển khi BE chưa bật
-      setJobs(mockFallbackJobs);
+      console.error('Lỗi kết nối Backend API /admin/jobs:', err.message);
+      setError('Backend chưa phản hồi.');
+      setJobs([]);
     } finally {
       setLoading(false);
     }

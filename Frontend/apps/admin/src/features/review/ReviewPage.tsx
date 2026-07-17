@@ -14,27 +14,6 @@ interface ReviewItem {
   status: 'pending' | 'approved' | 'rejected';
 }
 
-const mockReviews: ReviewItem[] = [
-  {
-    id: "REV-001",
-    type: "alert",
-    title: "Phát hiện mâu thuẫn trong bài đăng MXH",
-    description: "Một bài đăng trên Facebook khuyên người dân không cần nộp phạt nguội. Cần chuyên viên pháp chế xác nhận mức độ vi phạm để AI tạo bản tin phản bác.",
-    severity: "high",
-    created_at: new Date(Date.now() - 3600000).toISOString(),
-    status: "pending"
-  },
-  {
-    id: "REV-002",
-    type: "ingest",
-    title: "Cần duyệt Văn bản số hóa 168/2024/NĐ-CP",
-    description: "Hệ thống bóc tách 32 Điều và 124 Khoản. Tồn tại 2 Khoản bị nhận diện lỗi do mờ nét chữ trên bản Scan PDF.",
-    severity: "medium",
-    created_at: new Date(Date.now() - 7200000).toISOString(),
-    status: "pending"
-  }
-];
-
 export default function ReviewPage() {
   const [items, setItems] = useState<ReviewItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,9 +30,9 @@ export default function ReviewPage() {
       })
       .catch((err) => {
         if (alive) {
-          console.warn('Lỗi gọi API /admin/review:', err.message);
-          setError('Hệ thống backend chưa phản hồi. Đang hiển thị dữ liệu giả lập (Mock).');
-          setItems(mockReviews);
+          console.error('Lỗi gọi API /admin/review:', err.message);
+          setError('Hệ thống backend chưa phản hồi.');
+          setItems([]);
         }
       })
       .finally(() => {

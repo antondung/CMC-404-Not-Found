@@ -25,23 +25,6 @@ interface KhoanDetail {
   entities: Entity[];
 }
 
-const mockKhoan: KhoanDetail = {
-  id: "K1_D5_NĐ100",
-  name: "Khoản 1",
-  van_ban_id: "VB_100_2019",
-  van_ban_name: "Nghị định 100/2019/NĐ-CP",
-  chuong_name: "Chương II: Hành vi vi phạm, hình thức xử phạt...",
-  dieu_name: "Điều 5. Xử phạt người điều khiển xe ô tô vi phạm quy tắc giao thông",
-  content: "Phạt tiền từ 200.000 đồng đến 400.000 đồng đối với người điều khiển xe thực hiện một trong các hành vi vi phạm sau đây:\na) Không chấp hành hiệu lệnh, chỉ dẫn của biển báo hiệu, vạch kẻ đường;\nb) Chuyển hướng không nhường quyền đi trước cho: Người đi bộ, xe lăn của người khuyết tật qua đường tại nơi có vạch kẻ đường dành cho người đi bộ; xe thô sơ đang đi trên phần đường dành cho xe thô sơ.",
-  status: "active",
-  effective_date: "2020-01-01T00:00:00Z",
-  entities: [
-    { id: "HV1", type: "HanhViCam", text: "Không chấp hành hiệu lệnh, chỉ dẫn của biển báo hiệu, vạch kẻ đường" },
-    { id: "HV2", type: "HanhViCam", text: "Chuyển hướng không nhường quyền đi trước" },
-    { id: "CT1", type: "CheTai", text: "Phạt tiền từ 200.000 đồng đến 400.000 đồng" }
-  ]
-};
-
 export default function KhoanPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -62,10 +45,8 @@ export default function KhoanPage() {
       })
       .catch((err) => {
         if (alive) {
-          console.warn('Lỗi gọi API /admin/legal/khoan:', err.message);
-          setError('Hệ thống backend chưa sẵn sàng. Đang hiển thị dữ liệu giả lập.');
-          // Dùng mock fallback
-          setKhoan({ ...mockKhoan, id: id || mockKhoan.id });
+          console.error('Lỗi gọi API /admin/legal/khoan:', err.message);
+          setError('Hệ thống backend chưa sẵn sàng.');
         }
       })
       .finally(() => {

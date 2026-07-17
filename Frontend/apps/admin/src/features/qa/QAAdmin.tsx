@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { PaperPlaneRight, User, Robot, ShieldCheck, WarningCircle, CaretRight, Path } from '@phosphor-icons/react';
 import { CitationCard } from '../../../../../packages/ui-legal/src/components/CitationCard';
 import { apiPost } from '../../lib/api';
@@ -45,23 +45,31 @@ function GraphPathBreadcrumb({ paths }: { paths: string[] }) {
   );
 }
 
+const generateId = () => crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
+
 export default function QAAdminPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([
     { id: 'welcome', role: 'assistant', content: 'Chào bạn, tôi là trợ lý LexSocial. Tôi trả lời các quy định pháp luật dựa trên dữ liệu đã số hóa, luôn kèm trích dẫn nguyên văn.' },
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     const question = input.trim();
     if (!question || isLoading) return;
 
-    setMessages((prev) => [...prev, { id: Date.now().toString(), role: 'user', content: question }]);
+    const userMsgId = generateId();
+    setMessages((prev) => [...prev, { id: userMsgId, role: 'user', content: question }]);
     setInput('');
     setIsLoading(true);
 
-    const typingId = (Date.now() + 1).toString();
+    const typingId = generateId();
     setMessages((prev) => [...prev, { id: typingId, role: 'assistant', content: '', isTyping: true }]);
 
     try {
@@ -104,11 +112,11 @@ export default function QAAdminPage() {
 
       <div className="flex-1 p-8 overflow-y-auto space-y-8 bg-background">
         {messages.map((msg) => (
-          <div key={msg.id} className={`flex gap-4 max-w-[85%] ${msg.role === 'user' ? 'ml-auto flex-row-reverse' : ''}`}>
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-md ${msg.role === 'user' ? 'bg-gradient-dark text-white' : 'bg-gradient-info text-white'}`}>
-              {msg.role === 'user' ? <User size={20} weight="fill" /> : <Robot size={20} weight="fill" />}
+          <div key={msg.id} className={`flex gap-4 max-w-[90%] md:max-w-[85%] ${msg.role === 'user' ? 'ml-auto flex-row-reverse' : ''}`}>
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm border ${msg.role === 'user' ? 'bg-primary text-white border-primary/20' : 'bg-white text-primary border-slate-200'}`}>
+              {msg.role === 'user' ? <User size={20} weight="fill" /> : <Robot size={20} weight="fill" className="text-secondaryAccent" />}
             </div>
-            <div className={`space-y-4 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+            <div className={`flex flex-col gap-2 ${msg.role === 'user' ? 'items-end' : 'items-start'} max-w-[100%]`}>
               <div className={`p-5 rounded-2xl text-sm font-medium shadow-soft whitespace-pre-wrap ${msg.role === 'user' ? 'bg-primary text-white rounded-tr-none' : 'bg-surface text-primary rounded-tl-none border border-border'}`}>
                 {msg.isTyping ? (
                   <div className="flex items-center gap-1.5 h-5">
@@ -121,7 +129,7 @@ export default function QAAdminPage() {
                 )}
               </div>
               {msg.citations && msg.citations.length > 0 && (
-                <div className="w-[500px] space-y-3">
+                <div className="w-full md:min-w-[450px] space-y-3 mt-2">
                   <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 uppercase tracking-widest">
                     <ShieldCheck size={16} weight="fill" /> Căn cứ pháp lý đã xác thực
                   </div>
@@ -141,6 +149,7 @@ export default function QAAdminPage() {
             </div>
           </div>
         ))}
+        <div ref={messagesEndRef} />
       </div>
 
       <form onSubmit={handleSend} className="p-6 bg-surface border-t border-border flex gap-4">
@@ -148,10 +157,10 @@ export default function QAAdminPage() {
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Nhập tình huống pháp lý..."
-          className="flex-1 bg-background border border-border text-primary rounded-xl px-5 py-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-secondaryAccent/30 focus:border-secondaryAccent transition-all shadow-inner"
+          placeholder="Nhập tình huống pháp lý hoặc câu hỏi..."
+          className="flex-1 bg-white border border-slate-200 text-slate-800 rounded-xl px-5 py-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
         />
-        <button type="submit" disabled={isLoading || !input.trim()} className="bg-gradient-accent text-white px-8 py-4 rounded-xl hover:shadow-lg transition-all flex items-center gap-2 font-bold disabled:opacity-50 disabled:cursor-not-allowed">
+        <button type="submit" disabled={isLoading || !input.trim()} className="bg-primary text-white px-6 py-4 rounded-xl hover:bg-primary/90 transition-all flex items-center gap-2 font-bold disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
           Gửi <PaperPlaneRight size={18} weight="bold" />
         </button>
       </form>

@@ -48,11 +48,33 @@ if (-not $Backend -and -not $Frontend) { $Backend = $true; $Frontend = $true }
 function Write-Step($msg) { Write-Host "`n==> $msg" -ForegroundColor Cyan }
 
 function Stop-ByPort([int[]]$Ports) {
+    # Tree-kill (/T) the process holding each port so uvicorn --reload watchers and their
+    # multiprocessing worker children are all cleaned up (avoids orphaned listening sockets).
     foreach ($p in $Ports) {
-        Get-NetTCPConnection -LocalPort $p -State Listen -ErrorAction SilentlyContinue |
-            Select-Object -ExpandProperty OwningProcess -Unique |
-            ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }
+        $ids = Get-NetTCPConnection -LocalPort $p -State Listen -ErrorAction SilentlyContinue |
+            Select-Object -ExpandProperty OwningProcess -Unique
+        foreach ($procId in $ids) {
+            if ($procId -and $procId -ne 0) {
+                taskkill /F /T /PID $procId 2>$null | Out-Null
+            }
+        }
     }
+}
+
+function Resolve-Python {
+    # Pick an interpreter that can actually import uvicorn: prefer the project venv, else fall back
+    # to the global `python` on PATH. Returns $null if neither works (tells the user to -Install).
+    # Local ErrorActionPreference + *>$null keep a failing probe from printing a Python traceback.
+    $ErrorActionPreference = 'SilentlyContinue'
+    if (Test-Path $VenvPy) {
+        try { & $VenvPy -c "import uvicorn" *>$null } catch {}
+        if ($LASTEXITCODE -eq 0) { return $VenvPy }
+    }
+    if (Get-Command python -ErrorAction SilentlyContinue) {
+        try { & python -c "import uvicorn" *>$null } catch {}
+        if ($LASTEXITCODE -eq 0) { return 'python' }
+    }
+    return $null
 }
 
 function Start-InWindow($title, $workdir, $command) {
@@ -105,23 +127,26 @@ if ($Stack) {
 
 # ------------------------------------------------------------- BACKEND
 if ($Backend) {
-    if (-not (Test-Path $VenvPy)) {
-        Write-Host "venv not found at $VenvPy. Run './run.ps1 -Install' first." -ForegroundColor Red
+    $Py = Resolve-Python
+    if (-not $Py) {
+        Write-Host "No Python with uvicorn/fastapi found (checked .venv and global python)." -ForegroundColor Red
+        Write-Host "Run './run.ps1 -Install' first, or 'pip install -r Backend/requirements.txt'." -ForegroundColor Red
         return
     }
+    Write-Host "   using interpreter: $Py" -ForegroundColor DarkGray
     Write-Step 'Backend: freeing ports 8000 / 8002'
     Stop-ByPort @(8000, 8002)
     Start-Sleep -Seconds 1
 
     Write-Step 'Backend: starting BE2 intelligence gateway (:8002) and BE3 API (:8000)'
-    Start-InWindow 'BE2 gateway :8002' $BackendDir "& '$VenvPy' -m uvicorn be2_service:app --port 8002"
+    Start-InWindow 'BE2 gateway :8002' $BackendDir "& '$Py' -m uvicorn be2_service:app --port 8002"
     Start-Sleep -Seconds 2
-    Start-InWindow 'BE3 API :8000'     $BackendDir "& '$VenvPy' -m uvicorn app.main:app --reload --port 8000"
+    Start-InWindow 'BE3 API :8000'     $BackendDir "& '$Py' -m uvicorn app.main:app --reload --port 8000"
 
     if ($Worker) {
         Write-Step 'Backend: starting Arq workers (BE2 + legal)'
-        Start-InWindow 'Arq BE2 worker'   $BackendDir "& '$VenvPy' -m arq app.workers.arq_settings.WorkerSettings"
-        Start-InWindow 'Arq legal worker' $BackendDir "& '$VenvPy' -m arq app.workers.arq_settings.LegalWorkerSettings"
+        Start-InWindow 'Arq BE2 worker'   $BackendDir "& '$Py' -m arq app.workers.arq_settings.WorkerSettings"
+        Start-InWindow 'Arq legal worker' $BackendDir "& '$Py' -m arq app.workers.arq_settings.LegalWorkerSettings"
     }
 }
 

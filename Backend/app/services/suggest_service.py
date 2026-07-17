@@ -7,14 +7,14 @@ from datetime import datetime, timezone
 
 
 class SuggestService:
-    """Service managing Suggestion (`DeXuatDinhChinh`) lifecycle (`draft -> ready -> exported`)."""
+    """Service managing Suggestion (`DeXuatDinhChinh`) lifecycle (`draft -> ready -> exported`) without mock data."""
 
     def __init__(self, pool: Any | None = None, neo4j_driver: Any | None = None) -> None:
         self.pool = pool
         self.driver = neo4j_driver
 
     async def list_suggestions(self, status: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
-        """List suggestions with status filtering."""
+        """List suggestions directly from Postgres table suggestions."""
         items: list[dict[str, Any]] = []
         if self.pool and hasattr(self.pool, "acquire"):
             try:
@@ -22,9 +22,7 @@ class SuggestService:
                     query = "SELECT id, tieu_de, noi_dung_dinh_chinh, khoan_doi_chieu_id, status, created_by, created_at FROM suggestions ORDER BY created_at DESC LIMIT $1"
                     rows = await conn.fetch(query, limit)
                     for r in rows:
-                        if status and r["status"] != status:
-                            continue
-                        items.append({
+                        data = {
                             "id": str(r["id"]),
                             "tieu_de": r["tieu_de"],
                             "noi_dung_dinh_chinh": r["noi_dung_dinh_chinh"],
@@ -32,46 +30,31 @@ class SuggestService:
                             "status": r["status"],
                             "created_by": r["created_by"],
                             "created_at": r["created_at"].isoformat() if r["created_at"] else None,
-                        })
-                    if items:
-                        return items
+                        }
+                        if status and data["status"] != status:
+                            continue
+                        items.append(data)
             except Exception:
                 pass
-
-        sample = [
-            {
-                "id": "suggest-101",
-                "tieu_de": "Đính chính thông tin sai lệch mức phạt Nghị định 13/2023",
-                "noi_dung_dinh_chinh": "Mức phạt tối đa đối với vi phạm dữ liệu cá nhân là 5% tổng doanh thu hoặc theo quyết định của cơ quan thẩm quyền, không phải cố định 500 triệu đồng.",
-                "khoan_doi_chieu_id": "13/2023/ND-CP::D4.K1",
-                "status": "ready",
-                "created_by": "user-truyen-thong-1",
-                "created_at": "2026-07-16T15:30:00Z",
-            },
-            {
-                "id": "suggest-102",
-                "tieu_de": "Hướng dẫn chính thức thủ tục nộp thuế TNCN qua Cổng dịch vụ công",
-                "noi_dung_dinh_chinh": "Người nộp thuế không bắt buộc phải nộp trực tiếp mà có thể nộp qua ứng dụng eTax Mobile hợp lệ.",
-                "khoan_doi_chieu_id": "15/2020/ND-CP::D1.K1",
-                "status": "draft",
-                "created_by": "user-truyen-thong-1",
-                "created_at": "2026-07-17T09:00:00Z",
-            },
-        ]
-        if status:
-            sample = [x for x in sample if x["status"] == status]
-        return sample
+        return items
 
     async def get_suggestion(self, suggest_id: str) -> dict[str, Any] | None:
-        """Get single suggestion details."""
-        items = await self.list_suggestions()
-        for x in items:
-            if x["id"] == suggest_id:
-                return x
+        """Get single suggestion details from Postgres."""
+        if self.pool and hasattr(self.pool, "acquire"):
+            try:
+                async with self.pool.acquire() as conn:
+                    row = await conn.fetchrow("SELECT * FROM suggestions WHERE id = $1", suggest_id)
+                    if row:
+                        data = dict(row)
+                        if data.get("created_at"):
+                            data["created_at"] = data["created_at"].isoformat()
+                        return data
+            except Exception:
+                pass
         return None
 
     async def generate_suggestion(self, payload: dict[str, Any], user_id: str) -> dict[str, Any]:
-        """Generate a new suggestion draft from alert clusters or custom input."""
+        """Generate a new suggestion draft and insert into real Postgres."""
         suggest_id = f"suggest-{uuid.uuid4().hex[:8]}"
         tieu_de = payload.get("tieu_de", "Đề xuất đính chính tự động")
         noi_dung = payload.get("noi_dung_dinh_chinh", "Nội dung đính chính chuẩn hóa dựa trên trích dẫn pháp lý chính thức.")

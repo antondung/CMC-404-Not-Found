@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import os
 from typing import Any
-from fastapi import Depends
+import httpx
+from fastapi import Depends, HTTPException, status
 from app.config import BE2Config, get_config
 from app.core.security import Role, UserToken, get_current_user, require_admin, require_roles
 from app.adapters.neo4j_social import Neo4jSocialRepository
@@ -10,121 +11,63 @@ from app.adapters.postgres_content import PostgresContentRepository
 from app.adapters.qdrant_vector import QdrantVectorClient
 from app.intelligence.llm_router import LLMRouter
 
-# Global lazy connections / pools
+# Global connections / pools for real services
 _db_pool: Any | None = None
 _neo4j_driver: Any | None = None
 _qdrant_client: Any | None = None
-_redis_pool: Any | None = None
+_http_client: httpx.AsyncClient | None = None
 _llm_router: LLMRouter | None = None
 
 
-class FakeAsyncConnection:
-    """Fallback connection for testing/dev when Postgres is offline."""
-    async def __aenter__(self):
-        return self
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        pass
-    async def fetchrow(self, query: str, *args: Any) -> dict[str, Any] | None:
-        if "INSERT INTO briefs" in query:
-            return {"id": "brief-fake-001"}
-        if "INSERT INTO suggestions" in query:
-            return {"id": "suggest-fake-001"}
-        if "SELECT id, payload_json FROM alerts" in query:
-            return {"id": args[0][0] if args and args[0] else "alert-fake-001", "payload_json": '{"alert_id": "a-1", "severity": "high", "status": "open"}'}
-        return None
-    async def fetch(self, query: str, *args: Any) -> list[dict[str, Any]]:
-        return []
-    async def execute(self, query: str, *args: Any) -> str:
-        return "OK"
+class RealLLMClient:
+    """Real HTTP Client communicating with BE2 Intelligence API / Celery Worker Bridge."""
 
+    def __init__(self, base_url: str = "http://localhost:8002", client: httpx.AsyncClient | None = None) -> None:
+        self.base_url = base_url.rstrip("/")
+        self.client = client or httpx.AsyncClient(timeout=30.0)
 
-class FakeAsyncPool:
-    """Mock asyncpg pool for dev/test when DB is not reachable."""
-    def acquire(self):
-        return FakeAsyncConnection()
-    async def execute(self, query: str, *args: Any) -> str:
-        return "OK"
-    async def fetch(self, query: str, *args: Any) -> list[dict[str, Any]]:
-        return []
-    async def fetchrow(self, query: str, *args: Any) -> dict[str, Any] | None:
-        return None
-
-
-class FakeNeo4jSession:
-    async def __aenter__(self):
-        return self
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        pass
-    async def run(self, query: str, **kwargs: Any):
-        class FakeCursor:
-            async def single(self):
-                if "MATCH (k:Khoan" in query and "RETURN k.noi_dung" in query:
-                    kid = kwargs.get("khoan_id", "15/2020/ND-CP::D1.K1")
-                    return {"noi_dung": f"Người nộp thuế phải kê khai đúng hạn theo quy định tại Khoản {kid}."}
-                if "MATCH path = (seed)-[" in query:
-                    return None
-                return {"bai_dang_id": f"{kwargs.get('platform', 'fb')}:{kwargs.get('external_id', '1')}", "alert_id": kwargs.get("alert_id", "alert-1")}
-            async def consume(self):
-                pass
-            async def __aiter__(self):
-                if "MATCH (k:Khoan" in query:
-                    yield {"k": {"khoan_id": kwargs.get("khoan_id", "k1"), "noi_dung": "Quy định nguyên văn mẫu trong Neo4j."}}
-        return FakeCursor()
-
-
-class FakeNeo4jDriver:
-    def session(self, **kwargs: Any):
-        return FakeNeo4jSession()
-    async def close(self):
-        pass
-
-
-class FakeQdrantClient:
-    async def get_collection(self, collection: str) -> dict[str, Any]:
-        return {"vectors": {"size": 1024, "distance": "Cosine"}}
-    async def search(self, collection_name: str, query_vector: list[float], limit: int, query_filter: Any | None = None) -> list[Any]:
-        class Hit:
-            def __init__(self, id_val: str, score: float, payload: dict[str, Any]):
-                self.id = id_val
-                self.score = score
-                self.payload = payload
-        return [
-            Hit("15/2020/ND-CP::D1.K1", 0.92, {"khoan_id": "15/2020/ND-CP::D1.K1", "van_ban_id": "vb-15-2020", "dieu": "1", "noi_dung": "Người nộp thuế phải kê khai đúng hạn."}),
-            Hit("15/2020/ND-CP::D1.K2", 0.85, {"khoan_id": "15/2020/ND-CP::D1.K2", "van_ban_id": "vb-15-2020", "dieu": "1", "noi_dung": "Cơ quan quản lý thuế có trách nhiệm kiểm tra."}),
-        ][:limit]
-    async def upsert(self, collection_name: str, points: list[Any]) -> None:
-        pass
-
-
-class FakeLLMClient:
     async def complete(self, *, route: str, model: str, task: str, prompt: str, timeout_s: float) -> dict[str, Any]:
-        if task == "qa":
-            return {
-                "answer": "Theo quy định hiện hành, người nộp thuế phải thực hiện kê khai đầy đủ và đúng thời hạn được quy định trong văn bản pháp luật liên quan.",
-                "confidence": "high",
-                "graph_paths": ["Khoan(15/2020/ND-CP::D1.K1) -> ChuThe(NguoiNopThue)", "Khoan(15/2020/ND-CP::D1.K1) <- THAO_LUAN_VE <- ChuDe(Thue)"],
-            }
-        return {"result": "ok"}
+        url = f"{self.base_url}/{route.lstrip('/')}"
+        payload = {
+            "model": model,
+            "task": task,
+            "prompt": prompt,
+            "timeout_s": timeout_s,
+        }
+        try:
+            res = await self.client.post(url, json=payload, timeout=timeout_s)
+            res.raise_for_status()
+            return res.json()
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Lỗi khi kết nối tới BE2 Intelligence API ({route}): {str(e)}",
+            )
+
     async def health(self) -> dict[str, Any]:
-        return {"ok": True}
+        try:
+            res = await self.client.get(f"{self.base_url}/health", timeout=5.0)
+            return res.json() if res.status_code == 200 else {"ok": False, "status": res.status_code}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
 
 
 async def get_db_pool() -> Any:
+    """Retrieve or initialize asyncpg connection pool to Postgres."""
     global _db_pool
     if _db_pool is None:
-        pg_url = os.getenv("DATABASE_URL")
-        if pg_url:
-            try:
-                import asyncpg
-                _db_pool = await asyncpg.create_pool(pg_url)
-            except Exception:
-                _db_pool = FakeAsyncPool()
-        else:
-            _db_pool = FakeAsyncPool()
+        pg_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/studyhub")
+        try:
+            import asyncpg
+            _db_pool = await asyncpg.create_pool(pg_url, min_size=2, max_size=10)
+        except Exception as e:
+            # Raise exception if real DB is required and unreachable
+            pass
     return _db_pool
 
 
 async def get_neo4j_driver() -> Any:
+    """Retrieve or initialize AsyncGraphDatabase driver to Neo4j."""
     global _neo4j_driver
     if _neo4j_driver is None:
         uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
@@ -134,35 +77,45 @@ async def get_neo4j_driver() -> Any:
             from neo4j import AsyncGraphDatabase
             _neo4j_driver = AsyncGraphDatabase.driver(uri, auth=(user, password))
         except Exception:
-            _neo4j_driver = FakeNeo4jDriver()
+            pass
     return _neo4j_driver
 
 
 async def get_qdrant_client() -> QdrantVectorClient:
+    """Retrieve or initialize AsyncQdrantClient wrapper to Qdrant vector store."""
     global _qdrant_client
     if _qdrant_client is None:
         url = os.getenv("QDRANT_URL", "http://localhost:6333")
         try:
             from qdrant_client import AsyncQdrantClient
-            raw_client = AsyncQdrantClient(url=url, timeout=5.0)
+            raw_client = AsyncQdrantClient(url=url, timeout=10.0)
             _qdrant_client = QdrantVectorClient(raw_client)
-        except Exception:
-            _qdrant_client = QdrantVectorClient(FakeQdrantClient())
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Không thể kết nối vector store Qdrant: {str(e)}",
+            )
     return _qdrant_client
 
 
 async def get_llm_router(config: BE2Config = Depends(get_config)) -> LLMRouter:
+    """Retrieve LLMRouter connected to real BE2 endpoints."""
     global _llm_router
     if _llm_router is None:
-        _llm_router = LLMRouter(config=config, client=FakeLLMClient())
+        be2_url = os.getenv("BE2_INTELLIGENCE_URL", "http://localhost:8002")
+        _llm_router = LLMRouter(config=config, client=RealLLMClient(base_url=be2_url))
     return _llm_router
 
 
 async def get_postgres_repo(pool: Any = Depends(get_db_pool)) -> PostgresContentRepository:
+    if pool is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Kết nối cơ sở dữ liệu Postgres chưa sẵn sàng.")
     return PostgresContentRepository(pool=pool)
 
 
 async def get_neo4j_repo(driver: Any = Depends(get_neo4j_driver)) -> Neo4jSocialRepository:
+    if driver is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Kết nối Neo4j Graph Database chưa sẵn sàng.")
     return Neo4jSocialRepository(driver=driver)
 
 

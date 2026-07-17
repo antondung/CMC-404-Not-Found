@@ -44,28 +44,8 @@ async def list_review_queue(
         except Exception:
             pass
 
-    if not items:
-        items = [
-            {
-                "id": "fb:post-101",
-                "type": "social_post",
-                "source": "Facebook / Topic Classify",
-                "content": "Quy định mới về phạt tiền vi phạm dữ liệu cá nhân theo Nghị định 13/2023...",
-                "reason": "Phát hiện mâu thuẫn NLI với mức phạt thực tế (score=0.45 < 0.70 threshold)",
-                "created_at": "2026-07-16T14:30:00Z",
-            },
-            {
-                "id": "Khoan::15/2020/ND-CP::D1.K1.extract",
-                "type": "legal_extract",
-                "source": "BE1 Extractor",
-                "content": "Trích xuất chế tài 'Xử phạt vi phạm hành chính 50 triệu'",
-                "reason": "Thực thể thời gian/chế tài chứa từ khóa mơ hồ cần kiểm chứng",
-                "created_at": "2026-07-16T09:00:00Z",
-            },
-        ]
-
     if type:
-        items = [x for x in items if x["type"] == type]
+        items = [x for x in items if x.get("type") == type]
 
     return success_response(data={"items": items, "total": len(items)}, request_id=get_request_id())
 

@@ -3,6 +3,15 @@ import { PaperPlaneRight, User, Robot, Scales, ShieldCheck, ArrowLeft, Trash, Li
 import { Link } from 'react-router-dom';
 import { CitationCard } from '../../../../../packages/ui-legal/src/components/CitationCard';
 import { GraphPathBreadcrumb } from '../../../../../packages/ui-legal/src/components/GraphPathBreadcrumb';
+import { apiPost } from '../../lib/api';
+
+interface QAResponse {
+  answer: string;
+  citations: BackendCitation[];
+  graph_paths: string[];
+  confidence: 'high' | 'medium' | 'low';
+  refuse_reason?: string[];
+}
 
 // Tương thích hoàn toàn với Contract API Backend (Mục 6.4 SYSTEM_BACKEND.md)
 export interface BackendCitation {
@@ -43,42 +52,48 @@ export default function AskPage() {
     scrollToBottom();
   }, [messages]);
 
-  const handleSend = (e?: React.FormEvent) => {
+  const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!input.trim() || isLoading) return;
+    const question = input.trim();
+    if (!question || isLoading) return;
 
-    const userMsg: Message = { id: Date.now().toString(), role: 'user', content: input };
+    const userMsg: Message = { id: Date.now().toString(), role: 'user', content: question };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsLoading(true);
 
-    // Simulate AI typing
     const typingId = (Date.now() + 1).toString();
     setMessages(prev => [...prev, { id: typingId, role: 'ai', content: '', isTyping: true }]);
 
-    // Demo: Mock backend API Call
-    setTimeout(() => {
-      setIsLoading(false);
-      setMessages(prev => prev.map(msg => 
-        msg.id === typingId 
-        ? {
-            id: typingId,
-            role: 'ai',
-            content: 'Theo quy định hiện hành, người điều khiển xe mô tô, xe gắn máy mà trong máu hoặc hơi thở có nồng độ cồn sẽ bị xử phạt hành chính từ 2.000.000 VNĐ đến 8.000.000 VNĐ tùy mức độ vi phạm, đồng thời tước quyền sử dụng Giấy phép lái xe từ 10 tháng đến 24 tháng.\n\nĐặc biệt với lỗi này, cơ quan chức năng có quyền tạm giữ phương tiện vi phạm lên đến 07 ngày làm việc để ngăn chặn hành vi vi phạm.',
-            citations: [
-              { van_ban: 'Nghị định 100/2019/NĐ-CP (Sửa đổi bởi NĐ 123/2021)', dieu: 'Điều 6, Khoản 6, Điểm c', quote: 'Phạt tiền từ 2.000.000 đồng đến 3.000.000 đồng đối với người điều khiển xe trên đường mà trong máu hoặc hơi thở có nồng độ cồn nhưng chưa vượt quá 50 miligam/100 mililít máu hoặc chưa vượt quá 0,25 miligam/1 lít khí thở.' },
-              { van_ban: 'Nghị định 100/2019/NĐ-CP', dieu: 'Điều 82, Khoản 1', quote: 'Để ngăn chặn ngay vi phạm hành chính, người có thẩm quyền được phép tạm giữ phương tiện tối đa đến 07 ngày trước khi ra quyết định xử phạt đối với các hành vi vi phạm...' }
-            ],
-            confidence: 'high',
-            graphPaths: [
-              "Khoản 6 Điều 6 → QUY_DINH → Mức Phạt Nồng Độ Cồn",
-              "Mức Phạt Nồng Độ Cồn → AP_DUNG_CHO → Người điều khiển mô tô",
-              "Điều 82 → QUY_DINH → Tạm giữ phương tiện"
-            ]
-          }
-        : msg
+    try {
+      const data = await apiPost<QAResponse>('/citizen/qa/ask', { question });
+      setMessages(prev => prev.map(msg =>
+        msg.id === typingId
+          ? {
+              id: typingId,
+              role: 'ai',
+              content: data.answer,
+              citations: data.citations ?? [],
+              graphPaths: data.graph_paths ?? [],
+              confidence: data.confidence,
+            }
+          : msg
       ));
-    }, 1800);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Lỗi không xác định';
+      setMessages(prev => prev.map(msg =>
+        msg.id === typingId
+          ? {
+              id: typingId,
+              role: 'ai',
+              content: `Xin lỗi, hiện chưa thể kết nối tới máy chủ trợ lý pháp lý (${message}). Vui lòng thử lại sau.`,
+              confidence: 'low',
+            }
+          : msg
+      ));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSuggestion = (suggestion: string) => {

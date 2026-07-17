@@ -49,10 +49,14 @@ const Typewriter = ({ text, speed = 10, onComplete }: { text: string; speed?: nu
 };
 
 
+// graph_paths comes back as structured objects ({khoan_id, nodes, edges}); keep it loose here
+// and let GraphPathBreadcrumb normalize it (string OR object) so rendering can't crash.
+type GraphPath = unknown;
+
 interface QAResponse {
   answer: string;
   citations: BackendCitation[];
-  graph_paths: string[];
+  graph_paths: GraphPath[];
   confidence: 'high' | 'medium' | 'low';
   refuse_reason?: string[];
 }
@@ -71,7 +75,7 @@ export interface Message {
   role: 'user' | 'ai';
   content: string;
   citations?: BackendCitation[];
-  graphPaths?: string[];
+  graphPaths?: GraphPath[];
   confidence?: 'high' | 'medium' | 'low';
   isTyping?: boolean;
 }

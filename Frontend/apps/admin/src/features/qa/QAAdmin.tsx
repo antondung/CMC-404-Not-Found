@@ -11,10 +11,29 @@ interface BackendCitation {
   score?: number;
 }
 
+interface GraphNode {
+  id: string;
+  type: string;
+  label?: string;
+  title?: string;
+  text?: string;
+}
+interface GraphEdge {
+  source: string;
+  target: string;
+  type: string;
+}
+// The backend returns graph_paths as objects ({khoan_id, nodes, edges}), NOT plain strings.
+interface GraphPath {
+  khoan_id?: string;
+  nodes?: GraphNode[];
+  edges?: GraphEdge[];
+}
+
 interface QAResponse {
   answer: string;
   citations: BackendCitation[];
-  graph_paths: string[];
+  graph_paths: GraphPath[];
   confidence: 'high' | 'medium' | 'low';
   refuse_reason?: string[];
 }
@@ -26,20 +45,36 @@ interface ChatMessage {
   citations?: BackendCitation[];
   confidence?: 'high' | 'medium' | 'low';
   isTyping?: boolean;
-  graphPaths?: string[];
+  graphPaths?: GraphPath[];
 }
 
-function GraphPathBreadcrumb({ paths }: { paths: string[] }) {
-  if (!paths || paths.length === 0) return null;
+// Turn one graph node into a short human label (never render the raw object → avoids the
+// "Objects are not valid as a React child" crash that blanked the screen).
+function nodeLabel(n: GraphNode): string {
+  const t = (n.type || '').toLowerCase();
+  if (t === 'dieu') return `Điều ${n.label ?? ''}`.trim();
+  if (t === 'khoan') return n.title || 'Khoản';
+  return n.title || n.label || n.id || '—';
+}
+
+function GraphPathBreadcrumb({ paths }: { paths: GraphPath[] }) {
+  const valid = (paths ?? []).filter((p) => Array.isArray(p?.nodes) && p.nodes.length > 0);
+  if (valid.length === 0) return null;
   return (
-    <div className="flex flex-wrap items-center gap-1.5 mt-3 text-xs font-mono text-slate-500 bg-slate-100/50 p-2.5 rounded-xl border border-slate-200/50">
-      <Path size={14} className="text-brand mr-1" />
-      <span className="font-bold text-slate-700">Graph Paths:</span>
-      {paths.map((p, i) => (
-        <span key={i} className="flex items-center gap-1.5">
-          {i > 0 && <CaretRight size={10} />}
-          <span className="bg-white border border-slate-200 shadow-sm px-1.5 py-0.5 rounded-md text-slate-600">{p}</span>
-        </span>
+    <div className="mt-3 text-xs font-mono text-slate-500 bg-slate-100/50 p-2.5 rounded-xl border border-slate-200/50 space-y-2">
+      <div className="flex items-center gap-1.5">
+        <Path size={14} className="text-brand mr-1" />
+        <span className="font-bold text-slate-700">Đường dẫn tri thức (Graph Paths):</span>
+      </div>
+      {valid.map((p, pi) => (
+        <div key={p.khoan_id ?? pi} className="flex flex-wrap items-center gap-1.5">
+          {(p.nodes ?? []).map((n, i) => (
+            <span key={n.id ?? i} className="flex items-center gap-1.5">
+              {i > 0 && <CaretRight size={10} />}
+              <span className="bg-white border border-slate-200 shadow-sm px-1.5 py-0.5 rounded-md text-slate-600">{nodeLabel(n)}</span>
+            </span>
+          ))}
+        </div>
       ))}
     </div>
   );

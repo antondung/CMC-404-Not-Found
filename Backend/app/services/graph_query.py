@@ -9,9 +9,10 @@ class GraphQueryService:
     def __init__(self, driver: Any | None = None) -> None:
         self.driver = driver
 
-    async def get_neighborhood(self, seed_id: str, depth: int = 1) -> dict[str, Any]:
+    async def get_neighborhood(self, seed_id: str, depth: int = 1, limit: int = 200) -> dict[str, Any]:
         """Fetch real graph neighborhood (`depth <= 2`). Returns only actual nodes and relationships."""
         bounded_depth = max(1, min(depth, 2))
+        bounded_limit = max(1, min(limit, 300))
         nodes_map: dict[str, dict[str, Any]] = {}
         edges_set: set[tuple[str, str, str]] = set()
 
@@ -21,7 +22,7 @@ class GraphQueryService:
                 MATCH path = (seed)-[r*1..{bounded_depth}]-(neighbor)
                 WHERE seed.vb_id = $seed_id OR seed.khoan_id = $seed_id OR seed.slug = $seed_id OR id(seed) = $seed_id
                 RETURN nodes(path) AS ns, relationships(path) AS rels
-                LIMIT 200
+                LIMIT {bounded_limit}
                 """
                 async with self.driver.session() as session:
                     res = await session.run(query, seed_id=seed_id)

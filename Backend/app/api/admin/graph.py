@@ -17,6 +17,6 @@ async def get_graph_neighborhood(
     limit: int = Query(default=100, ge=1, le=300, description="Số lượng nút tối đa trả về"),
     driver: Any = Depends(get_neo4j_driver),
 ) -> dict[str, Any]:
-    service = GraphQueryService(neo4j_driver=driver)
+    service = GraphQueryService(driver=driver)
     res = await service.get_neighborhood(seed_id=seed_id, depth=depth, limit=limit)
     return success_response(data=res, request_id=get_request_id())

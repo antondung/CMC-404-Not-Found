@@ -86,7 +86,7 @@ def require_roles(*allowed_roles: str | Role) -> Callable[[UserToken], UserToken
         if user.is_citizen_only() and any(r in ADMIN_ROLES for r in allowed_set):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Portal Isolation: Citizen access forbidden on admin endpoints.",
+                detail="Portal Isolation: Citizen access Forbidden on admin endpoints.",
             )
         if not user.has_any_role(allowed_set):
             raise HTTPException(

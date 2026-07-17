@@ -1,45 +1,49 @@
 import React from 'react';
-import { CheckCircle, WarningCircle, Question } from '@phosphor-icons/react';
+import { ShieldWarning, CheckCircle, Warning } from '@phosphor-icons/react';
 
-export type RiskLevel = 'khop' | 'mau_thuan' | 'khong_ro';
+type RiskLevel = 'mau_thuan' | 'chua_du_can_cu' | 'khop';
 
-export interface RiskBadgeProps {
+interface RiskBadgeProps {
   level: RiskLevel;
-  confidence?: number;
+  confidence: number;
 }
 
-export function RiskBadge({ level, confidence }: RiskBadgeProps) {
+export const RiskBadge: React.FC<RiskBadgeProps> = ({ level, confidence }) => {
   const config = {
-    khop: {
-      color: 'text-success',
-      bg: 'bg-success/10',
-      border: 'border-success/20',
-      icon: <CheckCircle size={16} weight="fill" />,
-      label: 'Khớp với quy định đã liên kết'
-    },
     mau_thuan: {
-      color: 'text-destructive',
-      bg: 'bg-destructive/10',
-      border: 'border-destructive/20',
-      icon: <WarningCircle size={16} weight="fill" />,
-      label: 'Có dấu hiệu mâu thuẫn — cần kiểm chứng'
+      color: 'text-red-700',
+      bg: 'bg-red-50',
+      border: 'border-red-200',
+      icon: <ShieldWarning size={16} weight="fill" />,
+      text: 'Có dấu hiệu mâu thuẫn'
     },
-    khong_ro: {
-      color: 'text-warning',
-      bg: 'bg-warning/10',
-      border: 'border-warning/20',
-      icon: <Question size={16} weight="fill" />,
-      label: 'Chưa đủ căn cứ để kết luận'
+    chua_du_can_cu: {
+      color: 'text-amber-700',
+      bg: 'bg-amber-50',
+      border: 'border-amber-200',
+      icon: <Warning size={16} weight="fill" />,
+      text: 'Chưa đủ căn cứ'
+    },
+    khop: {
+      color: 'text-emerald-700',
+      bg: 'bg-emerald-50',
+      border: 'border-emerald-200',
+      icon: <CheckCircle size={16} weight="fill" />,
+      text: 'Thông tin chính xác'
     }
   };
 
-  const { color, bg, border, icon, label } = config[level];
+  const current = config[level];
 
   return (
-    <div className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${bg} ${border} ${color}`}>
-      {icon}
-      <span>{label}</span>
-      {confidence && <span className="opacity-75 font-normal ml-1">{(confidence * 100).toFixed(0)}%</span>}
+    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border ${current.bg} ${current.border} ${current.color}`}>
+      {current.icon}
+      <span className="text-xs font-bold tracking-wide uppercase">{current.text}</span>
+      {confidence && (
+        <span className="text-[10px] font-semibold opacity-70 border-l border-current pl-2 ml-1">
+          {Math.round(confidence * 100)}%
+        </span>
+      )}
     </div>
   );
-}
+};

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { UploadSimple, FileText, CheckCircle, Spinner, FlowArrow } from '@phosphor-icons/react';
+import { useState } from 'react';
+import { UploadSimple, CheckCircle, Spinner, FlowArrow } from '@phosphor-icons/react';
 
 export default function IngestPage() {
   const [isUploading, setIsUploading] = useState(false);

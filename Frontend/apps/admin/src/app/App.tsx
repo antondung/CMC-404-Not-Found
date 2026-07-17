@@ -1,38 +1,38 @@
 import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { ShieldCheck, SquaresFour, Bell, ListMagnifyingGlass, FileText, ShareNetwork } from '@phosphor-icons/react';
-import DashboardPage from './pages/Dashboard';
-import AlertsPage from './pages/Alerts';
-import QAAdminPage from './pages/QAAdmin';
-import IngestPage from './pages/Ingest';
-import LoginPage from './pages/Login';
+import DashboardPage from '../features/dashboard/Dashboard';
+import AlertsPage from '../features/alerts/Alerts';
+import QAAdminPage from '../features/qa/QAAdmin';
+import IngestPage from '../features/ingest/Ingest';
+import LoginPage from '../features/auth/Login';
 
 function Sidebar() {
   const location = useLocation();
   const isActive = (path: string) => location.pathname === path;
 
   const navItemClass = (path: string) => `
-    flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-semibold text-sm mb-1.5
+    flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all font-semibold text-sm mb-1
     ${isActive(path) 
-      ? 'bg-surface shadow-soft text-primary' 
-      : 'text-muted hover:bg-surface/50 hover:text-primary'}
+      ? 'bg-primary/5 text-primary' 
+      : 'text-muted hover:bg-surface hover:text-primary'}
   `;
 
   const iconWrapperClass = (path: string) => `
-    w-8 h-8 rounded-lg flex items-center justify-center shadow-sm
-    ${isActive(path) ? 'bg-gradient-accent text-white' : 'bg-surface text-primary shadow-soft'}
+    w-8 h-8 rounded-md flex items-center justify-center transition-colors
+    ${isActive(path) ? 'bg-primary text-white shadow-sm' : 'bg-transparent text-muted'}
   `;
 
   return (
-    <aside className="w-[250px] h-[calc(100vh-2rem)] bg-background/50 backdrop-blur-xl border-r border-transparent fixed left-4 top-4 flex flex-col z-50">
-      <div className="p-6 flex items-center gap-3">
-        <div className="w-8 h-8 bg-gradient-dark rounded-lg flex items-center justify-center text-white shadow-soft">
+    <aside className="w-[260px] h-screen bg-surface border-r border-border fixed left-0 top-0 flex flex-col z-50 shadow-sm">
+      <div className="p-6 flex items-center gap-3 border-b border-border/50">
+        <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center text-white shadow-sm">
           <ShieldCheck size={20} weight="fill" />
         </div>
         <span className="text-primary font-bold tracking-tight">LexSocial AI</span>
       </div>
 
-      <div className="flex-1 px-4 overflow-y-auto mt-4 space-y-1">
+      <div className="flex-1 px-4 overflow-y-auto py-6 space-y-0.5">
         <Link to="/" className={navItemClass('/')}>
           <div className={iconWrapperClass('/')}><SquaresFour size={16} weight="fill" /></div>
           Tổng quan
@@ -64,9 +64,9 @@ function Sidebar() {
 
 function AppContent() {
   return (
-    <div className="min-h-screen bg-background font-sans text-primary relative">
+    <div className="min-h-screen bg-[#f1f5f9] font-sans text-primary relative">
       <Sidebar />
-      <main className="ml-[280px] p-8 min-h-screen">
+      <main className="ml-[260px] p-10 min-h-screen">
         <Routes>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/alerts" element={<AlertsPage />} />
@@ -82,11 +82,11 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   if (!isAuthenticated) {
-    return <LoginPage onLogin={() => setIsAuthenticated(true)} />;
+    return <LoginPage onLogin={(role) => setIsAuthenticated(true)} />;
   }
 
   return (
-    <Router>
+    <Router basename="/admin">
       <AppContent />
     </Router>
   );

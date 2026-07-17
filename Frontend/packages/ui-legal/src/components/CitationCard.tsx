@@ -1,30 +1,23 @@
 import React from 'react';
-import { BookOpen, ArrowSquareOut } from '@phosphor-icons/react';
+import { Scales } from '@phosphor-icons/react';
 
-export interface CitationCardProps {
-  id?: string;
+interface CitationCardProps {
   soHieu: string;
-  dieuKhoan: string;
   trichDan: string;
-  onClick?: () => void;
 }
 
-export function CitationCard({ soHieu, dieuKhoan, trichDan, onClick }: CitationCardProps) {
+export const CitationCard: React.FC<CitationCardProps> = ({ soHieu, trichDan }) => {
   return (
-    <div 
-      onClick={onClick}
-      className="bg-background border border-border p-4 rounded-xl cursor-pointer hover:border-accent/50 hover:shadow-card transition-all group"
-    >
-      <div className="flex justify-between items-start mb-2">
-        <div className="flex items-center space-x-2 text-sm font-semibold text-primary">
-          <BookOpen size={18} className="text-accent" weight="fill" />
-          <span>{dieuKhoan} - {soHieu}</span>
-        </div>
-        <ArrowSquareOut size={16} className="text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
+    <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200 flex items-center gap-2">
+        <Scales size={16} className="text-slate-500" weight="fill" />
+        <span className="text-xs font-bold text-slate-700">{soHieu}</span>
       </div>
-      <p className="text-sm text-primary/80 line-clamp-3 leading-relaxed mt-2 bg-surface p-3 rounded-lg border border-border/50">
-        "{trichDan}"
-      </p>
+      <div className="p-4">
+        <p className="text-sm font-medium text-slate-700 leading-relaxed">
+          "{trichDan}"
+        </p>
+      </div>
     </div>
   );
-}
+};

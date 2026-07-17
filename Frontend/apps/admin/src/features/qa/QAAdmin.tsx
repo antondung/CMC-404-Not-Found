@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { PaperPlaneRight, User, Robot } from '@phosphor-icons/react';
-import { CitationCard } from '../../../../packages/ui-legal/src/components/CitationCard';
+import { CitationCard } from '../../../../../packages/ui-legal/src/components/CitationCard';
 
 export default function QAAdminPage() {
   const [messages, setMessages] = useState<any[]>([

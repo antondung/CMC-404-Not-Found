@@ -10,6 +10,7 @@ from app.adapters.neo4j_social import Neo4jSocialRepository
 from app.adapters.postgres_content import PostgresContentRepository
 from app.adapters.qdrant_vector import QdrantVectorClient
 from app.intelligence.llm_router import LLMRouter
+from app.intelligence.embedder import Embedder
 
 # Global connections / pools for real services
 _db_pool: Any | None = None
@@ -17,6 +18,7 @@ _neo4j_driver: Any | None = None
 _qdrant_client: Any | None = None
 _http_client: httpx.AsyncClient | None = None
 _llm_router: LLMRouter | None = None
+_embedder: Embedder | None = None
 
 
 class RealLLMClient:
@@ -107,6 +109,14 @@ async def get_llm_router(config: BE2Config = Depends(get_config)) -> LLMRouter:
     return _llm_router
 
 
+async def get_embedder(config: BE2Config = Depends(get_config)) -> Embedder:
+    """Retrieve or initialize the sentence embedder (bge-m3) used for real vector retrieval."""
+    global _embedder
+    if _embedder is None:
+        _embedder = Embedder(config=config)
+    return _embedder
+
+
 async def get_postgres_repo(pool: Any = Depends(get_db_pool)) -> PostgresContentRepository:
     if pool is None:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Kết nối cơ sở dữ liệu Postgres chưa sẵn sàng.")
@@ -130,6 +140,7 @@ __all__ = [
     "get_neo4j_driver",
     "get_qdrant_client",
     "get_llm_router",
+    "get_embedder",
     "get_postgres_repo",
     "get_neo4j_repo",
 ]

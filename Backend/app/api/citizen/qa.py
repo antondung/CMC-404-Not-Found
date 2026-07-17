@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
-from app.api.deps import get_neo4j_driver, get_qdrant_client, get_llm_router
+from app.api.deps import get_neo4j_driver, get_qdrant_client, get_llm_router, get_embedder
 from app.core.envelope import success_response
 from app.core.logging import get_request_id
 from app.services.qa_service import QAService
@@ -21,8 +21,9 @@ async def ask_citizen_qa(
     driver: Any = Depends(get_neo4j_driver),
     qdrant: Any = Depends(get_qdrant_client),
     router_llm: Any = Depends(get_llm_router),
+    embedder: Any = Depends(get_embedder),
 ) -> dict[str, Any]:
-    service = QAService(qdrant_client=qdrant, neo4j_driver=driver, llm_router=router_llm)
+    service = QAService(qdrant_client=qdrant, neo4j_driver=driver, llm_router=router_llm, embedder=embedder)
     res = await service.answer(
         question=request.question,
         audience="citizen",

@@ -5,7 +5,7 @@ import hashlib
 from enum import StrEnum
 from typing import Any, Callable
 from pydantic import BaseModel, Field
-from fastapi import HTTPException, Security, status
+from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 security_bearer = HTTPBearer(auto_error=False)
@@ -82,7 +82,7 @@ def require_roles(*allowed_roles: str | Role) -> Callable[[UserToken], UserToken
     """Dependency factory ensuring user has at least one of the required roles."""
     allowed_set = {r.value if isinstance(r, Role) else r for r in allowed_roles}
 
-    def role_checker(user: UserToken) -> UserToken:
+    def role_checker(user: UserToken = Depends(get_current_user)) -> UserToken:
         if user.is_citizen_only() and any(r in ADMIN_ROLES for r in allowed_set):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

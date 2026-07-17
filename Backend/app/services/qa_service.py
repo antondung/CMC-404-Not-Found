@@ -4,6 +4,7 @@ from typing import Any
 from app.schemas import CandidateKhoan, Citation
 from app.services.citation_validator import CitationValidator
 from app.intelligence.llm_router import LLMRouter
+from app.intelligence.embedder import Embedder
 from app.adapters.qdrant_vector import QdrantVectorClient
 
 
@@ -15,21 +16,24 @@ class QAService:
         qdrant_client: QdrantVectorClient | None = None,
         neo4j_driver: Any | None = None,
         llm_router: LLMRouter | None = None,
+        embedder: Embedder | None = None,
         redis_pool: Any | None = None,
     ) -> None:
         self.qdrant = qdrant_client
         self.driver = neo4j_driver
         self.router = llm_router
+        self.embedder = embedder
         self.redis = redis_pool
         self.validator = CitationValidator(neo4j_driver)
 
     async def retrieve_candidates(self, question: str, audience: str = "citizen") -> list[CandidateKhoan]:
         """Retrieve candidate Khoan strictly from Qdrant vector store and Neo4j graph expansion."""
         candidates: list[CandidateKhoan] = []
-        if self.qdrant:
+        if self.qdrant and self.embedder:
             try:
-                # Query real Qdrant collection using embedding or text search
-                hits = await self.qdrant.search("khoan", question, limit=5)
+                # Embed the question, then search the real Qdrant collection by vector
+                vectors = await self.embedder.embed_texts([question])
+                hits = await self.qdrant.search("khoan", vectors[0], limit=5)
                 for hit in hits:
                     p = hit.get("payload", {})
                     if audience == "citizen" and p.get("visibility", "public") != "public":
@@ -94,14 +98,21 @@ class QAService:
                 "refuse_reason": ["BE2 LLMRouter service unavailable."],
             }
 
-        prompt = f"Question: {question}\nContext: {[c.noi_dung for c in candidates]}"
+        retrieved_context = "\n".join(f"[{c.khoan_id}] {c.noi_dung}" for c in candidates)
+        prompt = (
+            "retrieved_context:\n"
+            f"{retrieved_context}\n\n"
+            f"Câu hỏi: {question}\n"
+            "Chỉ trả lời dựa trên retrieved_context ở trên. Tuyệt đối không bịa. "
+            "Trả về JSON gồm: answer (string), citations (mảng {khoan_id, quote} trích nguyên văn), "
+            "confidence (high|medium|low)."
+        )
         try:
             llm_out = await self.router.complete(
-                route="large",
-                model="large-schema-locked",
                 task="qa",
                 prompt=prompt,
-                timeout_s=20.0,
+                schema={"required": ["answer", "citations"]},
+                complexity="high",
             )
         except Exception as e:
             return {
@@ -113,8 +124,20 @@ class QAService:
                 "refuse_reason": [f"LLMRouter error: {str(e)}"],
             }
 
+        # LLM router returns a needs_review envelope when output fails schema repair
+        if llm_out.get("needs_review") or llm_out.get("status") == "needs_review":
+            return {
+                "answer": "Chưa thể tạo câu trả lời đạt chuẩn trích dẫn. Vui lòng thử lại hoặc thu hẹp câu hỏi.",
+                "citations": [],
+                "confidence": "low",
+                "graph_paths": [],
+                "audience": audience,
+                "refuse_reason": ["LLM output failed schema validation (needs_review)."],
+            }
+
         raw_answer = llm_out.get("answer", "")
-        raw_graph_paths = llm_out.get("graph_paths", [])
+        # graph_paths must be derived from Neo4j only (SYSTEM_BACKEND principle), never from LLM output.
+        raw_graph_paths: list[Any] = []
         raw_citations = llm_out.get("citations", [])
 
         # 3. Validate citations against canonical text (Neo4j)

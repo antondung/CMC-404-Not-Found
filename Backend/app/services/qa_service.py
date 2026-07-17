@@ -289,6 +289,7 @@ class QAService:
         # 1b. Idea 01 — keep only provisions in force at `as_of`; collect change notices.
         candidates, notices = await self._time_travel(candidates, as_of_val)
         if not candidates:
+
             return {
                 "answer": "Không tìm thấy điều khoản pháp lý nào còn hiệu lực tại thời điểm yêu cầu để trả lời câu hỏi của bạn.",
                 "citations": [],

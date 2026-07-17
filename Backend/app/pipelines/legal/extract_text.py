@@ -63,6 +63,27 @@ def _ocr_pdf(data: bytes) -> str:
     except Exception as exc:  # noqa: BLE001
         logger.warning("extract_text: OCR libs unavailable (%s); scanned PDF cannot be read.", exc)
         return ""
+
+    # Point pytesseract at the Tesseract binary. Prefer TESSERACT_CMD env, else the standard
+    # Windows install path (UB-Mannheim build); on Linux it stays on PATH.
+    import os
+
+    cmd = os.getenv("TESSERACT_CMD")
+    if not cmd:
+        default_win = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+        if os.path.exists(default_win):
+            cmd = default_win
+    if cmd:
+        pytesseract.pytesseract.tesseract_cmd = cmd
+
+    # Custom tessdata dir (holds vie.traineddata) — lets us use the Vietnamese pack without
+    # write access to the Program Files tessdata folder.
+    # pytesseract splits `config` on whitespace, so do NOT quote the path (a quoted value would
+    # be passed literally, including the quotes, and break --tessdata-dir). The dir must be
+    # whitespace-free; C:\Users\<user>\.tessdata satisfies that.
+    tessdata_dir = os.getenv("TESSERACT_TESSDATA_DIR")
+    config = f"--tessdata-dir {tessdata_dir}" if tessdata_dir else ""
+
     try:
         parts: list[str] = []
         with fitz.open(stream=data, filetype="pdf") as doc:
@@ -70,7 +91,7 @@ def _ocr_pdf(data: bytes) -> str:
                 pix = page.get_pixmap(dpi=300)
                 img = Image.open(io.BytesIO(pix.tobytes("png")))
                 try:
-                    parts.append(pytesseract.image_to_string(img, lang="vie"))
+                    parts.append(pytesseract.image_to_string(img, lang="vie", config=config))
                 except Exception:  # noqa: BLE001 - 'vie' pack may be missing; fall back to default
                     parts.append(pytesseract.image_to_string(img))
         return "\n".join(parts).strip()

@@ -79,7 +79,7 @@ async def reindex_khoan_from_neo4j(
     qdrant: Any,
     embedder: Any,
     van_ban_id: str | None = None,
-    batch_size: int = 64,
+    batch_size: int = 8,
 ) -> dict[str, Any]:
     """Backfill/repair Qdrant from Neo4j: embed every Khoản and upsert its vector.
 
@@ -112,11 +112,13 @@ async def reindex_khoan_from_neo4j(
     entries = [r for r in rows if (r.get("noi_dung") or "").strip()]
     total = len(rows)
     indexed = 0
+    last_error: str | None = None
     for start in range(0, len(entries), batch_size):
         batch = entries[start : start + batch_size]
         try:
             vectors = await embedder.embed_texts([r["noi_dung"].strip() for r in batch])
         except Exception as exc:  # noqa: BLE001
+            last_error = f"embed: {exc}"
             logger.warning("reindex: embedding batch failed: %s", exc)
             continue
         points = []
@@ -141,14 +143,19 @@ async def reindex_khoan_from_neo4j(
             await qdrant.upsert("khoan", points)
             indexed += len(points)
         except Exception as exc:  # noqa: BLE001
+            last_error = f"qdrant: {exc}"
             logger.warning("reindex: qdrant upsert failed: %s", exc)
 
+    msg = f"Đã reindex {indexed}/{total} Khoản từ Neo4j vào Qdrant."
+    if indexed < total and last_error:
+        msg += f" (lỗi gần nhất: {last_error})"
     return {
-        "status": "success",
+        "status": "success" if indexed > 0 else "error",
         "van_ban_id": van_ban_id,
         "total": total,
         "indexed": indexed,
-        "message": f"Đã reindex {indexed}/{total} Khoản từ Neo4j vào Qdrant.",
+        "last_error": last_error,
+        "message": msg,
     }
 
 

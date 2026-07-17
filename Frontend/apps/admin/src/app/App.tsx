@@ -1,4 +1,3 @@
-// Force HMR reload
 import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { ShieldCheck, SquaresFour, Bell, ListMagnifyingGlass, FileText, ShareNetwork, HardDrives, Article, ListChecks } from '@phosphor-icons/react';

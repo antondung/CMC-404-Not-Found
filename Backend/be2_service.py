@@ -239,16 +239,17 @@ def _context_block(ctx: list[tuple[str, str]]) -> str:
 
 async def _handle_qa(prompt: str) -> dict[str, Any]:
     ctx = _parse_context(prompt)
+    question = _extract_question(prompt)
     if not ctx:
         return {
             "answer": "Không tìm thấy điều khoản pháp lý liên quan trong ngữ cảnh được cung cấp.",
             "citations": [],
             "confidence": "low",
         }
+
     top = ctx[:3]
     # Citations are ALWAYS verbatim from context — never from the model.
     citations = [{"khoan_id": kid, "quote": text} for kid, text in top]
-    question = _extract_question(prompt)
 
     user_msg = (
         f"Ngữ cảnh (các điều khoản pháp luật liên quan):\n{_context_block(top)}\n\n"

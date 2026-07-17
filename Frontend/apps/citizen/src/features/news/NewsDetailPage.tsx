@@ -13,19 +13,6 @@ interface BriefDetail {
   citations: { id: string; text: string }[];
 }
 
-const mockBriefDetail: BriefDetail = {
-  id: "B-101",
-  tieu_de: "Cảnh báo mạo danh Cảnh sát Giao thông phạt nguội",
-  noidung: "Gần đây xuất hiện nhiều đối tượng gọi điện thoại tự xưng là CSGT, thông báo phạt nguội và yêu cầu người dân chuyển tiền vào tài khoản cá nhân.\n\nNgười dân tuyệt đối không làm theo. Việc nộp phạt vi phạm giao thông chỉ thực hiện qua tài khoản Kho bạc Nhà nước hoặc Cổng Dịch vụ công Quốc gia.",
-  media_type: "article",
-  status: "published",
-  published_at: new Date().toISOString(),
-  citations: [
-    { id: "K1_D5_NĐ100", text: "Khoản 1 Điều 5, NĐ 100/2019/NĐ-CP" },
-    { id: "D15_BLHS", text: "Điều 15 Luật An ninh mạng" }
-  ]
-};
-
 export default function NewsDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [news, setNews] = useState<BriefDetail | null>(null);
@@ -43,9 +30,8 @@ export default function NewsDetailPage() {
       })
       .catch((err) => {
         if (alive) {
-          console.warn('Lỗi gọi API /citizen/news/:id:', err.message);
-          setError('Không thể tải bài viết từ máy chủ. Hiển thị dữ liệu giả lập.');
-          setNews({ ...mockBriefDetail, id: id || mockBriefDetail.id });
+          console.error('Lỗi gọi API /citizen/news/:id:', err.message);
+          setError('Không thể tải bài viết từ máy chủ.');
         }
       })
       .finally(() => {

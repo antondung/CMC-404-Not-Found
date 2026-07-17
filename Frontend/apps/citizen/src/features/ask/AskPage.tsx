@@ -5,6 +5,50 @@ import { CitationCard } from '../../../../../packages/ui-legal/src/components/Ci
 import { GraphPathBreadcrumb } from '../../../../../packages/ui-legal/src/components/GraphPathBreadcrumb';
 import { apiPost } from '../../lib/api';
 
+const Typewriter = ({ text, speed = 10, onComplete }: { text: string; speed?: number; onComplete?: () => void }) => {
+  const [displayedText, setDisplayedText] = useState('');
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const onCompleteRef = useRef(onComplete);
+  const hasCompletedRef = useRef(false);
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  useEffect(() => {
+    // Reset when text changes
+    setDisplayedText('');
+    setCurrentIndex(0);
+    hasCompletedRef.current = false;
+  }, [text]);
+
+  useEffect(() => {
+    if (currentIndex < text.length) {
+      const timeout = setTimeout(() => {
+        const chunkSize = 3;
+        const nextIndex = Math.min(currentIndex + chunkSize, text.length);
+        setDisplayedText(prev => prev + text.slice(currentIndex, nextIndex));
+        setCurrentIndex(nextIndex);
+        
+        // Auto-scroll container while typing
+        const mainEl = document.querySelector('main');
+        if (mainEl) {
+          mainEl.scrollTo({ top: mainEl.scrollHeight, behavior: 'smooth' });
+        }
+      }, speed);
+      return () => clearTimeout(timeout);
+    } else if (!hasCompletedRef.current) {
+      hasCompletedRef.current = true;
+      if (onCompleteRef.current) {
+        onCompleteRef.current();
+      }
+    }
+  }, [currentIndex, text, speed]);
+
+  return <span className="whitespace-pre-wrap">{displayedText}</span>;
+};
+
+
 interface QAResponse {
   answer: string;
   citations: BackendCitation[];
@@ -42,10 +86,15 @@ export default function AskPage() {
       content: 'Chào bạn, tôi là Trợ lý Pháp lý ảo của Cổng Thông tin Pháp luật. Tôi có thể giúp bạn giải đáp các quy định pháp luật hiện hành dựa trên cơ sở dữ liệu chính thức. \n\nBạn cần hỏi về vấn đề gì?',
     }
   ]);
+  const [isTypingComplete, setIsTypingComplete] = useState<Record<string, boolean>>({});
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const mainEl = document.querySelector('main');
+    if (mainEl) {
+      mainEl.scrollTo({ top: mainEl.scrollHeight, behavior: 'smooth' });
+    }
   };
 
   useEffect(() => {
@@ -158,11 +207,19 @@ export default function AskPage() {
                 ) : (
                   <>
                     <p className={`text-[15px] sm:text-[16px] leading-relaxed whitespace-pre-wrap ${msg.role === 'user' ? 'font-medium' : 'font-normal text-slate-700'}`}>
-                      {msg.content}
+                      {msg.role === 'ai' ? (
+                        <Typewriter 
+                          text={msg.content} 
+                          speed={8} 
+                          onComplete={() => setIsTypingComplete(prev => prev[msg.id] ? prev : { ...prev, [msg.id]: true })} 
+                        />
+                      ) : (
+                        msg.content
+                      )}
                     </p>
                     
-                    {msg.citations && msg.citations.length > 0 && (
-                      <div className="mt-8 pt-6 border-t border-slate-100">
+                    {msg.citations && msg.citations.length > 0 && (msg.role === 'user' || isTypingComplete[msg.id] || msg.id === 'welcome') && (
+                      <div className="mt-8 pt-6 border-t border-slate-100 animate-fade-in-up">
                         <div className="flex items-center gap-2 mb-4 text-xs font-bold text-emerald-600 uppercase tracking-widest bg-emerald-50 w-fit px-3 py-1.5 rounded-lg border border-emerald-100">
                           <ShieldCheck size={16} weight="fill" /> Đã xác thực căn cứ pháp lý
                         </div>
@@ -174,8 +231,10 @@ export default function AskPage() {
                       </div>
                     )}
 
-                    {msg.graphPaths && (
-                      <GraphPathBreadcrumb paths={msg.graphPaths} />
+                    {msg.graphPaths && (msg.role === 'user' || isTypingComplete[msg.id] || msg.id === 'welcome') && (
+                      <div className="animate-fade-in-up">
+                        <GraphPathBreadcrumb paths={msg.graphPaths} />
+                      </div>
                     )}
                   </>
                 )}
@@ -188,7 +247,7 @@ export default function AskPage() {
               )}
             </div>
           ))}
-          <div ref={messagesEndRef} className="h-4" />
+          <div ref={messagesEndRef} className="h-32 sm:h-40 shrink-0" />
         </div>
       </main>
 

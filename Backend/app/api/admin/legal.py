@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
-from app.api.deps import get_db_pool, get_neo4j_driver, require_admin, UserToken
+from app.api.deps import get_db_pool, get_neo4j_driver, get_qdrant_client, get_embedder, require_admin, UserToken
 from app.core.envelope import success_response
 from app.core.logging import get_request_id
 from app.services.diff_facade import LegalDiffFacade
@@ -29,9 +29,11 @@ async def ingest_legal(
     request: IngestLegalRequest,
     pool: Any = Depends(get_db_pool),
     driver: Any = Depends(get_neo4j_driver),
+    qdrant: Any = Depends(get_qdrant_client),
+    embedder: Any = Depends(get_embedder),
     user: UserToken = Depends(require_admin()),
 ) -> dict[str, Any]:
-    facade = LegalDiffFacade(pool=pool, neo4j_driver=driver)
+    facade = LegalDiffFacade(pool=pool, neo4j_driver=driver, qdrant=qdrant, embedder=embedder)
     res = await facade.ingest_document(request.model_dump())
     return success_response(data=res, request_id=get_request_id())
 

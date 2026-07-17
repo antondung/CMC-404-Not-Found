@@ -10,7 +10,6 @@ from app.workers.legal_jobs import legal_ingest
 from app.workers.social_jobs import alert_fanout, social_claim, social_ingest, social_link, social_topic
 
 BE2_WORKER_FUNCTIONS = [
-    legal_ingest,
     social_ingest,
     social_topic,
     social_link,
@@ -19,6 +18,9 @@ BE2_WORKER_FUNCTIONS = [
     brief_generate,
     suggest_generate,
 ]
+
+# Legal ingest is BE1/BE3 territory (kept out of the scope-limited BE2 worker).
+LEGAL_WORKER_FUNCTIONS = [legal_ingest]
 
 def redis_settings(config: BE2Config | None = None) -> RedisSettings:
     cfg = config or get_config()
@@ -55,6 +57,8 @@ async def worker_startup(ctx: dict) -> None:
     ctx["config"] = cfg
     ctx["neo4j_driver"] = driver
     ctx["db_pool"] = pool
+    ctx["qdrant"] = qdrant
+    ctx["embedder"] = embedder
     ctx["legal_repo"] = legal_repo
     ctx["social_repo"] = social_repo
     ctx["social_ingest_service"] = SocialIngestService(social_repo, cfg)
@@ -79,6 +83,17 @@ class WorkerSettings:
     """Arq worker settings for BE2-owned jobs only."""
 
     functions = BE2_WORKER_FUNCTIONS
+    redis_settings = redis_settings()
+    on_startup = worker_startup
+    on_shutdown = worker_shutdown
+    max_tries = 3
+    job_timeout = get_config().default_job_timeout_s
+
+
+class LegalWorkerSettings:
+    """Arq worker settings for BE3 legal ingest jobs (run: arq app.workers.arq_settings.LegalWorkerSettings)."""
+
+    functions = LEGAL_WORKER_FUNCTIONS
     redis_settings = redis_settings()
     on_startup = worker_startup
     on_shutdown = worker_shutdown

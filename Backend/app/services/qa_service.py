@@ -68,6 +68,43 @@ class QAService:
 
         return [c for c in candidates if c.khoan_id and c.noi_dung]
 
+    async def _extractive_answer(
+        self, candidates: list[CandidateKhoan], audience: str, reason: str
+    ) -> dict[str, Any] | None:
+        """Safe degraded mode when the BE2 LLM gateway is unreachable.
+
+        Instead of refusing, return the top retrieved Khoản verbatim with validated citations.
+        This never fabricates: the answer text IS the canonical legal provision. Disabled by
+        setting QA_EXTRACTIVE_FALLBACK=0.
+        """
+        import os
+
+        if os.getenv("QA_EXTRACTIVE_FALLBACK", "1") != "1":
+            return None
+        top = candidates[:3]
+        raw_citations = [{"khoan_id": c.khoan_id, "quote": c.noi_dung} for c in top if c.noi_dung]
+        if not raw_citations:
+            return None
+        is_valid, validated_citations, _errors = await self.validator.validate_quotes(
+            raw_citations, preloaded_sources=candidates
+        )
+        if not validated_citations:
+            return None
+        body = "\n\n".join(f"• {c.khoan_id}: {c.noi_dung}" for c in top if c.noi_dung)
+        answer = (
+            "Trích dẫn trực tiếp từ văn bản pháp luật liên quan (chưa qua AI tổng hợp vì dịch vụ "
+            "ngôn ngữ chưa sẵn sàng):\n\n" + body
+        )
+        return {
+            "answer": answer,
+            "citations": validated_citations,
+            "confidence": "medium",
+            "graph_paths": [],
+            "audience": audience,
+            "degraded": True,
+            "refuse_reason": [reason],
+        }
+
     async def answer(
         self,
         question: str,
@@ -89,6 +126,9 @@ class QAService:
 
         # 2. Call LLM synthesized answer via BE2 router
         if not self.router:
+            fallback = await self._extractive_answer(candidates, audience, "BE2 LLMRouter service unavailable.")
+            if fallback:
+                return fallback
             return {
                 "answer": "Hệ thống AI xử lý ngôn ngữ (BE2 Intelligence API) hiện chưa sẵn sàng. Vui lòng thử lại sau.",
                 "citations": [],
@@ -115,6 +155,9 @@ class QAService:
                 complexity="high",
             )
         except Exception as e:
+            fallback = await self._extractive_answer(candidates, audience, f"LLMRouter error: {str(e)}")
+            if fallback:
+                return fallback
             return {
                 "answer": f"Không thể tạo lời giải từ hệ thống AI: {str(e)}",
                 "citations": [],

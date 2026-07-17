@@ -33,11 +33,13 @@ async def legal_ingest(ctx, job_id: str, payload: Dict[str, Any]):
     """
     driver = ctx.get("neo4j_driver")
     pool = ctx.get("db_pool")
+    qdrant = ctx.get("qdrant")
+    embedder = ctx.get("embedder")
     logger.info("Worker 'legal_ingest' processing job %s (so_hieu=%s)", job_id, payload.get("so_hieu"))
 
     await _set_job_status(pool, job_id, "running")
     try:
-        result = await run_legal_ingest(driver, payload)
+        result = await run_legal_ingest(driver, payload, qdrant=qdrant, embedder=embedder)
     except Exception as exc:  # noqa: BLE001
         await _set_job_status(pool, job_id, "error", str(exc))
         logger.exception("legal_ingest job %s failed", job_id)

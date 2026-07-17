@@ -39,7 +39,21 @@ class QdrantVectorClient:
         if limit < 1:
             raise ValidationError("limit must be positive")
         await self.validate_collection(collection, len(vector))
-        hits = await self.client.search(collection_name=collection, query_vector=vector, limit=limit, query_filter=query_filter)
+        # qdrant-client >=1.10 replaced `.search()` with `.query_points()`; prefer the new API
+        # and fall back to the legacy method for older client versions.
+        if hasattr(self.client, "query_points"):
+            response = await self.client.query_points(
+                collection_name=collection,
+                query=vector,
+                limit=limit,
+                query_filter=query_filter,
+                with_payload=True,
+            )
+            hits = getattr(response, "points", response)
+        else:
+            hits = await self.client.search(
+                collection_name=collection, query_vector=vector, limit=limit, query_filter=query_filter
+            )
         result: list[dict[str, Any]] = []
         for hit in hits:
             result.append({"id": getattr(hit, "id", None), "score": float(getattr(hit, "score", 0.0)), "payload": getattr(hit, "payload", {}) or {}})

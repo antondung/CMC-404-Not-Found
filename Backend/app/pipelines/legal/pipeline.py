@@ -7,6 +7,7 @@ Keeping it in one place guarantees the sync and async paths stay identical.
 from __future__ import annotations
 
 import logging
+import uuid
 from typing import Any
 
 import httpx
@@ -16,6 +17,59 @@ from app.pipelines.legal.parser import LegalParser
 from app.pipelines.legal.normalize import normalize_so_hieu, generate_van_ban_id, generate_khoan_id
 
 logger = logging.getLogger(__name__)
+
+# Deterministic namespace so re-ingesting the same Khoản overwrites its vector (idempotent).
+_KHOAN_POINT_NAMESPACE = uuid.UUID("6f1a0b2c-3d4e-5f60-8a90-b1c2d3e4f501")
+
+
+async def _index_khoan_vectors(
+    qdrant: Any,
+    embedder: Any,
+    *,
+    vb_id: str,
+    so_hieu_norm: str,
+    visibility: str,
+    dieu_list: list[dict[str, Any]],
+) -> int:
+    """Embed each Khoản's text and upsert into the Qdrant `khoan` collection.
+
+    This is what makes ingested documents retrievable by the RAG QA engine. Best-effort:
+    failures (no embedder model, Qdrant down) are logged and return 0 without failing ingest.
+    """
+    if not (qdrant and embedder):
+        return 0
+    entries: list[tuple[str, str, str]] = []  # (khoan_id, noi_dung, dieu_so)
+    for dieu in dieu_list:
+        for khoan in dieu.get("khoan_list", []):
+            text = (khoan.get("noi_dung") or "").strip()
+            if text:
+                entries.append((khoan["khoan_id"], text, dieu.get("so", "")))
+    if not entries:
+        return 0
+    try:
+        vectors = await embedder.embed_texts([e[1] for e in entries])
+        points = []
+        for (khoan_id, text, dieu_so), vector in zip(entries, vectors):
+            points.append(
+                {
+                    "id": str(uuid.uuid5(_KHOAN_POINT_NAMESPACE, khoan_id)),
+                    "vector": vector,
+                    "payload": {
+                        "khoan_id": khoan_id,
+                        "van_ban_id": vb_id,
+                        "dieu": dieu_so,
+                        "noi_dung": text,
+                        "text_preview": text[:200],
+                        "visibility": visibility,
+                        "so_hieu": so_hieu_norm,
+                    },
+                }
+            )
+        await qdrant.upsert("khoan", points)
+        return len(points)
+    except Exception as exc:  # noqa: BLE001 - indexing is best-effort
+        logger.warning("legal_ingest: Qdrant khoan indexing skipped: %s", exc)
+        return 0
 
 
 async def _resolve_text(url_or_content: str | None) -> str:
@@ -62,10 +116,15 @@ def _build_tree(so_hieu_norm: str, parsed: list[dict[str, Any]]) -> list[dict[st
     return dieu_list
 
 
-async def run_legal_ingest(driver: Any, payload: dict[str, Any]) -> dict[str, Any]:
-    """Parse the document text and upsert its Điều/Khoản structure into Neo4j.
+async def run_legal_ingest(
+    driver: Any,
+    payload: dict[str, Any],
+    qdrant: Any = None,
+    embedder: Any = None,
+) -> dict[str, Any]:
+    """Parse the document text, upsert its Điều/Khoản into Neo4j, and index Khoản into Qdrant.
 
-    Returns a status dict: {status, vb_id, dieu_count, khoan_count, needs_review, message}.
+    Returns a status dict: {status, vb_id, dieu_count, khoan_count, indexed_count, needs_review, message}.
     - status="success" when at least one Điều was written,
     - status="needs_review" when text was present but no structure could be parsed,
     - status="queued" when no content was supplied (awaiting file upload / async fetch).
@@ -82,6 +141,7 @@ async def run_legal_ingest(driver: Any, payload: dict[str, Any]) -> dict[str, An
             "vb_id": vb_id,
             "dieu_count": 0,
             "khoan_count": 0,
+            "indexed_count": 0,
             "needs_review": False,
             "message": "Chưa có nội dung để bóc tách; job ở hàng đợi chờ file/worker.",
         }
@@ -103,24 +163,41 @@ async def run_legal_ingest(driver: Any, payload: dict[str, Any]) -> dict[str, An
         "dieu_list": dieu_list,
     }
 
-    write_res = await Neo4jLegalRepository(driver).upsert_van_ban(doc)
-    khoan_count = write_res.get("khoan_count", 0)
-
     if not dieu_list:
         return {
             "status": "needs_review",
             "vb_id": vb_id,
             "dieu_count": 0,
             "khoan_count": 0,
+            "indexed_count": 0,
             "needs_review": True,
             "message": "Không bóc tách được Điều nào (layout lỗi hoặc cần LLM fallback).",
         }
 
+    write_res = await Neo4jLegalRepository(driver).upsert_van_ban(doc)
+    khoan_count = write_res.get("khoan_count", 0)
+
+    # Embed + index Khoản into Qdrant so the RAG QA engine can retrieve this new knowledge.
+    indexed_count = await _index_khoan_vectors(
+        qdrant,
+        embedder,
+        vb_id=vb_id,
+        so_hieu_norm=so_hieu_norm,
+        visibility=doc["visibility"],
+        dieu_list=dieu_list,
+    )
+
+    index_note = (
+        f" · đã index {indexed_count} Khoản cho AI truy hồi"
+        if indexed_count
+        else " · (chưa index vector — AI chưa truy hồi được)"
+    )
     return {
         "status": "success",
         "vb_id": vb_id,
         "dieu_count": len(dieu_list),
         "khoan_count": khoan_count,
+        "indexed_count": indexed_count,
         "needs_review": needs_review,
-        "message": f"Đã số hóa {len(dieu_list)} Điều / {khoan_count} Khoản vào đồ thị.",
+        "message": f"Đã số hóa {len(dieu_list)} Điều / {khoan_count} Khoản vào đồ thị{index_note}.",
     }

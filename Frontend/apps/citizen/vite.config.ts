@@ -19,4 +19,8 @@ const redirectPlugin = () => ({
 export default defineConfig({
   plugins: [react(), redirectPlugin()],
   base: '/citizen/',
+  server: {
+    port: 5174,
+    strictPort: true,
+  }
 })

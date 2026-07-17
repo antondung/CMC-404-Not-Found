@@ -20,6 +20,8 @@ export default defineConfig({
   plugins: [react(), redirectPlugin()],
   base: '/admin/',
   server: {
+    port: 5173,
+    strictPort: true,
     proxy: {
       '/citizen': {
         target: 'http://localhost:5174',

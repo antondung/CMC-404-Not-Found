@@ -1,3 +1,4 @@
+// Force HMR reload
 import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { ShieldCheck, SquaresFour, Bell, ListMagnifyingGlass, FileText, ShareNetwork } from '@phosphor-icons/react';
@@ -5,6 +6,7 @@ import DashboardPage from '../features/dashboard/Dashboard';
 import AlertsPage from '../features/alerts/Alerts';
 import QAAdminPage from '../features/qa/QAAdmin';
 import IngestPage from '../features/ingest/Ingest';
+import DiffPage from '../features/diff/DiffPage';
 import LoginPage from '../features/auth/Login';
 
 function Sidebar() {
@@ -51,7 +53,11 @@ function Sidebar() {
         </div>
         <Link to="/van-ban" className={navItemClass('/van-ban')}>
           <div className={iconWrapperClass('/van-ban')}><FileText size={16} weight="fill" /></div>
-          Số hóa văn bản
+          Số hóa văn bản (Ingest)
+        </Link>
+        <Link to="/diff" className={navItemClass('/diff')}>
+          <div className={iconWrapperClass('/diff')}><ListMagnifyingGlass size={16} weight="fill" /></div>
+          So sánh (Diff)
         </Link>
         <Link to="/graph" className={navItemClass('/graph')}>
           <div className={iconWrapperClass('/graph')}><ShareNetwork size={16} weight="fill" /></div>
@@ -64,7 +70,7 @@ function Sidebar() {
 
 function AppContent() {
   return (
-    <div className="min-h-screen bg-[#f1f5f9] font-sans text-primary relative">
+    <div className="min-h-screen bg-[#f8fafc] font-sans text-slate-900 relative">
       <Sidebar />
       <main className="ml-[260px] p-10 min-h-screen">
         <Routes>
@@ -72,6 +78,7 @@ function AppContent() {
           <Route path="/alerts" element={<AlertsPage />} />
           <Route path="/qa" element={<QAAdminPage />} />
           <Route path="/van-ban" element={<IngestPage />} />
+          <Route path="/diff" element={<DiffPage />} />
         </Routes>
       </main>
     </div>

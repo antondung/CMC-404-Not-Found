@@ -1,0 +1,34 @@
+from __future__ import annotations
+
+from typing import Any
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel, Field
+from app.api.deps import get_neo4j_driver, get_qdrant_client, get_llm_router, require_admin, UserToken
+from app.core.envelope import success_response
+from app.core.logging import get_request_id
+from app.services.qa_service import QAService
+
+router = APIRouter(tags=["Admin QA"], dependencies=[Depends(require_admin())])
+
+
+class QARequest(BaseModel):
+    question: str = Field(..., min_length=2, description="Câu hỏi pháp lý/nghiệp vụ")
+    graph_paths_enabled: bool = Field(default=True, description="Cho phép trả về đường dẫn đồ thị quan hệ")
+    audience: str = Field(default="admin", description="Đối tượng nhận câu trả lời")
+
+
+@router.post("/qa/ask", summary="Hỏi đáp thông minh (RAG QA) cho Admin với citation và đồ thị")
+async def ask_admin_qa(
+    request: QARequest,
+    driver: Any = Depends(get_neo4j_driver),
+    qdrant: Any = Depends(get_qdrant_client),
+    router_llm: Any = Depends(get_llm_router),
+    user: UserToken = Depends(require_admin()),
+) -> dict[str, Any]:
+    service = QAService(qdrant_client=qdrant, neo4j_driver=driver, llm_router=router_llm)
+    res = await service.answer(
+        question=request.question,
+        audience="admin",
+        graph_paths_enabled=request.graph_paths_enabled,
+    )
+    return success_response(data=res, request_id=get_request_id())

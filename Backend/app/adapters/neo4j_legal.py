@@ -47,6 +47,54 @@ class Neo4jLegalRepository:
                     out.append(self._to_candidate(record))
         return out
 
+    async def upsert_van_ban(self, doc: dict[str, Any]) -> dict[str, Any]:
+        """Write/merge a legal document tree (VanBanPhapLuat -> Dieu -> Khoan) into Neo4j.
+
+        `doc` must contain metadata plus `dieu_list`, where each Dieu carries `dieu_id`,
+        `so`, `tieu_de`, and `khoan_list` (each with `khoan_id`, `so`, `noi_dung`).
+        Merge keys match Data/schema/neo4j_constraints.cypher (vb_id/dieu_id/khoan_id).
+        """
+        if not self.driver or not hasattr(self.driver, "session"):
+            return {"written": False, "reason": "neo4j_unavailable"}
+
+        dieu_list = doc.get("dieu_list", [])
+        query = """
+        MERGE (v:VanBanPhapLuat {vb_id: $vb_id})
+        SET v.so_hieu = $so_hieu, v.ten = $ten, v.loai = $loai,
+            v.ngay_ban_hanh = $ngay_ban_hanh, v.ngay_hieu_luc = $ngay_hieu_luc,
+            v.trang_thai = $trang_thai, v.visibility = $visibility,
+            v.co_quan_ban_hanh = $co_quan_ban_hanh
+        WITH v
+        UNWIND $dieu_list AS d
+          MERGE (dieu:Dieu {dieu_id: d.dieu_id})
+          SET dieu.so = d.so, dieu.tieu_de = d.tieu_de,
+              dieu.van_ban_id = $vb_id, dieu.visibility = $visibility
+          MERGE (v)-[:CO_DIEU]->(dieu)
+          WITH v, dieu, d
+          UNWIND d.khoan_list AS k
+            MERGE (kh:Khoan {khoan_id: k.khoan_id})
+            SET kh.so = k.so, kh.noi_dung = k.noi_dung, kh.van_ban_id = $vb_id,
+                kh.dieu_id = d.dieu_id, kh.visibility = $visibility
+            MERGE (dieu)-[:CO_KHOAN]->(kh)
+        """
+        params = {
+            "vb_id": doc.get("vb_id"),
+            "so_hieu": doc.get("so_hieu"),
+            "ten": doc.get("ten"),
+            "loai": doc.get("loai"),
+            "ngay_ban_hanh": doc.get("ngay_ban_hanh"),
+            "ngay_hieu_luc": doc.get("ngay_hieu_luc"),
+            "trang_thai": doc.get("trang_thai", "hieu_luc"),
+            "visibility": doc.get("visibility", "public"),
+            "co_quan_ban_hanh": doc.get("co_quan_ban_hanh"),
+            "dieu_list": dieu_list,
+        }
+        async with self.driver.session() as session:
+            await session.run(query, **params)
+
+        khoan_count = sum(len(d.get("khoan_list", [])) for d in dieu_list)
+        return {"written": True, "vb_id": doc.get("vb_id"), "dieu_count": len(dieu_list), "khoan_count": khoan_count}
+
     async def list_khoan_for_van_ban(self, van_ban_id: str) -> list[CandidateKhoan]:
         if not van_ban_id or not self.driver or not hasattr(self.driver, "session"):
             return []

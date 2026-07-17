@@ -6,9 +6,11 @@ from arq.connections import RedisSettings
 
 from app.config import BE2Config, get_config
 from app.workers.content_jobs import brief_generate, suggest_generate
+from app.workers.legal_jobs import legal_ingest
 from app.workers.social_jobs import alert_fanout, social_claim, social_ingest, social_link, social_topic
 
 BE2_WORKER_FUNCTIONS = [
+    legal_ingest,
     social_ingest,
     social_topic,
     social_link,
@@ -51,6 +53,9 @@ async def worker_startup(ctx: dict) -> None:
     content_repo = PostgresContentRepository(pool) if pool else None
 
     ctx["config"] = cfg
+    ctx["neo4j_driver"] = driver
+    ctx["db_pool"] = pool
+    ctx["legal_repo"] = legal_repo
     ctx["social_repo"] = social_repo
     ctx["social_ingest_service"] = SocialIngestService(social_repo, cfg)
     ctx["topic_classifier"] = TopicClassifier(qdrant, embedder, cfg)

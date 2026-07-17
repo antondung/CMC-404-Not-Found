@@ -1,11 +1,33 @@
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from typing import Any
 from datetime import datetime, timezone
 from app.pipelines.legal.version_diff import VersionDiff
 from app.pipelines.legal.normalize import normalize_so_hieu
+from app.pipelines.legal.pipeline import run_legal_ingest
+
+_JOB_STATUSES = {"queued", "running", "success", "error", "needs_review"}
+
+
+def _to_jsonable(obj: Any) -> Any:
+    """Recursively convert Neo4j driver values (temporal/spatial types) into JSON-safe values.
+
+    Neo4j returns dates as ``neo4j.time.Date``/``DateTime`` etc., which pydantic cannot serialize.
+    Anything not natively JSON-serializable is coerced to its string form.
+    """
+    if obj is None or isinstance(obj, (str, int, float, bool)):
+        return obj
+    if isinstance(obj, dict):
+        return {k: _to_jsonable(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_to_jsonable(v) for v in obj]
+    iso = getattr(obj, "iso_format", None)
+    if callable(iso):
+        return iso()
+    return str(obj)
 
 
 class LegalDiffFacade:
@@ -17,33 +39,88 @@ class LegalDiffFacade:
         self.differ = VersionDiff()
 
     async def ingest_document(self, payload: dict[str, Any]) -> dict[str, Any]:
-        """Trigger ingestion job into real Postgres jobs table / Celery Worker queue."""
+        """Ingest a legal document.
+
+        Persists a `jobs` row, then either (A) processes it synchronously — parse text into
+        Điều/Khoản and upsert into Neo4j so the document is immediately queryable — or (B) hands
+        it off to the real Arq worker when ``LEGAL_INGEST_ASYNC=1`` and Redis is reachable.
+        """
         so_hieu = payload.get("so_hieu", "")
         norm_so_hieu = normalize_so_hieu(so_hieu) if so_hieu else ""
-        job_id = f"job-legal-{uuid.uuid4().hex[:8]}"
+        # jobs.id is UUID (default gen_random_uuid()); use a real UUID, not a "job-legal-*" string.
+        job_id = str(uuid.uuid4())
 
-        if self.pool and hasattr(self.pool, "acquire"):
-            try:
-                async with self.pool.acquire() as conn:
-                    await conn.execute(
-                        """
-                        INSERT INTO jobs (id, type, status, payload_json, created_at)
-                        VALUES ($1, 'legal_ingest', 'queued', $2, $3)
-                        ON CONFLICT DO NOTHING
-                        """,
-                        job_id,
-                        json.dumps(payload),
-                        datetime.now(timezone.utc),
-                    )
-            except Exception as e:
-                pass
+        await self._insert_job(job_id, payload)
 
+        # Async path (B): enqueue to the Arq worker if explicitly enabled and reachable.
+        if os.getenv("LEGAL_INGEST_ASYNC", "0") == "1":
+            if await self._enqueue_arq("legal_ingest", job_id, payload):
+                return {
+                    "job_id": job_id,
+                    "so_hieu": norm_so_hieu,
+                    "status": "queued",
+                    "message": "Đã đưa vào hàng đợi Arq để worker xử lý bất đồng bộ.",
+                }
+
+        # Synchronous path (A): parse + write to Neo4j now.
+        result = await run_legal_ingest(self.driver, payload)
+        await self._update_job_status(job_id, result["status"], result.get("message"))
         return {
             "job_id": job_id,
             "so_hieu": norm_so_hieu,
-            "status": "queued",
-            "message": "Legal ingestion task submitted into queue.",
+            "vb_id": result.get("vb_id"),
+            "status": result["status"],
+            "dieu_count": result.get("dieu_count", 0),
+            "khoan_count": result.get("khoan_count", 0),
+            "needs_review": result.get("needs_review", False),
+            "message": result.get("message", "Đã xử lý."),
         }
+
+    async def _insert_job(self, job_id: str, payload: dict[str, Any]) -> None:
+        if not (self.pool and hasattr(self.pool, "acquire")):
+            return
+        try:
+            async with self.pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO jobs (id, type, status, payload_json, created_at)
+                    VALUES ($1::uuid, 'legal_ingest', 'queued', $2::jsonb, $3)
+                    ON CONFLICT DO NOTHING
+                    """,
+                    job_id,
+                    json.dumps(payload),
+                    datetime.now(timezone.utc),
+                )
+        except Exception:
+            pass
+
+    async def _update_job_status(self, job_id: str, status: str, message: str | None = None) -> None:
+        db_status = status if status in _JOB_STATUSES else "error"
+        err = message if db_status in {"error", "needs_review"} else None
+        if not (self.pool and hasattr(self.pool, "acquire")):
+            return
+        try:
+            async with self.pool.acquire() as conn:
+                await conn.execute(
+                    "UPDATE jobs SET status = $1::job_status, error = $2, updated_at = now() WHERE id = $3::uuid",
+                    db_status,
+                    err,
+                    job_id,
+                )
+        except Exception:
+            pass
+
+    async def _enqueue_arq(self, func_name: str, job_id: str, payload: dict[str, Any]) -> bool:
+        try:
+            from arq import create_pool
+            from app.workers.arq_settings import redis_settings
+
+            pool = await create_pool(redis_settings())
+            await pool.enqueue_job(func_name, job_id, payload)
+            await pool.close()
+            return True
+        except Exception:
+            return False
 
     async def list_van_ban(self, visibility: str | None = None, status: str | None = None) -> list[dict[str, Any]]:
         """List legal documents from Neo4j (VanBanPhapLuat node or Postgres van_ban table)."""
@@ -54,7 +131,7 @@ class LegalDiffFacade:
                 async with self.driver.session() as session:
                     res = await session.run(query)
                     async for record in res:
-                        data = dict(record["v"])
+                        data = _to_jsonable(dict(record["v"]))
                         if visibility and data.get("visibility") != visibility:
                             continue
                         if status and data.get("trang_thai") != status:
@@ -93,8 +170,8 @@ class LegalDiffFacade:
                     res = await session.run(query, id=van_ban_id)
                     record = await res.single()
                     if record and record["v"]:
-                        doc = dict(record["v"])
-                        khoans = [dict(k) for k in record["khoans"] if k is not None]
+                        doc = _to_jsonable(dict(record["v"]))
+                        khoans = [_to_jsonable(dict(k)) for k in record["khoans"] if k is not None]
                         doc["tree"] = khoans
                         return doc
             except Exception:
@@ -128,8 +205,8 @@ class LegalDiffFacade:
                     res = await session.run(query, id=khoan_id)
                     record = await res.single()
                     if record and record["k"]:
-                        item = dict(record["k"])
-                        item["entities"] = [dict(x["entity"]) for x in record["entities"] if x["entity"] is not None]
+                        item = _to_jsonable(dict(record["k"]))
+                        item["entities"] = [_to_jsonable(dict(x["entity"])) for x in record["entities"] if x["entity"] is not None]
                         return item
             except Exception:
                 pass

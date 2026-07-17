@@ -1,7 +1,29 @@
 from __future__ import annotations
 
+import os
 import time
+from pathlib import Path
 from typing import Any
+
+
+def _load_dotenv() -> None:
+    """Load Backend/.env into the process environment before any dependency reads it.
+
+    Uses setdefault so explicitly-exported real env vars always win over the file.
+    """
+    env_path = Path(__file__).resolve().parent.parent / ".env"
+    if not env_path.exists():
+        return
+    for raw in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        os.environ.setdefault(key.strip(), val.strip().strip('"').strip("'"))
+
+
+_load_dotenv()
+
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware

@@ -45,7 +45,11 @@ async def test_admin_alerts_triage_creates_suggestion_draft():
         assert res_triage.status_code == 200
         triage_data = res_triage.json()["data"]
         assert triage_data["new_status"] == "investigating"
-        assert triage_data["created_suggestion_id"].startswith("suggest-")
+        # suggestions.id is a UUID (Data/schema/postgres/003); ensure a valid draft id was returned.
+        assert triage_data["created_suggestion_id"]
+        import uuid as _uuid
+
+        _uuid.UUID(triage_data["created_suggestion_id"])  # raises if not a valid UUID
 
 
 @pytest.mark.asyncio

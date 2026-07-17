@@ -20,14 +20,14 @@ class SocialAlertFacade:
 
     async def ingest_post(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Trigger ingestion job into real Postgres jobs queue."""
-        job_id = f"job-social-{uuid.uuid4().hex[:8]}"
+        job_id = str(uuid.uuid4())
         if self.pool and hasattr(self.pool, "acquire"):
             try:
                 async with self.pool.acquire() as conn:
                     await conn.execute(
                         """
                         INSERT INTO jobs (id, type, status, payload_json, created_at)
-                        VALUES ($1, 'social_ingest', 'queued', $2, $3)
+                        VALUES ($1::uuid, 'social_ingest', 'queued', $2::jsonb, $3)
                         ON CONFLICT DO NOTHING
                         """,
                         job_id,
@@ -186,21 +186,22 @@ class SocialAlertFacade:
 
         if action == "create_suggest":
             new_status = "investigating"
-            suggest_id = f"suggest-{uuid.uuid4().hex[:8]}"
+            suggest_id = str(uuid.uuid4())
             if self.pool and hasattr(self.pool, "acquire"):
                 try:
                     async with self.pool.acquire() as conn:
+                        # Schema (Data/schema/postgres/003): suggestions(id uuid, draft_text,
+                        # alert_ids jsonb, khoan_ids jsonb, status, created_by uuid FK, ...).
                         await conn.execute(
                             """
-                            INSERT INTO suggestions (id, tieu_de, noi_dung_dinh_chinh, khoan_doi_chieu_id, status, created_by, created_at)
-                            VALUES ($1, $2, $3, $4, 'draft', $5, $6)
+                            INSERT INTO suggestions (id, draft_text, alert_ids, khoan_ids, status, created_by, created_at)
+                            VALUES ($1::uuid, $2, $3::jsonb, $4::jsonb, 'draft', NULL, $5)
                             ON CONFLICT DO NOTHING
                             """,
                             suggest_id,
-                            f"Đề xuất đính chính cho cảnh báo {alert_id}",
-                            f"Nội dung đính chính dựa trên {note or 'thông tin sai lệch phát hiện'}",
-                            "13/2023/ND-CP::D4.K1",
-                            user_id,
+                            f"Đề xuất đính chính cho cảnh báo {alert_id} dựa trên {note or 'thông tin sai lệch phát hiện'}.",
+                            json.dumps([alert_id]),
+                            json.dumps([]),
                             datetime.now(timezone.utc),
                         )
                 except Exception:

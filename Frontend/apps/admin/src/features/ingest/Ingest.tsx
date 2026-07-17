@@ -7,6 +7,10 @@ interface IngestResponse {
   so_hieu: string;
   status: string;
   message: string;
+  vb_id?: string;
+  dieu_count?: number;
+  khoan_count?: number;
+  needs_review?: boolean;
 }
 
 interface JobItem {
@@ -30,6 +34,7 @@ function statusBadge(status: string) {
     running: { cls: 'bg-blue-50 text-blue-600', label: 'Đang xử lý', icon: <Spinner size={14} className="animate-spin" /> },
     success: { cls: 'bg-emerald-50 text-emerald-600', label: 'Hoàn tất', icon: <CheckCircle size={14} weight="fill" /> },
     needs_review: { cls: 'bg-amber-50 text-amber-600', label: 'Cần review', icon: <WarningCircle size={14} weight="fill" /> },
+    error: { cls: 'bg-red-50 text-red-600', label: 'Lỗi', icon: <WarningCircle size={14} weight="fill" /> },
     failed: { cls: 'bg-red-50 text-red-600', label: 'Lỗi', icon: <WarningCircle size={14} weight="fill" /> },
   };
   const c = map[status] ?? { cls: 'bg-slate-100 text-slate-500', label: status, icon: <Clock size={14} /> };
@@ -91,7 +96,7 @@ export default function IngestPage() {
       <div className="mb-10">
         <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Số hóa Văn bản Pháp luật</h1>
         <p className="text-slate-500 font-medium">
-          Đưa văn bản mới vào pipeline xử lý. Nhập số hiệu và nội dung/URL; hệ thống tạo job xử lý bất đồng bộ.
+          Đưa văn bản mới vào hệ thống. Nhập số hiệu và dán nội dung/URL; hệ thống bóc tách Điều/Khoản và ghi vào đồ thị tri thức ngay.
         </p>
       </div>
 
@@ -142,8 +147,22 @@ export default function IngestPage() {
 
         {error && <div className="mt-4 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm font-semibold">{error}</div>}
         {lastJob && (
-          <div className="mt-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl px-4 py-3 text-sm font-semibold flex items-center gap-2">
-            <CheckCircle size={18} weight="fill" /> Đã tạo job <code className="bg-white px-1.5 py-0.5 rounded text-emerald-700">{lastJob.job_id}</code> — {lastJob.message}
+          <div
+            className={`mt-4 border rounded-xl px-4 py-3 text-sm font-semibold flex items-center gap-2 ${
+              lastJob.status === 'success'
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                : lastJob.status === 'needs_review'
+                  ? 'bg-amber-50 border-amber-200 text-amber-800'
+                  : 'bg-brand/5 border-brand/20 text-slate-700'
+            }`}
+          >
+            {lastJob.status === 'success' ? <CheckCircle size={18} weight="fill" /> : <Clock size={18} />}
+            <span>
+              Job <code className="bg-white px-1.5 py-0.5 rounded">{lastJob.job_id.slice(0, 8)}</code> — {lastJob.message}
+              {typeof lastJob.dieu_count === 'number' && lastJob.dieu_count > 0 && (
+                <span className="ml-1 text-slate-500">({lastJob.dieu_count} Điều · {lastJob.khoan_count} Khoản)</span>
+              )}
+            </span>
           </div>
         )}
       </form>

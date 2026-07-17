@@ -1,0 +1,1 @@
+pydantic>=2.7\nhttpx>=0.27\npytest>=8\npytest-asyncio>=0.23\nsentence-transformers>=3.0\n

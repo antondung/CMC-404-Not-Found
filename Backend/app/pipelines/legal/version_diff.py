@@ -57,11 +57,10 @@ class VersionDiff:
         return hunks
 
     def compare_khoan_texts(self, old_text: str, new_text: str) -> Dict[str, Any]:
+        """So sánh nội dung cũ và mới của một Khoản ở cấp độ token.
+
+        Trả về status + danh sách hunks thực tế từ difflib (không còn rỗng).
         """
-        So sánh nội dung cũ và mới của một Khoản.
-        (Sử dụng cho trường hợp biết chắc 2 khoản này map với nhau nhưng text thay đổi).
-        """
-        # Trạng thái cơ bản
         status = "unchanged"
         if not old_text and new_text:
             status = "added"
@@ -70,13 +69,14 @@ class VersionDiff:
         elif old_text != new_text:
             status = "modified"
 
-        # TODO: Tích hợp difflib hoặc gọi LLM để diff cấu trúc 
-        # Ví dụ: Mức phạt tăng từ 2tr lên 5tr
-        
+        # Sinh hunks bằng difflib (token-level) — cùng logic với self.diff()
+        hunks = self.diff(old_text, new_text) if status == "modified" else []
+
         return {
-            "method": "similarity",
+            "method": "difflib_token",
             "old_text": old_text,
             "new_text": new_text,
             "status": status,
-            "hunks": [] # Chứa các đoạn text cụ thể bị đổi (vd: [{"type": "replace", "old": "2 triệu", "new": "5 triệu"}])
+            "total_hunks": len(hunks),
+            "hunks": hunks,
         }

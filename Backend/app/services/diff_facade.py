@@ -39,11 +39,13 @@ class LegalDiffFacade:
         neo4j_driver: Any | None = None,
         qdrant: Any | None = None,
         embedder: Any | None = None,
+        llm_router: Any | None = None,
     ) -> None:
         self.pool = pool
         self.driver = neo4j_driver
         self.qdrant = qdrant
         self.embedder = embedder
+        self.llm_router = llm_router
         self.differ = VersionDiff()
 
     async def ingest_document(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -70,8 +72,13 @@ class LegalDiffFacade:
                     "message": "Đã đưa vào hàng đợi Arq để worker xử lý bất đồng bộ.",
                 }
 
-        # Synchronous path (A): parse + write to Neo4j + index vectors now.
-        result = await run_legal_ingest(self.driver, payload, qdrant=self.qdrant, embedder=self.embedder)
+        # Synchronous path (A): parse + write to Neo4j + index vectors + NER now.
+        result = await run_legal_ingest(
+            self.driver, payload,
+            qdrant=self.qdrant,
+            embedder=self.embedder,
+            llm_router=self.llm_router,
+        )
         await self._update_job_status(job_id, result["status"], result.get("message"))
         return {
             "job_id": job_id,
@@ -81,6 +88,7 @@ class LegalDiffFacade:
             "dieu_count": result.get("dieu_count", 0),
             "khoan_count": result.get("khoan_count", 0),
             "indexed_count": result.get("indexed_count", 0),
+            "ner_count": result.get("ner_count", 0),
             "needs_review": result.get("needs_review", False),
             "message": result.get("message", "Đã xử lý."),
         }

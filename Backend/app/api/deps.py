@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 from typing import Any
 import httpx
@@ -11,6 +12,8 @@ from app.adapters.postgres_content import PostgresContentRepository
 from app.adapters.qdrant_vector import QdrantVectorClient
 from app.intelligence.llm_router import LLMRouter
 from app.intelligence.embedder import Embedder
+
+logger = logging.getLogger(__name__)
 
 # Global connections / pools for real services
 _db_pool: Any | None = None
@@ -78,8 +81,11 @@ async def get_neo4j_driver() -> Any:
         try:
             from neo4j import AsyncGraphDatabase
             _neo4j_driver = AsyncGraphDatabase.driver(uri, auth=(user, password))
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning(
+                "Neo4j driver unavailable at %s — legal graph writes/reads will be skipped: %s",
+                uri, exc,
+            )
     return _neo4j_driver
 
 
@@ -109,11 +115,15 @@ async def get_llm_router(config: BE2Config = Depends(get_config)) -> LLMRouter:
     return _llm_router
 
 
-async def get_embedder(config: BE2Config = Depends(get_config)) -> Embedder:
+async def get_embedder(config: BE2Config = Depends(get_config)) -> Embedder | None:
     """Retrieve or initialize the sentence embedder (bge-m3) used for real vector retrieval."""
     global _embedder
     if _embedder is None:
-        _embedder = Embedder(config=config)
+        try:
+            _embedder = Embedder(config=config)
+        except Exception as exc:
+            logger.warning("Embedder init failed — Qdrant vector indexing will be skipped: %s", exc)
+            return None
     return _embedder
 
 

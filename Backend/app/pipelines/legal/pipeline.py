@@ -15,6 +15,7 @@ import httpx
 from app.adapters.neo4j_legal import Neo4jLegalRepository
 from app.pipelines.legal.parser import LegalParser
 from app.pipelines.legal.normalize import normalize_so_hieu, generate_van_ban_id, generate_khoan_id
+from app.pipelines.legal.extractor import LegalExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -116,15 +117,49 @@ def _build_tree(so_hieu_norm: str, parsed: list[dict[str, Any]]) -> list[dict[st
     return dieu_list
 
 
+async def _run_ner(
+    llm_router: Any,
+    dieu_list: list[dict[str, Any]],
+    vb_id: str,
+) -> int:
+    """Run NER on every Khoản in dieu_list; returns the number of Khoản successfully extracted.
+
+    Best-effort: exceptions per-Khoản are caught so one bad Khoản never fails the whole batch.
+    """
+    if llm_router is None:
+        return 0
+    extractor = LegalExtractor(llm_router=llm_router)
+    extracted = 0
+    for dieu in dieu_list:
+        for khoan in dieu.get("khoan_list", []):
+            text = (khoan.get("noi_dung") or "").strip()
+            if not text:
+                continue
+            try:
+                result = await extractor.extract_entities_from_khoan(khoan["khoan_id"], text)
+                if not result.get("_skip_reason"):
+                    extracted += 1
+                    logger.debug(
+                        "legal_ingest: NER done for %s — chu_the=%d nghia_vu=%d",
+                        khoan["khoan_id"],
+                        len(result.get("chu_the", [])),
+                        len(result.get("nghia_vu", [])),
+                    )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("legal_ingest: NER failed for khoan %s: %s", khoan.get("khoan_id"), exc)
+    return extracted
+
+
 async def run_legal_ingest(
     driver: Any,
     payload: dict[str, Any],
     qdrant: Any = None,
     embedder: Any = None,
+    llm_router: Any = None,
 ) -> dict[str, Any]:
-    """Parse the document text, upsert its Điều/Khoản into Neo4j, and index Khoản into Qdrant.
+    """Parse the document text, upsert its Điều/Khoản into Neo4j, index Khoản into Qdrant, and run NER.
 
-    Returns a status dict: {status, vb_id, dieu_count, khoan_count, indexed_count, needs_review, message}.
+    Returns a status dict: {status, vb_id, dieu_count, khoan_count, indexed_count, ner_count, needs_review, message}.
     - status="success" when at least one Điều was written,
     - status="needs_review" when text was present but no structure could be parsed,
     - status="queued" when no content was supplied (awaiting file upload / async fetch).
@@ -187,17 +222,22 @@ async def run_legal_ingest(
         dieu_list=dieu_list,
     )
 
+    # Run NER on every Khoản to extract legal entities (best-effort, never blocks).
+    ner_count = await _run_ner(llm_router, dieu_list, vb_id)
+
     index_note = (
         f" · đã index {indexed_count} Khoản cho AI truy hồi"
         if indexed_count
         else " · (chưa index vector — AI chưa truy hồi được)"
     )
+    ner_note = f" · NER {ner_count}/{khoan_count} Khoản" if ner_count else ""
     return {
         "status": "success",
         "vb_id": vb_id,
         "dieu_count": len(dieu_list),
         "khoan_count": khoan_count,
         "indexed_count": indexed_count,
+        "ner_count": ner_count,
         "needs_review": needs_review,
-        "message": f"Đã số hóa {len(dieu_list)} Điều / {khoan_count} Khoản vào đồ thị{index_note}.",
+        "message": f"Đã số hóa {len(dieu_list)} Điều / {khoan_count} Khoản vào đồ thị{index_note}{ner_note}.",
     }

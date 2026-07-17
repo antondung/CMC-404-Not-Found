@@ -6,7 +6,7 @@ from arq.connections import RedisSettings
 
 from app.config import BE2Config, get_config
 from app.workers.content_jobs import brief_generate, suggest_generate
-from app.workers.legal_jobs import legal_ingest
+from app.workers.legal_jobs import legal_ingest, legal_extract
 from app.workers.social_jobs import alert_fanout, social_claim, social_ingest, social_link, social_topic
 
 BE2_WORKER_FUNCTIONS = [
@@ -20,7 +20,7 @@ BE2_WORKER_FUNCTIONS = [
 ]
 
 # Legal ingest is BE1/BE3 territory (kept out of the scope-limited BE2 worker).
-LEGAL_WORKER_FUNCTIONS = [legal_ingest]
+LEGAL_WORKER_FUNCTIONS = [legal_ingest, legal_extract]
 
 def redis_settings(config: BE2Config | None = None) -> RedisSettings:
     cfg = config or get_config()
@@ -59,6 +59,7 @@ async def worker_startup(ctx: dict) -> None:
     ctx["db_pool"] = pool
     ctx["qdrant"] = qdrant
     ctx["embedder"] = embedder
+    ctx["llm_router"] = router
     ctx["legal_repo"] = legal_repo
     ctx["social_repo"] = social_repo
     ctx["social_ingest_service"] = SocialIngestService(social_repo, cfg)

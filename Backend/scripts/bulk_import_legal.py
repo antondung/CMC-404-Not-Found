@@ -82,6 +82,7 @@ def main() -> int:
     ap.add_argument("--sleep", type=float, default=0.5, help="Nghỉ giữa các file (giây)")
     ap.add_argument("--timeout", type=float, default=600.0, help="Timeout mỗi file (giây); OCR có thể lâu")
     ap.add_argument("--sohieu-from-name", action="store_true", help="Luôn dùng nguyên tên file làm số hiệu")
+    ap.add_argument("--ner", action="store_true", help="Chạy NER ngay khi nạp (chậm). Mặc định TẮT — nạp nhanh rồi chạy POST /admin/legal/run-ner sau")
     args = ap.parse_args()
 
     folder = Path(args.folder).expanduser()
@@ -126,7 +127,13 @@ def main() -> int:
                 ing = client.post(
                     f"{args.api}/admin/ingest/legal",
                     headers=headers,
-                    json={"so_hieu": so_hieu, "ten": path.stem, "url_or_content": None, "file_ids": [file_id]},
+                    json={
+                        "so_hieu": so_hieu,
+                        "ten": path.stem,
+                        "url_or_content": None,
+                        "file_ids": [file_id],
+                        "run_ner": bool(args.ner),
+                    },
                 )
                 ing.raise_for_status()
                 d = ing.json()["data"]
@@ -165,6 +172,11 @@ def main() -> int:
     print(f"  queued       : {counts.get('queued', 0)}")
     print(f"  error        : {counts.get('error', 0)}")
     print(f"  Báo cáo chi tiết: {report_path}")
+    if not args.ner and counts.get("success", 0):
+        print(
+            "\n  NER đã được BỎ QUA để nạp nhanh. Bóc tách thực thể sau bằng cách gọi lặp:\n"
+            "    POST /admin/legal/run-ner?limit=200   (đến khi remaining = 0)"
+        )
     return 0
 
 

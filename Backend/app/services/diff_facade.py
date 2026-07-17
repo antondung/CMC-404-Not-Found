@@ -8,7 +8,7 @@ from typing import Any
 from datetime import datetime, timezone
 from app.pipelines.legal.version_diff import VersionDiff
 from app.pipelines.legal.normalize import normalize_so_hieu, generate_van_ban_id
-from app.pipelines.legal.pipeline import run_legal_ingest, reindex_khoan_from_neo4j
+from app.pipelines.legal.pipeline import run_legal_ingest, reindex_khoan_from_neo4j, run_ner_backfill
 
 _JOB_STATUSES = {"queued", "running", "success", "error", "needs_review"}
 
@@ -137,7 +137,7 @@ class LegalDiffFacade:
                     "message": "Đã đưa vào hàng đợi Arq để worker xử lý bất đồng bộ.",
                 }
 
-        # Synchronous path (A): parse + write to Neo4j + index vectors + NER now.
+        # Synchronous path (A): parse + write to Neo4j + index vectors (NER decoupled by default).
         result = await run_legal_ingest(
             self.driver,
             payload,
@@ -146,6 +146,7 @@ class LegalDiffFacade:
             llm_router=self.llm_router,
             pool=self.pool,
             minio=self.minio,
+            run_ner=payload.get("run_ner"),
         )
         await self._update_job_status(job_id, result["status"], result.get("message"))
         return {
@@ -164,6 +165,10 @@ class LegalDiffFacade:
     async def reindex_vectors(self, van_ban_id: str | None = None) -> dict[str, Any]:
         """Backfill Qdrant from Neo4j so ALL digitized Khoản become retrievable by the AI."""
         return await reindex_khoan_from_neo4j(self.driver, self.qdrant, self.embedder, van_ban_id)
+
+    async def run_ner(self, van_ban_id: str | None = None, limit: int = 100) -> dict[str, Any]:
+        """Run NER (entity extraction) as a decoupled background pass over un-processed Khoản."""
+        return await run_ner_backfill(self.driver, self.llm_router, van_ban_id=van_ban_id, limit=limit)
 
     async def _insert_job(self, job_id: str, payload: dict[str, Any]) -> None:
         if not (self.pool and hasattr(self.pool, "acquire")):

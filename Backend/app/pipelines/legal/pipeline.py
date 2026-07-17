@@ -248,14 +248,17 @@ async def _run_ner(
     llm_router: Any,
     dieu_list: list[dict[str, Any]],
     vb_id: str,
+    driver: Any = None,
 ) -> int:
-    """Run NER on every Khoản in dieu_list; returns the number of Khoản successfully extracted.
+    """Run NER on every Khoản in dieu_list and PERSIST the extracted entities into Neo4j.
 
-    Best-effort: exceptions per-Khoản are caught so one bad Khoản never fails the whole batch.
+    Returns the number of Khoản successfully extracted. Best-effort: exceptions per-Khoản are
+    caught so one bad Khoản never fails the whole batch.
     """
     if llm_router is None:
         return 0
     extractor = LegalExtractor(llm_router=llm_router)
+    repo = Neo4jLegalRepository(driver) if driver is not None else None
     extracted = 0
     for dieu in dieu_list:
         for khoan in dieu.get("khoan_list", []):
@@ -266,15 +269,67 @@ async def _run_ner(
                 result = await extractor.extract_entities_from_khoan(khoan["khoan_id"], text)
                 if not result.get("_skip_reason"):
                     extracted += 1
-                    logger.debug(
-                        "legal_ingest: NER done for %s — chu_the=%d nghia_vu=%d",
-                        khoan["khoan_id"],
-                        len(result.get("chu_the", [])),
-                        len(result.get("nghia_vu", [])),
-                    )
+                    if repo is not None:
+                        await repo.upsert_khoan_entities(khoan["khoan_id"], result)
             except Exception as exc:  # noqa: BLE001
                 logger.warning("legal_ingest: NER failed for khoan %s: %s", khoan.get("khoan_id"), exc)
     return extracted
+
+
+async def run_ner_backfill(
+    driver: Any,
+    llm_router: Any,
+    van_ban_id: str | None = None,
+    limit: int = 100,
+) -> dict[str, Any]:
+    """Run NER on Khoản that haven't been processed yet, and persist entities into Neo4j.
+
+    Decoupled from ingest so digitization stays fast: ingest writes the graph + vectors (searchable
+    immediately), then this backfill enriches entities in the background / on demand. Processes up
+    to ``limit`` Khoản per call; call repeatedly until ``remaining`` is 0. Idempotent (ner_done flag).
+    """
+    if not (driver and hasattr(driver, "session")):
+        return {"status": "error", "message": "neo4j_unavailable", "processed": 0, "entities": 0, "remaining": 0}
+    if llm_router is None:
+        return {"status": "error", "message": "llm_router_unavailable", "processed": 0, "entities": 0, "remaining": 0}
+
+    repo = Neo4jLegalRepository(driver)
+    extractor = LegalExtractor(llm_router=llm_router)
+    pending = await repo.list_khoan_needing_ner(van_ban_id=van_ban_id, limit=limit)
+    processed = 0
+    entities = 0
+    for row in pending:
+        kid = row["khoan_id"]
+        text = (row.get("noi_dung") or "").strip()
+        try:
+            result = await extractor.extract_entities_from_khoan(kid, text)
+            if not result.get("_skip_reason"):
+                entities += await repo.upsert_khoan_entities(kid, result)
+            else:
+                # Mark as done anyway so we don't retry a Khoản the LLM keeps skipping.
+                await repo.upsert_khoan_entities(kid, {})
+            processed += 1
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("run_ner_backfill: NER failed for khoan %s: %s", kid, exc)
+
+    remaining = await repo.count_khoan_needing_ner(van_ban_id=van_ban_id)
+    return {
+        "status": "success",
+        "van_ban_id": van_ban_id,
+        "processed": processed,
+        "entities": entities,
+        "remaining": remaining,
+        "message": f"Đã bóc tách thực thể cho {processed} Khoản ({entities} thực thể). Còn lại {remaining}.",
+    }
+
+
+def _ner_on_ingest_default() -> bool:
+    """Whether NER runs inline during ingest. Default OFF: NER is a slow per-Khoản LLM call and is
+    now decoupled into run_ner_backfill, so bulk/large ingests stay fast. Set LEGAL_NER_ON_INGEST=1
+    to re-enable inline NER for single documents."""
+    import os
+
+    return os.getenv("LEGAL_NER_ON_INGEST", "0") == "1"
 
 
 async def run_legal_ingest(
@@ -285,6 +340,7 @@ async def run_legal_ingest(
     llm_router: Any = None,
     pool: Any = None,
     minio: Any = None,
+    run_ner: bool | None = None,
 ) -> dict[str, Any]:
     """Parse the document text, upsert its Điều/Khoản into Neo4j, index Khoản into Qdrant, and run NER.
 
@@ -382,8 +438,10 @@ async def run_legal_ingest(
         dieu_list=dieu_list,
     )
 
-    # Run NER on every Khoản to extract legal entities (best-effort, never blocks).
-    ner_count = await _run_ner(llm_router, dieu_list, vb_id)
+    # NER is decoupled by default (run via run_ner_backfill) so ingest stays fast. Only run inline
+    # when explicitly requested (run_ner=True) or when LEGAL_NER_ON_INGEST=1.
+    should_ner = _ner_on_ingest_default() if run_ner is None else run_ner
+    ner_count = await _run_ner(llm_router, dieu_list, vb_id, driver=driver) if should_ner else 0
 
     index_note = (
         f" · đã index {indexed_count} Khoản cho AI truy hồi"

@@ -95,6 +95,76 @@ class Neo4jLegalRepository:
         khoan_count = sum(len(d.get("khoan_list", [])) for d in dieu_list)
         return {"written": True, "vb_id": doc.get("vb_id"), "dieu_count": len(dieu_list), "khoan_count": khoan_count}
 
+    # Category -> (Neo4j label, relationship type from Khoan to the entity).
+    _ENTITY_MAP = {
+        "chu_the": ("ChuThe", "AP_DUNG_CHO"),
+        "nghia_vu": ("NghiaVu", "CO_NGHIA_VU"),
+        "quyen_loi": ("QuyenLoi", "CO_QUYEN_LOI"),
+        "hanh_vi_cam": ("HanhViCam", "CAM"),
+        "thoi_han": ("ThoiHan", "CO_THOI_HAN"),
+        "che_tai": ("CheTai", "CO_CHE_TAI"),
+    }
+
+    async def upsert_khoan_entities(self, khoan_id: str, entities: dict[str, Any]) -> int:
+        """Persist NER-extracted legal entities for a Khoản and mark it ner_done.
+
+        Idempotent: entity nodes are MERGEd on (khoan_id, mo_ta) so re-running NER for the same
+        Khoản overwrites rather than duplicates. Returns the number of entity nodes written.
+        """
+        if not self.driver or not hasattr(self.driver, "session"):
+            return 0
+        written = 0
+        async with self.driver.session() as session:
+            for category, (label, rel) in self._ENTITY_MAP.items():
+                items = entities.get(category) or []
+                rows = [{"mo_ta": (it.get("mo_ta") if isinstance(it, dict) else str(it))} for it in items]
+                rows = [r for r in rows if (r["mo_ta"] or "").strip()]
+                if not rows:
+                    continue
+                # Label + rel are from a fixed internal map (never user input), safe to interpolate.
+                query = (
+                    "MATCH (k:Khoan {khoan_id: $kid}) "
+                    "UNWIND $rows AS it "
+                    f"MERGE (e:{label} {{khoan_id: $kid, mo_ta: it.mo_ta}}) "
+                    f"MERGE (k)-[:{rel}]->(e)"
+                )
+                await session.run(query, kid=khoan_id, rows=rows)
+                written += len(rows)
+            await session.run(
+                "MATCH (k:Khoan {khoan_id: $kid}) SET k.ner_done = true", kid=khoan_id
+            )
+        return written
+
+    async def list_khoan_needing_ner(self, van_ban_id: str | None = None, limit: int = 200) -> list[dict[str, Any]]:
+        """Return Khoản that have not been NER-processed yet (ner_done is null/false)."""
+        if not self.driver or not hasattr(self.driver, "session"):
+            return []
+        where_vb = "AND k.van_ban_id = $vb" if van_ban_id else ""
+        query = (
+            f"MATCH (k:Khoan) WHERE coalesce(k.ner_done, false) = false {where_vb} "
+            "AND k.noi_dung IS NOT NULL AND trim(k.noi_dung) <> '' "
+            "RETURN k.khoan_id AS khoan_id, k.noi_dung AS noi_dung LIMIT $limit"
+        )
+        out: list[dict[str, Any]] = []
+        async with self.driver.session() as session:
+            res = await session.run(query, vb=van_ban_id, limit=limit)
+            async for record in res:
+                out.append({"khoan_id": record["khoan_id"], "noi_dung": record["noi_dung"]})
+        return out
+
+    async def count_khoan_needing_ner(self, van_ban_id: str | None = None) -> int:
+        if not self.driver or not hasattr(self.driver, "session"):
+            return 0
+        where_vb = "AND k.van_ban_id = $vb" if van_ban_id else ""
+        query = (
+            f"MATCH (k:Khoan) WHERE coalesce(k.ner_done, false) = false {where_vb} "
+            "AND k.noi_dung IS NOT NULL AND trim(k.noi_dung) <> '' RETURN count(k) AS c"
+        )
+        async with self.driver.session() as session:
+            res = await session.run(query, vb=van_ban_id)
+            record = await res.single()
+        return int(record["c"]) if record else 0
+
     async def list_khoan_for_van_ban(self, van_ban_id: str) -> list[CandidateKhoan]:
         if not van_ban_id or not self.driver or not hasattr(self.driver, "session"):
             return []

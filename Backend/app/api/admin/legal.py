@@ -28,6 +28,11 @@ class IngestLegalRequest(BaseModel):
     ten: str | None = Field(default=None, description="Tên văn bản")
     url_or_content: str | None = Field(default=None, description="URL hoặc nội dung text văn bản")
     file_ids: list[str] = Field(default_factory=list, description="Danh sách ID file đính kèm đã upload")
+    run_ner: bool | None = Field(
+        default=None,
+        description="Chạy NER (bóc tách thực thể) ngay khi nạp. Mặc định TẮT để nạp nhanh; "
+        "chạy NER sau qua POST /admin/legal/run-ner.",
+    )
 
 
 class LegalDiffRequest(BaseModel):
@@ -82,6 +87,22 @@ async def reindex_legal_vectors(
 ) -> dict[str, Any]:
     facade = LegalDiffFacade(neo4j_driver=driver, qdrant=qdrant, embedder=embedder)
     res = await facade.reindex_vectors(van_ban_id=van_ban_id)
+    return success_response(data=res, request_id=get_request_id())
+
+
+@router.post("/legal/run-ner", summary="Chạy NER nền: bóc tách & lưu thực thể pháp lý cho các Khoản chưa xử lý")
+async def run_legal_ner(
+    van_ban_id: str | None = None,
+    limit: int = 100,
+    pool: Any = Depends(get_db_pool),
+    driver: Any = Depends(get_neo4j_driver),
+    llm_router: Any = Depends(get_llm_router),
+    user: UserToken = Depends(require_admin()),
+) -> dict[str, Any]:
+    """Decoupled NER pass (tách khỏi luồng nạp để nạp nhanh). Xử lý tối đa ``limit`` Khoản mỗi lần;
+    gọi lặp cho đến khi ``remaining`` = 0."""
+    facade = LegalDiffFacade(pool=pool, neo4j_driver=driver, llm_router=llm_router)
+    res = await facade.run_ner(van_ban_id=van_ban_id, limit=limit)
     return success_response(data=res, request_id=get_request_id())
 
 

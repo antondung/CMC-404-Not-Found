@@ -130,7 +130,7 @@ def get_config() -> BE2Config:
         alert_cooldown_s=int(os.getenv("BE2_ALERT_COOLDOWN_S", "3600")),
         author_hmac_secret=os.getenv("BE2_AUTHOR_HMAC_SECRET"),
         default_job_timeout_s=int(os.getenv("BE2_DEFAULT_JOB_TIMEOUT_S", "300")),
-        redis_url=os.getenv("BE2_REDIS_URL", "redis://localhost:6379/0"),
+        redis_url=os.getenv("REDIS_URL") or os.getenv("BE2_REDIS_URL", "redis://localhost:6379/0"),
         social_monitor_enabled=_bool_env("BE2_SOCIAL_MONITOR_ENABLED"),
         social_monitor_topics=_csv_env("BE2_SOCIAL_MONITOR_TOPICS"),
         social_monitor_limit_per_topic=int(os.getenv("BE2_SOCIAL_MONITOR_LIMIT_PER_TOPIC", "10")),

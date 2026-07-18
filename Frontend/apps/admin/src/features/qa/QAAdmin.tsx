@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { PaperPlaneRight, User, Robot, ShieldCheck, WarningCircle, CaretRight, Path, Sparkle, Database, Quotes, ListChecks, Trash } from '@phosphor-icons/react';
+import { PaperPlaneRight, User, Robot, ShieldCheck, WarningCircle, CaretRight, Path, Sparkle, Database, Quotes, Trash } from '@phosphor-icons/react';
 import { CitationCard } from '../../../../../packages/ui-legal/src/components/CitationCard';
+import { AnswerMarkdown } from '../../../../../packages/ui-legal/src/components/AnswerMarkdown';
 import { apiPost } from '../../lib/api';
 
 interface BackendCitation {
@@ -101,62 +102,6 @@ function GraphPathBreadcrumb({ paths }: { paths: GraphPath[] }) {
 }
 
 const generateId = () => crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
-
-function renderInlineMarkdown(text: string) {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
-  return parts.map((part, idx) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={idx} className="font-black text-slate-950">{part.slice(2, -2)}</strong>;
-    }
-    return <span key={idx}>{part}</span>;
-  });
-}
-
-function AnswerRenderer({ content }: { content: string }) {
-  const lines = content.split('\n').map((line) => line.trim()).filter(Boolean);
-  const hasStructure = lines.some((line) => line.startsWith('- ') || line.startsWith('**') || line === '---');
-
-  if (!hasStructure) {
-    return <p>{content}</p>;
-  }
-
-  return (
-    <div className="space-y-3">
-      {lines.map((line, idx) => {
-        if (line === '---') {
-          return <div key={idx} className="my-4 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />;
-        }
-
-        const isBullet = line.startsWith('- ');
-        if (isBullet) {
-          return (
-            <div key={idx} className="flex gap-3 rounded-2xl bg-slate-50/80 px-4 py-2.5 ring-1 ring-slate-100">
-              <div className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
-              <p className="text-sm leading-6 text-slate-700">{renderInlineMarkdown(line.slice(2))}</p>
-            </div>
-          );
-        }
-
-        const cleanHeading = line.replace(/^\*\*/, '').replace(/\*\*:?$/, '').replace(/:$/, '');
-        const isHeading = line.startsWith('**') && line.includes('**');
-        if (isHeading) {
-          return (
-            <div key={idx} className="mt-4 flex items-center gap-2 rounded-2xl bg-blue-50 px-4 py-3 text-blue-900 ring-1 ring-blue-100 first:mt-0">
-              <ListChecks size={17} weight="fill" className="text-blue-600" />
-              <h3 className="text-sm font-black uppercase tracking-wide">{cleanHeading}</h3>
-            </div>
-          );
-        }
-
-        return (
-          <p key={idx} className="text-sm leading-7 text-slate-700">
-            {renderInlineMarkdown(line)}
-          </p>
-        );
-      })}
-    </div>
-  );
-}
 
 function confidenceStyle(confidence?: 'high' | 'medium' | 'low') {
   if (confidence === 'high') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
@@ -280,7 +225,7 @@ export default function QAAdminPage() {
                     <span className="w-2 h-2 rounded-full bg-secondaryAccent/90 animate-bounce [animation-delay:-0.3s]"></span>
                   </div>
                 ) : msg.role === 'assistant' ? (
-                  <AnswerRenderer content={msg.content} />
+                  <AnswerMarkdown content={msg.content} density="compact" />
                 ) : (
                   msg.content
                 )}

@@ -3,50 +3,8 @@ import { PaperPlaneRight, User, Robot, Scales, ShieldCheck, ArrowLeft, Trash, Li
 import { Link } from 'react-router-dom';
 import { CitationCard } from '../../../../../packages/ui-legal/src/components/CitationCard';
 import { GraphPathBreadcrumb } from '../../../../../packages/ui-legal/src/components/GraphPathBreadcrumb';
+import { AnswerMarkdown } from '../../../../../packages/ui-legal/src/components/AnswerMarkdown';
 import { apiPost } from '../../lib/api';
-
-const Typewriter = ({ text, speed = 10, onComplete }: { text: string; speed?: number; onComplete?: () => void }) => {
-  const [displayedText, setDisplayedText] = useState('');
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const onCompleteRef = useRef(onComplete);
-  const hasCompletedRef = useRef(false);
-
-  useEffect(() => {
-    onCompleteRef.current = onComplete;
-  }, [onComplete]);
-
-  useEffect(() => {
-    // Reset when text changes
-    setDisplayedText('');
-    setCurrentIndex(0);
-    hasCompletedRef.current = false;
-  }, [text]);
-
-  useEffect(() => {
-    if (currentIndex < text.length) {
-      const timeout = setTimeout(() => {
-        const chunkSize = 3;
-        const nextIndex = Math.min(currentIndex + chunkSize, text.length);
-        setDisplayedText(prev => prev + text.slice(currentIndex, nextIndex));
-        setCurrentIndex(nextIndex);
-        
-        // Auto-scroll container while typing
-        const mainEl = document.querySelector('main');
-        if (mainEl) {
-          mainEl.scrollTo({ top: mainEl.scrollHeight, behavior: 'smooth' });
-        }
-      }, speed);
-      return () => clearTimeout(timeout);
-    } else if (!hasCompletedRef.current) {
-      hasCompletedRef.current = true;
-      if (onCompleteRef.current) {
-        onCompleteRef.current();
-      }
-    }
-  }, [currentIndex, text, speed]);
-
-  return <span className="whitespace-pre-wrap">{displayedText}</span>;
-};
 
 
 // graph_paths comes back as structured objects ({khoan_id, nodes, edges}); keep it loose here
@@ -146,6 +104,7 @@ export default function AskPage() {
             }
           : msg
       ));
+      setIsTypingComplete(prev => ({ ...prev, [typingId]: true }));
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Lỗi không xác định';
       setMessages(prev => prev.map(msg =>
@@ -158,6 +117,7 @@ export default function AskPage() {
             }
           : msg
       ));
+      setIsTypingComplete(prev => ({ ...prev, [typingId]: true }));
     } finally {
       setIsLoading(false);
     }
@@ -224,17 +184,13 @@ export default function AskPage() {
                   </div>
                 ) : (
                   <>
-                    <p className={`text-[15px] sm:text-[16px] leading-relaxed whitespace-pre-wrap ${msg.role === 'user' ? 'font-medium' : 'font-normal text-slate-700'}`}>
-                      {msg.role === 'ai' ? (
-                        <Typewriter 
-                          text={msg.content} 
-                          speed={2}
-                          onComplete={() => setIsTypingComplete(prev => prev[msg.id] ? prev : { ...prev, [msg.id]: true })} 
-                        />
-                      ) : (
-                        msg.content
-                      )}
-                    </p>
+                    {msg.role === 'ai' ? (
+                      <AnswerMarkdown content={msg.content} />
+                    ) : (
+                      <p className="text-[15px] sm:text-[16px] leading-relaxed whitespace-pre-wrap font-medium">
+                        {msg.content}
+                      </p>
+                    )}
 
                     {msg.role === 'ai' && msg.asOf && (
                       <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">

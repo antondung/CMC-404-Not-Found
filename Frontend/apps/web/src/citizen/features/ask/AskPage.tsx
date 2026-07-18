@@ -272,9 +272,9 @@ export default function AskPage() {
           className="flex-1 overflow-y-auto bg-[#F4F7FC] px-3 py-5 sm:px-5"
           aria-live="polite"
         >
-          <div className="mx-auto flex max-w-bubble flex-col gap-5">
+          <div className="mx-auto flex w-full flex-col gap-5">
             {messages.map((msg) => (
-              <div key={msg.id} className={`ls-msg-in flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div key={msg.id} className={`ls-msg-in flex w-full gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {msg.role === 'ai' && (
                   <div
                     className={`relative mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-gradient-to-br from-primary-soft to-[#D9E4FB] text-primary shadow-sm ${msg.isTyping ? 'ls-avatar-thinking' : ''}`}
@@ -286,12 +286,12 @@ export default function AskPage() {
                 )}
 
                 <div
-                  className={`max-w-full rounded-card px-4 py-4 sm:px-5 ${
+                  className={`min-w-0 rounded-card px-4 py-4 sm:px-5 ${
                     msg.role === 'user'
-                      ? 'rounded-tr-md bg-[#2557D6] text-white shadow-md'
+                      ? 'w-fit max-w-[84%] rounded-tr-md bg-[#2557D6] text-white shadow-md sm:max-w-[72%]'
                       : msg.isTyping
-                        ? 'rounded-tl-md border border-primary/30 bg-white shadow-[0_8px_24px_-12px_rgba(37,87,214,0.35)]'
-                        : 'rounded-tl-md border border-slate-200 bg-white shadow-sm'
+                        ? 'w-fit max-w-[calc(100%-3.25rem)] rounded-tl-md border border-primary/30 bg-white shadow-[0_8px_24px_-12px_rgba(37,87,214,0.35)] sm:max-w-[88%]'
+                        : 'w-fit max-w-[calc(100%-3.25rem)] rounded-tl-md border border-slate-200 bg-white shadow-sm sm:max-w-[88%]'
                   }`}
                 >
                   {msg.isTyping ? (

@@ -58,7 +58,7 @@ export const CitationCard: React.FC<CitationCardProps> = ({ khoan_id, van_ban, d
         </div>
 
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="shrink-0 rounded-[4px] bg-slate-800 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white shadow-sm">
+          <span className="shrink-0 rounded-[5px] border border-emerald-200/80 bg-gradient-to-r from-emerald-50 to-cyan-50 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-emerald-800 shadow-[0_1px_2px_rgba(16,185,129,0.08)] transition-colors duration-300 group-hover:border-emerald-300 group-hover:from-emerald-100 group-hover:to-cyan-100">
             {kind}
           </span>
           <span className="truncate text-sm font-bold text-slate-800 transition-colors duration-300 group-hover:text-emerald-700">

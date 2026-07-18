@@ -34,7 +34,17 @@ _AMBIGUOUS_TOPIC_STOP = frozenset({
     "model", "ban", "toi", "minh", "chung", "ta", "ai", "bot", "chat", "chatbot",
     "llm", "gpt", "openai", "gemini", "claude", "tro", "ly", "he", "thong", "may",
     "tinh", "phan", "mem", "ung", "dung", "app", "website", "web",
+    # Amounts / filler — "100 triệu" must not match example figures in unrelated circulars.
+    "trieu", "ty", "nghin", "dong", "vnd", "tram", "chuc", "nop", "choi", "khong", "can",
 })
+
+_ANCHOR_TOPIC_CHECKS: list[tuple[tuple[str, ...], list[str]]] = [
+    (("thue thu nhap ca nhan", "thu nhap ca nhan", "tncn"), ["thue thu nhap ca nhan", "thu nhap ca nhan", "tncn"]),
+    (("co bac", "ca cuoc", "casino", "lo de"), ["co bac", "ca cuoc", "casino", "tro choi co thuong"]),
+    (("nong do con",), ["nong do con", "vi pham nong do con"]),
+    (("hoa don dien tu",), ["hoa don dien tu"]),
+    (("hoan thue",), ["hoan thue"]),
+]
 
 
 # Idea 01 — Time-Travel: which candidate Khoản are INVALID as of a given date, because either
@@ -181,6 +191,10 @@ class QAService:
             ("bao nhieu", "mức"),
             ("nghi dinh", "nghị định"),
             ("quyet dinh", "quyết định"),
+            ("thue thu nhap ca nhan", "thuế thu nhập cá nhân"),
+            ("thu nhap ca nhan", "thu nhập cá nhân"),
+            ("co bac", "cờ bạc"),
+            ("tncn", "TNCN"),
         ]
         for needle, phrase in phrase_map:
             if needle in norm and phrase not in phrases:
@@ -198,9 +212,11 @@ class QAService:
         meaningful: list[str] = []
         for token in tokens:
             plain = cls._strip_accents(token)
-            if len(plain) >= 4 and plain not in stop:
+            if plain.isdigit() or re.fullmatch(r"\d+[a-z]*", plain or ""):
+                continue
+            if len(plain) >= 4 and plain not in stop and plain not in _AMBIGUOUS_TOPIC_STOP:
                 meaningful.append(token)
-            if len(plain) >= 4 and plain not in stop and token not in phrases:
+            if len(plain) >= 4 and plain not in stop and plain not in _AMBIGUOUS_TOPIC_STOP and token not in phrases:
                 phrases.append(token)
 
         for n in (4, 3, 2):
@@ -233,6 +249,8 @@ class QAService:
         stop_plain = {cls._strip_accents(s) for s in stop} | set(_AMBIGUOUS_TOPIC_STOP)
         for token in tokens:
             plain = cls._strip_accents(token)
+            if plain.isdigit() or re.fullmatch(r"\d+[a-z]*", plain or ""):
+                continue
             # Keep 3+ char topic terms (e.g. "cồn", "thuế") so generic hits like "mức phạt" alone cannot pass.
             if len(plain) >= 3 and token not in stop and plain not in stop_plain:
                 topic_tokens.append(token)
@@ -258,19 +276,36 @@ class QAService:
         return re.search(rf"(?<![a-z0-9]){re.escape(term)}(?![a-z0-9])", body) is not None
 
     @classmethod
+    def _anchor_phrases(cls, question: str) -> list[str]:
+        """Accent-stripped phrases that MUST appear in a candidate when the question implies them."""
+        norm = cls._strip_accents(question or "")
+        anchors: list[str] = []
+        for needles, phrases in _ANCHOR_TOPIC_CHECKS:
+            if any(n in norm for n in needles):
+                for p in phrases:
+                    if p not in anchors:
+                        anchors.append(p)
+        return anchors
+
+    @classmethod
     def _topic_relevance(cls, question: str, text: str) -> float:
         """How well a provision matches the question's distinctive topic terms (not generic legal words)."""
-        required = [cls._strip_accents(x) for x in cls._required_keyword_queries(question)]
-        if not required:
-            return 1.0  # no distinctive topic → do not gate
         body = cls._strip_accents(text or "")
         if not body:
             return 0.0
+        anchors = cls._anchor_phrases(question)
+        if anchors and not any(cls._contains_term(body, a) for a in anchors):
+            return 0.0
+        required = [cls._strip_accents(r) for r in cls._required_keyword_queries(question)]
+        if not required:
+            return 0.0 if anchors else 1.0  # no distinctive topic → do not gate (unless anchors failed already)
         # Prefer multi-word phrases; fall back to single topic tokens so one hit (e.g. "cồn") is enough.
         phrases = [r for r in required if " " in r]
         if any(cls._contains_term(body, p) for p in phrases):
             return 1.0
         tokens = [r for r in required if " " not in r] or required
+        if len(tokens) == 1 and tokens[0] in {"thue", "phi", "le"}:
+            return 0.0
         hits = sum(1 for req in tokens if cls._contains_term(body, req))
         return hits / max(len(tokens), 1)
 
@@ -836,7 +871,7 @@ class QAService:
         """
         import os
 
-        if os.getenv("QA_EXTRACTIVE_FALLBACK", "1") != "1":
+        if os.getenv("QA_EXTRACTIVE_FALLBACK", "0") != "1":
             return None
         top = candidates[:3]
 
@@ -993,21 +1028,26 @@ class QAService:
                 reason="No legal candidates in force as of the requested date.",
             )
 
-        # 2. Call LLM synthesized answer via BE2 router
+        # 2. Call LLM synthesized answer via BE2 router — never dump raw extractive citations.
         if not self.router:
-            fallback = await self._extractive_answer(candidates, audience, "BE2 LLMRouter service unavailable.")
-            if fallback:
-                return fallback
-            return {
-                "answer": "Hệ thống AI xử lý ngôn ngữ (BE2 Intelligence API) hiện chưa sẵn sàng. Vui lòng thử lại sau.",
-                "citations": [],
-                "confidence": "low",
-                "graph_paths": [],
-                "graph_paths_status": "disabled",
-                "graph_paths_reason": "AI service unavailable",
-                "audience": audience,
-                "refuse_reason": ["BE2 LLMRouter service unavailable."],
-            }
+            return await self._unverified_ai_answer(
+                question=question,
+                audience=audience,
+                as_of=as_of_val,
+                notices=notices,
+                reason="BE2 LLMRouter service unavailable.",
+            )
+
+        # Re-filter with anchors (TNCN / cờ bạc) before prompting — drop hải quan false positives.
+        candidates = self._filter_relevant_candidates(candidates, question)
+        if not candidates:
+            return await self._unverified_ai_answer(
+                question=question,
+                audience=audience,
+                as_of=as_of_val,
+                notices=notices,
+                reason="Retrieved context does not cover the question topic.",
+            )
 
         context_limit = 3 if audience == "citizen" else 4
         candidates = candidates[:context_limit]
@@ -1018,8 +1058,10 @@ class QAService:
             f"Câu hỏi: {question}\n"
             "Chỉ trả lời dựa trên retrieved_context ở trên. Tuyệt đối không bịa. "
             "Xác định chủ đề chính của câu hỏi rồi chỉ dùng điều khoản thật sự trả lời đúng chủ đề đó "
-            "(không viện dẫn điều khoản chỉ vì có từ chung như 'mức phạt', 'hồ sơ', 'thủ tục', 'model'). "
-            "Nếu câu hỏi hỏi về danh tính trợ lý/AI/model (ví dụ 'bạn là model gì') hoặc không phải câu hỏi pháp luật: "
+            "(không viện dẫn chỉ vì trùng 'thuế', '100 triệu', 'cá nhân', 'model'). "
+            "Nếu ngữ cảnh là thuế nhập khẩu/hải quan trong khi câu hỏi về thuế thu nhập cá nhân hoặc cờ bạc: "
+            "đó là lệch chủ đề — nói rõ chưa đủ căn cứ đúng chủ đề, citations = []. "
+            "Nếu câu hỏi hỏi về danh tính trợ lý/AI/model hoặc không phải câu hỏi pháp luật: "
             "nói rõ ngoài phạm vi tra cứu pháp lý, trả về citations = []. "
             "Nếu retrieved_context không chứa quy định đúng chủ đề câu hỏi: nói rõ chưa đủ căn cứ / ngữ cảnh không quy định về chủ đề đó, "
             "và trả về citations = [] (mảng rỗng). "
@@ -1038,19 +1080,13 @@ class QAService:
                 complexity="low",
             )
         except Exception as e:
-            fallback = await self._extractive_answer(candidates, audience, f"LLMRouter error: {str(e)}")
-            if fallback:
-                return fallback
-            return {
-                "answer": f"Không thể tạo lời giải từ hệ thống AI: {str(e)}",
-                "citations": [],
-                "confidence": "low",
-                "graph_paths": [],
-                "graph_paths_status": "disabled",
-                "graph_paths_reason": "AI service error",
-                "audience": audience,
-                "refuse_reason": [f"LLMRouter error: {str(e)}"],
-            }
+            return await self._unverified_ai_answer(
+                question=question,
+                audience=audience,
+                as_of=as_of_val,
+                notices=notices,
+                reason=f"LLMRouter error: {str(e)}",
+            )
 
         # LLM router returns a needs_review envelope when output fails schema repair
         if llm_out.get("needs_review") or llm_out.get("status") == "needs_review":

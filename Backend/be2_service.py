@@ -262,12 +262,20 @@ def _question_terms(question: str) -> list[str]:
         "xu", "tham", "quyen", "trach", "nhiem", "nghia", "vu", "loi", "chinh", "sach", "bao", "nhieu",
         # Ambiguous / chitchat — "model" must not match "model xe" in tax circulars.
         "model", "ai", "bot", "chatbot", "llm", "gpt", "toi", "minh", "chung", "ta",
+        # Amounts / numbers must not match example figures in unrelated circulars ("100 triệu").
+        "trieu", "ty", "nghin", "dong", "vnd", "tram", "chuc", "nop", "can", "choi", "khong",
     }
     terms: list[str] = []
     tokens = re.findall(r"[\wÀ-ỹĐđ]+", (question or "").lower())
-    # 3+ chars so short topic words like "cồn"/"thuế" still gate relevance.
-    meaningful = [t for t in tokens if len(_strip_accents(t)) >= 3 and _strip_accents(t) not in stop]
-    for n in (3, 2):
+    meaningful: list[str] = []
+    for t in tokens:
+        plain = _strip_accents(t)
+        if plain.isdigit() or re.fullmatch(r"\d+[a-z]*", plain or ""):
+            continue
+        if len(plain) >= 3 and plain not in stop:
+            meaningful.append(t)
+    # Prefer multi-word phrases first (stronger topic signal).
+    for n in (4, 3, 2):
         for i in range(0, max(0, len(meaningful) - n + 1)):
             phrase = " ".join(meaningful[i:i + n])
             if phrase not in terms:
@@ -275,7 +283,29 @@ def _question_terms(question: str) -> list[str]:
     for token in meaningful:
         if token not in terms:
             terms.append(token)
-    return terms[:10]
+    return terms[:12]
+
+
+def _anchor_phrases(question: str) -> list[str]:
+    """Distinctive legal topics that MUST appear in a candidate (accent-stripped).
+
+    Prevents 'thuế' + '100 triệu' from matching thuế nhập khẩu examples.
+    """
+    norm = _strip_accents(question or "")
+    anchors: list[str] = []
+    checks = [
+        (("thue thu nhap ca nhan", "thu nhap ca nhan", "tncn"), ["thue thu nhap ca nhan", "thu nhap ca nhan", "tncn"]),
+        (("co bac", "ca cuoc", "casino", "lo de"), ["co bac", "ca cuoc", "casino", "tro choi co thuong"]),
+        (("nong do con", "cong"), ["nong do con", "vi pham nong do con"]),
+        (("hoa don dien tu",), ["hoa don dien tu"]),
+        (("hoan thue",), ["hoan thue"]),
+    ]
+    for needles, phrases in checks:
+        if any(n in norm for n in needles):
+            for p in phrases:
+                if p not in anchors:
+                    anchors.append(p)
+    return anchors
 
 
 def _contains_term(body: str, term: str) -> bool:
@@ -287,16 +317,22 @@ def _contains_term(body: str, term: str) -> bool:
 
 
 def _topic_relevance(question: str, text: str) -> float:
-    terms = [_strip_accents(t) for t in _question_terms(question)]
-    if not terms:
-        return 1.0
     body = _strip_accents(text or "")
     if not body:
         return 0.0
+    anchors = _anchor_phrases(question)
+    if anchors and not any(_contains_term(body, a) for a in anchors):
+        return 0.0
+    terms = [_strip_accents(t) for t in _question_terms(question)]
+    if not terms:
+        return 0.0 if anchors else 1.0
     phrases = [t for t in terms if " " in t]
     if any(_contains_term(body, p) for p in phrases):
         return 1.0
     tokens = [t for t in terms if " " not in t] or terms
+    # Single generic token "thue" is not enough when the question is more specific.
+    if len(tokens) == 1 and tokens[0] in {"thue", "thuee", "phi", "le"}:
+        return 0.0
     hits = sum(1 for t in tokens if _contains_term(body, t))
     return hits / max(len(tokens), 1)
 
@@ -515,14 +551,21 @@ async def _handle_qa(prompt: str, timeout_s: float, model: str | None = None) ->
     if llm_answer and _answer_says_insufficient(llm_answer):
         return {"answer": llm_answer, "citations": [], "confidence": "low"}
 
-    # Citations are ALWAYS verbatim from topic-filtered context — never from the model.
-    citations = [{"khoan_id": kid, "quote": text} for kid, text in top[:3]]
-
+    # Citations only when LLM produced a grounded answer — NEVER dump extractive verbatim text.
+    # Extractive fallback previously cited wrong docs (e.g. "100 triệu" example in TT hải quan).
     if llm_answer:
+        citations = [{"khoan_id": kid, "quote": text} for kid, text in top[:3]]
         return {"answer": llm_answer, "citations": citations, "confidence": "medium"}
 
-    # Grounded extractive fallback (only when topic-relevant context exists).
-    return {"answer": _extractive_answer(question, top), "citations": citations, "confidence": "medium"}
+    # LLM unavailable: still answer via the no-context LLM path shape (no fake legal dump).
+    return {
+        "answer": (
+            "Hiện chưa tổng hợp được câu trả lời từ mô hình ngôn ngữ. "
+            "Hệ thống không đưa trích dẫn thô để tránh căn cứ lệch chủ đề. Vui lòng thử lại sau."
+        ),
+        "citations": [],
+        "confidence": "low",
+    }
 
 
 async def _handle_brief_or_suggest(task: str, prompt: str, timeout_s: float, model: str | None = None) -> dict[str, Any]:

@@ -67,7 +67,16 @@ async def get_db_pool() -> Any:
         pg_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/studyhub")
         try:
             import asyncpg
-            _db_pool = await asyncpg.create_pool(pg_url, min_size=2, max_size=10)
+            import ssl as _ssl
+
+            ssl_mode = (os.getenv("DATABASE_SSL") or "").strip().lower()
+            kwargs: dict[str, Any] = {"min_size": 2, "max_size": 10}
+            if ssl_mode in {"1", "true", "yes", "require", "prefer"}:
+                ctx = _ssl.create_default_context()
+                ctx.check_hostname = False
+                ctx.verify_mode = _ssl.CERT_NONE
+                kwargs["ssl"] = ctx
+            _db_pool = await asyncpg.create_pool(pg_url, **kwargs)
         except Exception:
             logger.exception("PostgreSQL pool initialization failed")
     return _db_pool
@@ -117,12 +126,17 @@ async def get_llm_router(config: BE2Config = Depends(get_config)) -> LLMRouter:
     return _llm_router
 
 
-async def get_embedder(config: BE2Config = Depends(get_config)) -> Embedder | None:
-    """Retrieve the OpenAI-compatible embedder used for real vector retrieval."""
+async def get_embedder(config: BE2Config | None = None) -> Embedder | None:
+    """Retrieve the OpenAI-compatible embedder used for real vector retrieval.
+
+    FastAPI injects config via Depends(get_config) at route level; scripts must
+    call ``await get_embedder()`` or ``await get_embedder(get_config())``.
+    """
     global _embedder
     if _embedder is None:
         try:
-            _embedder = Embedder(config=config)
+            cfg = config if isinstance(config, BE2Config) else get_config()
+            _embedder = Embedder(config=cfg)
         except Exception as exc:
             logger.warning("Embedder init failed — Qdrant vector indexing will be skipped: %s", exc)
             return None

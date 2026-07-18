@@ -1275,8 +1275,18 @@ class QAService:
                 last_err = "empty_llm_answer"
             except Exception as e:
                 last_err = str(e)
+                logger.warning(
+                    "QA unverified path: LLMRouter failed (complexity=%s): %s",
+                    complexity,
+                    e,
+                )
                 continue
 
+        logger.warning(
+            "QA unverified path: using principle fallback — reason=%s last_err=%s",
+            reason,
+            last_err,
+        )
         return self._unverified_payload(
             answer=fallback,
             audience=audience,
@@ -1436,6 +1446,12 @@ class QAService:
                 complexity=complexity,
             )
         except Exception as e:
+            logger.warning(
+                "QA answer(): LLMRouter failed (complexity=%s, candidates=%d): %s",
+                complexity,
+                len(candidates),
+                e,
+            )
             if candidates and (doc_q or overview_q):
                 return self._grounded_doc_answer(
                     question=question,

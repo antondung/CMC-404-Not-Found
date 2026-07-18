@@ -130,7 +130,12 @@ def get_config() -> BE2Config:
         embedding_dimension=emb_dim,
         embedding_base_url=emb_base,
         embedding_api_key=emb_key,
-        llm_gateway_url=os.getenv("BE2_LLM_GATEWAY_URL") or None,
+        # Prefer BE2_INTELLIGENCE_URL (used by deps.RealLLMClient); keep BE2_LLM_GATEWAY_URL as alias.
+        llm_gateway_url=(
+            os.getenv("BE2_INTELLIGENCE_URL")
+            or os.getenv("BE2_LLM_GATEWAY_URL")
+            or None
+        ),
         llm_local_model=llm_local,
         llm_large_model=llm_large,
         llm_local_timeout_s=_float_env("BE2_LLM_LOCAL_TIMEOUT_S", 25.0),

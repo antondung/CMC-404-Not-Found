@@ -83,10 +83,22 @@ class LLMRouter:
         if self.client is not None:
             return await self.client.complete(route=route, model=model, task=task, prompt=prompt, timeout_s=timeout_s)
         if self.config.llm_gateway_url is None:
-            raise ContractMissingError("BE2_LLM_GATEWAY_URL is required without injected LLM client")
+            raise ContractMissingError(
+                "BE2_INTELLIGENCE_URL (or BE2_LLM_GATEWAY_URL) is required without injected LLM client"
+            )
+        base = str(self.config.llm_gateway_url).rstrip("/")
         async with httpx.AsyncClient(timeout=timeout_s) as client:
             try:
-                response = await client.post(str(self.config.llm_gateway_url), json={"route": route, "model": model, "task": task, "prompt": prompt})
+                # Mirror RealLLMClient: POST {base}/{route} (local|large), not the bare base URL.
+                response = await client.post(
+                    f"{base}/{route.lstrip('/')}",
+                    json={
+                        "model": model,
+                        "task": task,
+                        "prompt": prompt,
+                        "timeout_s": timeout_s,
+                    },
+                )
                 response.raise_for_status()
                 return response.json()
             except (httpx.TimeoutException, httpx.HTTPError) as exc:

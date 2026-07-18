@@ -110,7 +110,23 @@ Sử dụng script PowerShell `run.ps1` để tự động tạo môi trường 
 ./run.ps1
 ```
 
-Script này sẽ tự động bật các cửa sổ mới cho Backend (FastAPI), Worker (Arq), và Frontend (Vite).
+Script này sẽ tự động bật các cửa sổ mới cho **BE3 API (:8000)**, **BE2 LLM gateway (:8002)**, Worker (Arq), và Frontend (Vite).
+
+> **Quan trọng:** QA gọi LLM qua `BE2_INTELLIGENCE_URL` → `be2_service` trên **:8002**, rồi mới tới OpenAI-compatible host (`BE2_OPENAI_BASE_URL`). Nếu chỉ chạy `uvicorn app.main:app --port 8000` mà không chạy BE2, chatbot vẫn có thể trả lời bằng principle-fallback cục bộ — **không có request nào tới 9router**. Kiểm tra: `curl http://localhost:8002/health` → `"openai_reachable": true`.
+
+Không dùng `run.ps1` thì mở **hai** terminal Backend:
+
+```powershell
+# Terminal A — BE2 gateway (bắt buộc cho LLM thật)
+cd Backend
+.\.venv\Scripts\Activate.ps1
+uvicorn be2_service:app --port 8002 --reload
+
+# Terminal B — BE3 API
+cd Backend
+.\.venv\Scripts\Activate.ps1
+uvicorn app.main:app --port 8000 --reload
+```
 
 #### 3. Truy cập Hệ thống
 Sau khi khởi chạy thành công, bạn có thể truy cập qua các địa chỉ sau:

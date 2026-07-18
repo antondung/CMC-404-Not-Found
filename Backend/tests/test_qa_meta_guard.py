@@ -1,6 +1,8 @@
 """Guard: non-legal meta + topic anchors (TNCN ≠ thuế nhập khẩu example)."""
 from __future__ import annotations
 
+import pytest
+
 from app.services.qa_service import QAService
 import be2_service
 
@@ -44,3 +46,31 @@ def test_gambling_tncn_does_not_match_import_tax_example():
     assert QAService._topic_relevance(q, f"xx {good}") >= 0.34
     assert be2_service._topic_relevance(q, bad) == 0.0
     assert be2_service._select_context([("38/2015/TT-BTC::D114.K9", bad)], q) == []
+
+
+def test_cccd_principle_fallback_not_empty():
+    q = "Thủ tục làm CCCD gắn chip?"
+    ans = QAService._principle_fallback_answer(q)
+    assert "CCCD" in ans or "Căn cước" in ans
+    assert "Công an" in ans
+    assert "Giới hạn" in ans
+    # Tax circular about fees must not pass CCCD anchors
+    tax = "Mức thu lệ phí trước bạ đối với nhà đất theo Thông tư thuế..."
+    assert QAService._topic_relevance(q, tax) == 0.0
+    assert be2_service._anchor_phrases(q)
+
+
+@pytest.mark.asyncio
+async def test_unverified_without_router_returns_cccd_guidance():
+    svc = QAService(llm_router=None)
+    out = await svc._unverified_ai_answer(
+        question="Thủ tục làm CCCD gắn chip?",
+        audience="citizen",
+        as_of="2026-07-18",
+        notices=[],
+        reason="No legal candidates",
+    )
+    assert out["unverified"] is True
+    assert out["citations"] == []
+    assert "Công an" in out["answer"]
+    assert "Chưa có dữ liệu pháp lý được hệ thống xác thực" not in out["answer"]

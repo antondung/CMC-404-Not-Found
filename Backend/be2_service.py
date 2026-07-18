@@ -372,6 +372,10 @@ def _anchor_phrases(question: str) -> list[str]:
         (("nong do con", "cong"), ["nong do con", "vi pham nong do con"]),
         (("hoa don dien tu",), ["hoa don dien tu"]),
         (("hoan thue",), ["hoan thue"]),
+        (
+            ("cccd", "can cuoc", "can cuoc cong dan", "the can cuoc", "cmnd"),
+            ["cccd", "can cuoc", "can cuoc cong dan", "the can cuoc", "chung minh nhan dan", "cmnd", "chip"],
+        ),
     ]
     for needles, phrases in checks:
         if any(n in norm for n in needles):
@@ -606,6 +610,8 @@ async def _handle_qa(prompt: str, timeout_s: float, model: str | None = None) ->
             "Không có điều khoản đã số hóa phù hợp trong Ngữ cảnh. "
             "Trả lời ~180–220 từ theo pháp luật Việt Nam (không bịa số Điều/Khoản/mức tiền).\n"
             "Bố cục: Kết luận / Phân tích / Giới hạn.\n"
+            "Với CCCD/căn cước gắn chip: nêu nơi nộp (Công an/một cửa hoặc trực tuyến nếu có), "
+            "các bước hồ sơ–tiếp nhận–trả kết quả; nhắc đối chiếu Luật Căn cước.\n"
             "Với cờ bạc: ưu tiên rủi ro hình sự/hành chính (có thể phạt tù). Không khuyến khích vi phạm."
         )
         raw = await _llm_generate(

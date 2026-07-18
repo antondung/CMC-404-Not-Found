@@ -47,6 +47,11 @@ _ANCHOR_TOPIC_CHECKS: list[tuple[tuple[str, ...], list[str]]] = [
     (("nong do con",), ["nong do con", "vi pham nong do con"]),
     (("hoa don dien tu",), ["hoa don dien tu"]),
     (("hoan thue",), ["hoan thue"]),
+    # CCCD / căn cước — block tax/fee false positives when corpus is tax-heavy.
+    (
+        ("cccd", "can cuoc", "can cuoc cong dan", "the can cuoc", "cmnd"),
+        ["cccd", "can cuoc", "can cuoc cong dan", "the can cuoc", "chung minh nhan dan", "cmnd", "chip"],
+    ),
 ]
 
 
@@ -201,6 +206,12 @@ class QAService:
             ("tncn", "TNCN"),
             ("hinh su", "hình sự"),
             ("xu ly hinh su", "xử lý hình sự"),
+            ("cccd", "CCCD"),
+            ("can cuoc", "căn cước"),
+            ("can cuoc cong dan", "căn cước công dân"),
+            ("the can cuoc", "thẻ căn cước"),
+            ("cmnd", "CMND"),
+            ("gan chip", "gắn chip"),
         ]
         for needle, phrase in phrase_map:
             if needle in norm and phrase not in phrases:
@@ -955,28 +966,103 @@ class QAService:
             "refuse_reason": [reason],
         }
 
+    @classmethod
+    def _principle_fallback_answer(cls, question: str) -> str:
+        """Grounded-enough VN legal guidance when corpus miss AND LLM is unavailable.
+
+        Does not invent Điều/Khoản/số tiền cụ thể. Marks clearly that digitized citations
+        were not attached — suitable for citizen UX instead of an empty refusal.
+        """
+        norm = cls._strip_accents(question or "")
+        limit = (
+            "\n\n**Giới hạn:** Hệ thống chưa gắn được điều khoản đã số hóa cho câu hỏi này "
+            "(kho dữ liệu hiện tại có thể chưa gồm văn bản căn cước). Hãy đối chiếu Luật Căn cước "
+            "và hướng dẫn của Bộ Công an / Cổng Dịch vụ công quốc gia, hoặc hỏi cơ quan Công an nơi cư trú."
+        )
+
+        if any(k in norm for k in ("cccd", "can cuoc", "cmnd", "chip", "the can cuoc")):
+            return (
+                "**Kết luận:** Thủ tục cấp/đổi **Căn cước (CCCD gắn chip)** do cơ quan quản lý căn cước "
+                "(Công an) thực hiện theo Luật Căn cước và văn bản hướng dẫn hiện hành.\n\n"
+                "**Phân tích — các bước thường gặp:**\n"
+                "1. **Xác định loại việc:** cấp mới, cấp đổi (hết hạn, sai thông tin, hư hỏng), hoặc cấp lại (mất).\n"
+                "2. **Nơi nộp:** bộ phận một cửa / Công an cấp xã hoặc cấp huyện theo phân cấp; một số trường hợp "
+                "có thể nộp trực tuyến qua Cổng Dịch vụ công / ứng dụng định danh điện tử (nếu được mở).\n"
+                "3. **Hồ sơ thường gồm:** tờ khai theo mẫu; giấy tờ tùy thân cũ (CMND/CCCD) nếu còn; "
+                "giấy tờ chứng minh thay đổi thông tin (nếu đổi); ảnh chân dung khi cơ quan yêu cầu "
+                "(nhiều nơi thu nhận sinh trắc / ảnh tại chỗ).\n"
+                "4. **Thực hiện:** nộp hồ sơ → được tiếp nhận, kiểm tra, thu nhận thông tin/sinh trắc "
+                "→ nhận giấy hẹn → nhận thẻ theo lịch hẹn (hoặc qua đường bưu chính nếu có).\n"
+                "5. **Lưu ý:** lệ phí/thời hạn giải quyết theo mức công bố tại thời điểm nộp; "
+                "ưu tiên đối tượng theo quy định riêng nếu thuộc diện ưu tiên.\n"
+                + limit
+            )
+
+        if any(k in norm for k in ("co bac", "danh bac", "ca cuoc", "casino", "lo de")):
+            return (
+                "**Kết luận:** Đánh bạc/cờ bạc trái phép có thể bị xử lý **hành chính** hoặc **hình sự** "
+                "(nặng hơn có thể đến mức phạt tù tùy tính chất, quy mô).\n\n"
+                "**Phân tích:** Trọng tâm là rủi ro xử lý theo pháp luật hình sự/hành chính; "
+                "nghĩa vụ thuế (nếu có) chỉ là khía cạnh phụ và không hợp pháp hóa hành vi.\n"
+                "\n\n**Giới hạn:** Chưa gắn điều khoản đã số hóa — đối chiếu Bộ luật Hình sự và nghị định xử phạt hiện hành."
+            )
+
+        return (
+            f"**Kết luận:** Câu hỏi “{(question or '').strip()}” thuộc lĩnh vực thủ tục/hành chính công dân, "
+            "nhưng hệ thống **chưa truy hồi được điều khoản đã số hóa** phù hợp để gắn căn cứ cụ thể.\n\n"
+            "**Phân tích:** Với thủ tục hành chính, thông thường cần: (1) xác định cơ quan có thẩm quyền; "
+            "(2) thành phần hồ sơ theo mẫu; (3) hình thức nộp (trực tiếp/trực tuyến); "
+            "(4) thời hạn và lệ phí theo công bố hiện hành.\n"
+            "\n\n**Giới hạn:** Chưa gắn số hiệu/Điều/Khoản từ kho số hóa — hãy tra Cổng Dịch vụ công quốc gia "
+            "hoặc cơ quan nhà nước có thẩm quyền, hoặc nạp thêm văn bản liên quan vào hệ thống."
+        )
+
+    def _unverified_payload(
+        self,
+        *,
+        answer: str,
+        audience: str,
+        as_of: str,
+        notices: list[dict[str, Any]],
+        reason: str,
+        extra_reasons: list[str] | None = None,
+    ) -> dict[str, Any]:
+        refuse = [reason]
+        if extra_reasons:
+            refuse.extend(extra_reasons)
+        return {
+            "answer": answer,
+            "citations": [],
+            "confidence": "low",
+            "graph_paths": [],
+            "graph_paths_status": "not_requested",
+            "graph_paths_reason": "No valid citations to trace",
+            "audience": audience,
+            "as_of": as_of,
+            "notices": notices,
+            "degraded": True,
+            "unverified": True,
+            "refuse_reason": refuse,
+        }
+
     async def _unverified_ai_answer(
         self, question: str, audience: str, as_of: str, notices: list[dict[str, Any]], reason: str
     ) -> dict[str, Any]:
         """Ask BE2 for a non-cited fallback when no legal corpus candidates exist.
 
         This path never fabricates citations and marks the output as unverified/low confidence.
+        If the LLM gateway fails, still return principle-based guidance (e.g. CCCD thủ tục).
         """
+        fallback = self._principle_fallback_answer(question)
         if not self.router:
-            return {
-                "answer": "Chưa có dữ liệu pháp lý được hệ thống xác thực để trả lời. Vui lòng nạp văn bản pháp luật liên quan hoặc hỏi câu cụ thể hơn.",
-                "citations": [],
-                "confidence": "low",
-                "graph_paths": [],
-                "graph_paths_status": "not_requested",
-                "graph_paths_reason": "No valid citations to trace",
-                "audience": audience,
-                "as_of": as_of,
-                "notices": notices,
-                "degraded": True,
-                "unverified": True,
-                "refuse_reason": [reason, "BE2 LLMRouter service unavailable."],
-            }
+            return self._unverified_payload(
+                answer=fallback,
+                audience=audience,
+                as_of=as_of,
+                notices=notices,
+                reason=reason,
+                extra_reasons=["BE2 LLMRouter service unavailable."],
+            )
 
         prompt = (
             "retrieved_context:\n\n"
@@ -984,52 +1070,47 @@ class QAService:
             "Không có điều khoản pháp luật đã số hóa phù hợp trong hệ thống.\n"
             "Hãy trả lời ~180–220 từ theo đúng nguyên tắc pháp luật Việt Nam (không chỉ nói 'chưa đủ căn cứ' rồi dừng).\n"
             "Bố cục: (1) Kết luận ngắn — trả lời trực tiếp; (2) Phân tích pháp lý theo lĩnh vực "
-            "(hình sự/hành chính/thuế/dân sự…); (3) Giới hạn — chưa gắn điều khoản đã số hóa, cần đối chiếu văn bản gốc.\n"
+            "(hành chính/căn cước/hình sự/thuế/dân sự…); (3) Giới hạn — chưa gắn điều khoản đã số hóa, cần đối chiếu văn bản gốc.\n"
             "Quy tắc: không bịa số Điều/Khoản/mức tiền/thời hạn cụ thể; không khuyến khích vi phạm.\n"
-            "Ví dụ định hướng: hỏi chơi cờ bạc / nộp thuế từ tiền bạc → trọng tâm là rủi ro xử lý hành chính hoặc "
-            "trách nhiệm hình sự (đánh bạc, có thể đến phạt tù tùy trường hợp); thuế TNCN chỉ là khía cạnh phụ nếu có.\n"
+            "Nếu hỏi thủ tục CCCD/căn cước gắn chip: nêu nơi nộp (Công an/bộ phận một cửa hoặc trực tuyến nếu có), "
+            "các bước hồ sơ–tiếp nhận–trả kết quả theo thông lệ hành chính, và nhắc đối chiếu Luật Căn cước / hướng dẫn Bộ Công an.\n"
+            "Ví dụ định hướng khác: cờ bạc → rủi ro hành chính/hình sự trước thuế.\n"
             "Không tạo citations."
         )
-        try:
-            llm_out = await self.router.complete(
-                task="qa",
-                prompt=prompt,
-                schema={"required": ["answer", "citations"]},
-                # medium → /large (stronger model) for legal accuracy when corpus miss
-                complexity="medium",
-            )
-            answer = str(llm_out.get("answer") or "").strip()
-            if not answer:
-                answer = "Chưa có dữ liệu pháp lý được hệ thống xác thực để trả lời."
-            return {
-                "answer": answer,
-                "citations": [],
-                "confidence": "low",
-                "graph_paths": [],
-                "graph_paths_status": "not_requested",
-                "graph_paths_reason": "No valid citations to trace",
-                "audience": audience,
-                "as_of": as_of,
-                "notices": notices,
-                "degraded": True,
-                "unverified": True,
-                "refuse_reason": [reason],
-            }
-        except Exception as e:
-            return {
-                "answer": "Chưa có dữ liệu pháp lý được hệ thống xác thực để trả lời. Vui lòng thử lại sau.",
-                "citations": [],
-                "confidence": "low",
-                "graph_paths": [],
-                "graph_paths_status": "not_requested",
-                "graph_paths_reason": "No valid citations to trace",
-                "audience": audience,
-                "as_of": as_of,
-                "notices": notices,
-                "degraded": True,
-                "unverified": True,
-                "refuse_reason": [reason, f"LLMRouter error: {str(e)}"],
-            }
+        last_err = ""
+        for complexity in ("medium", "low"):
+            try:
+                llm_out = await self.router.complete(
+                    task="qa",
+                    prompt=prompt,
+                    schema={"required": ["answer", "citations"]},
+                    complexity=complexity,
+                )
+                if llm_out.get("needs_review") or llm_out.get("status") == "needs_review":
+                    last_err = "schema_validation_failed"
+                    continue
+                answer = str(llm_out.get("answer") or "").strip()
+                if answer:
+                    return self._unverified_payload(
+                        answer=answer,
+                        audience=audience,
+                        as_of=as_of,
+                        notices=notices,
+                        reason=reason,
+                    )
+                last_err = "empty_llm_answer"
+            except Exception as e:
+                last_err = str(e)
+                continue
+
+        return self._unverified_payload(
+            answer=fallback,
+            audience=audience,
+            as_of=as_of,
+            notices=notices,
+            reason=reason,
+            extra_reasons=[f"LLMRouter fallback used: {last_err}"],
+        )
 
     async def answer(
         self,

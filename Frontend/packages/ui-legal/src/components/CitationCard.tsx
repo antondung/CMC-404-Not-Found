@@ -1,5 +1,5 @@
 import React from 'react';
-import { Scales, ArrowSquareOut, FileText, Hash, Article, BookOpen } from '@phosphor-icons/react';
+import { Scales, ArrowSquareOut } from '@phosphor-icons/react';
 
 interface CitationCardProps {
   khoan_id?: string;

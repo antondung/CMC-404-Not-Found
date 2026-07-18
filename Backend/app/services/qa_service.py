@@ -41,8 +41,27 @@ _AMBIGUOUS_TOPIC_STOP = frozenset({
 _ANCHOR_TOPIC_CHECKS: list[tuple[tuple[str, ...], list[str]]] = [
     (("thue thu nhap ca nhan", "thu nhap ca nhan", "tncn"), ["thue thu nhap ca nhan", "thu nhap ca nhan", "tncn"]),
     (
-        ("co bac", "ca cuoc", "casino", "lo de", "danh bac"),
-        ["co bac", "danh bac", "ca cuoc", "casino", "tro choi co thuong", "danh bac trai phep"],
+        (
+            "co bac",
+            "ca cuoc",
+            "ca do",
+            "casino",
+            "lo de",
+            "danh bac",
+            "dat cuoc",
+            "keo nha cai",
+            "tro choi co thuong",
+        ),
+        [
+            "co bac",
+            "danh bac",
+            "ca cuoc",
+            "ca do",
+            "casino",
+            "tro choi co thuong",
+            "danh bac trai phep",
+            "dat cuoc",
+        ],
     ),
     (("nong do con",), ["nong do con", "vi pham nong do con"]),
     (("hoa don dien tu",), ["hoa don dien tu"]),
@@ -53,6 +72,32 @@ _ANCHOR_TOPIC_CHECKS: list[tuple[tuple[str, ...], list[str]]] = [
         ["cccd", "can cuoc", "can cuoc cong dan", "the can cuoc", "chung minh nhan dan", "cmnd", "chip"],
     ),
 ]
+
+# Shared topic needles (accent-stripped) for principle fallback routing.
+_GAMBLING_NEEDLES = (
+    "co bac",
+    "danh bac",
+    "ca cuoc",
+    "ca do",
+    "casino",
+    "lo de",
+    "dat cuoc",
+    "keo nha cai",
+    "nha cai",
+    "tro choi co thuong",
+    "ca do bong",
+)
+_CCCD_NEEDLES = ("cccd", "can cuoc", "cmnd", "the can cuoc", "chung minh nhan dan")
+_TAX_NEEDLES = (
+    "thue",
+    "tncn",
+    "gtgt",
+    "tndn",
+    "nop thue",
+    "khai thue",
+    "quyet toan",
+    "hoan thue",
+)
 
 
 # Idea 01 — Time-Travel: which candidate Khoản are INVALID as of a given date, because either
@@ -203,6 +248,9 @@ class QAService:
             ("thu nhap ca nhan", "thu nhập cá nhân"),
             ("co bac", "cờ bạc"),
             ("danh bac", "đánh bạc"),
+            ("ca do", "cá độ"),
+            ("ca cuoc", "cá cược"),
+            ("dat cuoc", "đặt cược"),
             ("tncn", "TNCN"),
             ("hinh su", "hình sự"),
             ("xu ly hinh su", "xử lý hình sự"),
@@ -312,6 +360,16 @@ class QAService:
             return 0.0
         anchors = cls._anchor_phrases(question)
         if anchors and not any(cls._contains_term(body, a) for a in anchors):
+            # Cá độ/cờ bạc + hỏi thuế: cho phép căn cứ TNCN (không bắt buộc văn bản có chữ "cá độ").
+            norm_q = cls._strip_accents(question or "")
+            gambling_q = any(g in norm_q for g in _GAMBLING_NEEDLES)
+            tax_q = any(t in norm_q for t in _TAX_NEEDLES)
+            tncn_ok = any(
+                cls._contains_term(body, t)
+                for t in ("thue thu nhap ca nhan", "thu nhap ca nhan", "tncn", "thu nhap chiu thue")
+            )
+            if gambling_q and tax_q and tncn_ok:
+                return 0.6
             return 0.0
         required = [cls._strip_accents(r) for r in cls._required_keyword_queries(question)]
         if not required:
@@ -968,19 +1026,24 @@ class QAService:
 
     @classmethod
     def _principle_fallback_answer(cls, question: str) -> str:
-        """Grounded-enough VN legal guidance when corpus miss AND LLM is unavailable.
+        """Topic-routed VN legal guidance when corpus miss AND/OR LLM is unavailable.
 
-        Does not invent Điều/Khoản/số tiền cụ thể. Marks clearly that digitized citations
-        were not attached — suitable for citizen UX instead of an empty refusal.
+        Never invents Điều/Khoản/mức tiền cụ thể. Must match the question's legal field —
+        e.g. cá độ+thuế must NOT answer as 'thủ tục hành chính công dân'.
         """
-        norm = cls._strip_accents(question or "")
-        limit = (
-            "\n\n**Giới hạn:** Hệ thống chưa gắn được điều khoản đã số hóa cho câu hỏi này "
-            "(kho dữ liệu hiện tại có thể chưa gồm văn bản căn cước). Hãy đối chiếu Luật Căn cước "
-            "và hướng dẫn của Bộ Công an / Cổng Dịch vụ công quốc gia, hoặc hỏi cơ quan Công an nơi cư trú."
+        q = (question or "").strip()
+        norm = cls._strip_accents(q)
+        is_gambling = any(k in norm for k in _GAMBLING_NEEDLES)
+        is_cccd = any(k in norm for k in _CCCD_NEEDLES) or (
+            "chip" in norm and any(k in norm for k in ("cccd", "can cuoc", "can cuoc cong dan", "the can cuoc"))
+        )
+        is_tax = any(k in norm for k in _TAX_NEEDLES)
+        is_procedure = any(
+            k in norm
+            for k in ("thu tuc", "ho so", "nop ho so", "cap moi", "cap doi", "lam the", "lam cccd")
         )
 
-        if any(k in norm for k in ("cccd", "can cuoc", "cmnd", "chip", "the can cuoc")):
+        if is_cccd:
             return (
                 "**Kết luận:** Thủ tục cấp/đổi **Căn cước (CCCD gắn chip)** do cơ quan quản lý căn cước "
                 "(Công an) thực hiện theo Luật Căn cước và văn bản hướng dẫn hiện hành.\n\n"
@@ -991,30 +1054,72 @@ class QAService:
                 "3. **Hồ sơ thường gồm:** tờ khai theo mẫu; giấy tờ tùy thân cũ (CMND/CCCD) nếu còn; "
                 "giấy tờ chứng minh thay đổi thông tin (nếu đổi); ảnh chân dung khi cơ quan yêu cầu "
                 "(nhiều nơi thu nhận sinh trắc / ảnh tại chỗ).\n"
-                "4. **Thực hiện:** nộp hồ sơ → được tiếp nhận, kiểm tra, thu nhận thông tin/sinh trắc "
-                "→ nhận giấy hẹn → nhận thẻ theo lịch hẹn (hoặc qua đường bưu chính nếu có).\n"
-                "5. **Lưu ý:** lệ phí/thời hạn giải quyết theo mức công bố tại thời điểm nộp; "
-                "ưu tiên đối tượng theo quy định riêng nếu thuộc diện ưu tiên.\n"
-                + limit
+                "4. **Thực hiện:** nộp hồ sơ → tiếp nhận, kiểm tra, thu nhận thông tin/sinh trắc "
+                "→ giấy hẹn → nhận thẻ theo lịch (hoặc bưu chính nếu có).\n"
+                "5. **Lệ phí/thời hạn:** theo mức công bố tại thời điểm nộp; không nêu số tiền cố định khi "
+                "chưa có căn cứ đã số hóa.\n\n"
+                "**Giới hạn:** Chưa gắn Điều/Khoản từ kho số hóa. Đối chiếu Luật Căn cước, hướng dẫn Bộ Công an "
+                "và Cổng Dịch vụ công quốc gia, hoặc hỏi Công an nơi cư trú."
             )
 
-        if any(k in norm for k in ("co bac", "danh bac", "ca cuoc", "casino", "lo de")):
+        if is_gambling:
+            tax_bit = ""
+            if is_tax:
+                tax_bit = (
+                    "\n3. **Về thuế:** Câu hỏi “nộp thuế gì” không làm cho tiền thắng cá độ trở thành thu nhập "
+                    "hợp pháp. Về nguyên tắc, thu nhập của cá nhân có thể thuộc diện xem xét **thuế thu nhập "
+                    "cá nhân (TNCN)** theo pháp luật thuế, nhưng **không được dùng việc kê khai/nộp thuế để "
+                    "hợp thức hóa** tiền từ cá độ trái phép. Hệ thống không nêu thuế suất/Điều cụ thể khi chưa "
+                    "có căn cứ đã số hóa.\n"
+                )
+            else:
+                tax_bit = (
+                    "\n3. **Thuế không phải trọng tâm:** Nghĩa vụ thuế (nếu có) chỉ là khía cạnh phụ và "
+                    "không hợp pháp hóa hành vi.\n"
+                )
             return (
-                "**Kết luận:** Đánh bạc/cờ bạc trái phép có thể bị xử lý **hành chính** hoặc **hình sự** "
-                "(nặng hơn có thể đến mức phạt tù tùy tính chất, quy mô).\n\n"
-                "**Phân tích:** Trọng tâm là rủi ro xử lý theo pháp luật hình sự/hành chính; "
-                "nghĩa vụ thuế (nếu có) chỉ là khía cạnh phụ và không hợp pháp hóa hành vi.\n"
-                "\n\n**Giới hạn:** Chưa gắn điều khoản đã số hóa — đối chiếu Bộ luật Hình sự và nghị định xử phạt hiện hành."
+                "**Kết luận:** Tiền thắng từ **cá độ/cờ bạc trái phép** trước hết gắn với rủi ro "
+                "**xử lý hành chính hoặc hình sự** (có thể đến mức phạt tù tùy tính chất, quy mô). "
+                "Không coi đây là khoản thu nhập “chỉ cần đóng thuế là xong”.\n\n"
+                "**Phân tích:**\n"
+                "1. **Tính chất hành vi:** Cá độ, đặt cược trái phép thuộc nhóm hành vi bị cấm/"
+                "xử lý theo pháp luật về đánh bạc và trò chơi có thưởng trái phép.\n"
+                "2. **Hệ quả pháp lý chính:** Tùy số tiền, tổ chức và vai trò, có thể bị xử phạt hành chính "
+                "hoặc truy cứu trách nhiệm hình sự; tang vật/tiền liên quan có thể bị thu giữ theo quy định.\n"
+                f"{tax_bit}\n"
+                "**Giới hạn:** Chưa gắn số hiệu/Điều/Khoản từ kho số hóa. Đối chiếu Bộ luật Hình sự, "
+                "nghị định xử phạt hành chính và pháp luật thuế TNCN hiện hành; không khuyến khích vi phạm."
+            )
+
+        if is_tax:
+            return (
+                f"**Kết luận:** Câu hỏi về nghĩa vụ thuế (“{q}”) cần xác định **loại thuế** "
+                "(TNCN / GTGT / TNDN / khác) theo bản chất khoản thu nhập hoặc giao dịch — "
+                "hệ thống chưa gắn được điều khoản đã số hóa phù hợp.\n\n"
+                "**Phân tích:**\n"
+                "1. Xác định nguồn thu nhập/giao dịch có chịu thuế không và thuộc sắc thuế nào.\n"
+                "2. Cá nhân thường xem xét **TNCN**; tổ chức/kinh doanh có thể liên quan GTGT/TNDN.\n"
+                "3. Không nêu thuế suất, mức miễn giảm hay Điều/Khoản cụ thể khi chưa có căn cứ đã số hóa.\n\n"
+                "**Giới hạn:** Hãy đối chiếu Luật/Nghị định/Thông tư thuế hiện hành hoặc hỏi cơ quan thuế; "
+                "hoặc nạp thêm văn bản thuế liên quan vào hệ thống."
+            )
+
+        if is_procedure:
+            return (
+                f"**Kết luận:** Câu hỏi “{q}” là thủ tục hành chính, nhưng chưa truy hồi được điều khoản "
+                "đã số hóa để gắn căn cứ cụ thể.\n\n"
+                "**Phân tích:** Thông thường cần: cơ quan có thẩm quyền; thành phần hồ sơ; hình thức nộp "
+                "(trực tiếp/trực tuyến); thời hạn và lệ phí theo công bố hiện hành.\n\n"
+                "**Giới hạn:** Tra Cổng Dịch vụ công quốc gia hoặc cơ quan nhà nước có thẩm quyền."
             )
 
         return (
-            f"**Kết luận:** Câu hỏi “{(question or '').strip()}” thuộc lĩnh vực thủ tục/hành chính công dân, "
-            "nhưng hệ thống **chưa truy hồi được điều khoản đã số hóa** phù hợp để gắn căn cứ cụ thể.\n\n"
-            "**Phân tích:** Với thủ tục hành chính, thông thường cần: (1) xác định cơ quan có thẩm quyền; "
-            "(2) thành phần hồ sơ theo mẫu; (3) hình thức nộp (trực tiếp/trực tuyến); "
-            "(4) thời hạn và lệ phí theo công bố hiện hành.\n"
-            "\n\n**Giới hạn:** Chưa gắn số hiệu/Điều/Khoản từ kho số hóa — hãy tra Cổng Dịch vụ công quốc gia "
-            "hoặc cơ quan nhà nước có thẩm quyền, hoặc nạp thêm văn bản liên quan vào hệ thống."
+            f"**Kết luận:** Chưa truy hồi được điều khoản pháp lý đã số hóa phù hợp để trả lời “{q}” "
+            "kèm căn cứ Điều/Khoản.\n\n"
+            "**Phân tích:** Hệ thống chỉ gắn căn cứ khi tìm thấy văn bản đúng chủ đề trong kho số hóa. "
+            "Có thể trả lời định hướng theo lĩnh vực (hình sự / hành chính / thuế / dân sự) khi dịch vụ "
+            "ngôn ngữ sẵn sàng; hiện chưa đủ dữ liệu đã xác thực cho câu hỏi này.\n\n"
+            "**Giới hạn:** Hãy nêu rõ lĩnh vực hoặc số hiệu văn bản, hoặc nạp thêm văn bản liên quan vào hệ thống."
         )
 
     def _unverified_payload(
@@ -1074,7 +1179,8 @@ class QAService:
             "Quy tắc: không bịa số Điều/Khoản/mức tiền/thời hạn cụ thể; không khuyến khích vi phạm.\n"
             "Nếu hỏi thủ tục CCCD/căn cước gắn chip: nêu nơi nộp (Công an/bộ phận một cửa hoặc trực tuyến nếu có), "
             "các bước hồ sơ–tiếp nhận–trả kết quả theo thông lệ hành chính, và nhắc đối chiếu Luật Căn cước / hướng dẫn Bộ Công an.\n"
-            "Ví dụ định hướng khác: cờ bạc → rủi ro hành chính/hình sự trước thuế.\n"
+            "Nếu hỏi cá độ/cờ bạc + thuế: trọng tâm rủi ro hành chính/hình sự trước; thuế TNCN chỉ là khía cạnh phụ, "
+            "không hợp thức hóa tiền thắng trái phép; không trả lời như thủ tục hành chính công dân.\n"
             "Không tạo citations."
         )
         last_err = ""

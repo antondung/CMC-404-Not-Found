@@ -48,13 +48,30 @@ def test_gambling_tncn_does_not_match_import_tax_example():
     assert be2_service._select_context([("38/2015/TT-BTC::D114.K9", bad)], q) == []
 
 
+def test_ca_do_tax_principle_is_criminal_not_admin_procedure():
+    q = "tôi chơi cá độ được 100 triệu cần nộp thuế gì"
+    ans = QAService._principle_fallback_answer(q)
+    low = ans.lower()
+    assert "hình sự" in ans or "hành chính" in ans
+    assert "tncn" in low or "thu nhập cá nhân" in low
+    assert "thủ tục hành chính công dân" not in low
+    assert "hồ sơ theo mẫu" not in low
+    # Still block unrelated import-tax example figures
+    bad = (
+        "Máy móc... đã nộp 100 triệu đồng tiền thuế nhập khẩu, sau 03 năm... "
+        "60% x 100 triệu đồng = 60 triệu đồng."
+    )
+    assert QAService._topic_relevance(q, bad) == 0.0
+    good_tncn = "Thu nhập chịu thuế thu nhập cá nhân bao gồm các khoản thu nhập từ kinh doanh và tiền lương."
+    assert QAService._topic_relevance(q, good_tncn) > 0.0
+
+
 def test_cccd_principle_fallback_not_empty():
     q = "Thủ tục làm CCCD gắn chip?"
     ans = QAService._principle_fallback_answer(q)
     assert "CCCD" in ans or "Căn cước" in ans
     assert "Công an" in ans
     assert "Giới hạn" in ans
-    # Tax circular about fees must not pass CCCD anchors
     tax = "Mức thu lệ phí trước bạ đối với nhà đất theo Thông tư thuế..."
     assert QAService._topic_relevance(q, tax) == 0.0
     assert be2_service._anchor_phrases(q)

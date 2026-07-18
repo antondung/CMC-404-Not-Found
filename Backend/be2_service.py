@@ -368,7 +368,10 @@ def _anchor_phrases(question: str) -> list[str]:
     anchors: list[str] = []
     checks = [
         (("thue thu nhap ca nhan", "thu nhap ca nhan", "tncn"), ["thue thu nhap ca nhan", "thu nhap ca nhan", "tncn"]),
-        (("co bac", "ca cuoc", "casino", "lo de", "danh bac"), ["co bac", "danh bac", "ca cuoc", "casino", "tro choi co thuong"]),
+        (
+            ("co bac", "ca cuoc", "ca do", "casino", "lo de", "danh bac", "dat cuoc", "keo nha cai"),
+            ["co bac", "danh bac", "ca cuoc", "ca do", "casino", "tro choi co thuong", "dat cuoc"],
+        ),
         (("nong do con", "cong"), ["nong do con", "vi pham nong do con"]),
         (("hoa don dien tu",), ["hoa don dien tu"]),
         (("hoan thue",), ["hoan thue"]),
@@ -399,6 +402,20 @@ def _topic_relevance(question: str, text: str) -> float:
         return 0.0
     anchors = _anchor_phrases(question)
     if anchors and not any(_contains_term(body, a) for a in anchors):
+        norm_q = _strip_accents(question or "")
+        gambling_q = any(
+            g in norm_q
+            for g in (
+                "co bac", "danh bac", "ca cuoc", "ca do", "casino", "lo de", "dat cuoc", "keo nha cai",
+            )
+        )
+        tax_q = any(t in norm_q for t in ("thue", "tncn", "nop thue"))
+        tncn_ok = any(
+            _contains_term(body, t)
+            for t in ("thue thu nhap ca nhan", "thu nhap ca nhan", "tncn", "thu nhap chiu thue")
+        )
+        if gambling_q and tax_q and tncn_ok:
+            return 0.6
         return 0.0
     terms = [_strip_accents(t) for t in _question_terms(question)]
     if not terms:
@@ -612,7 +629,9 @@ async def _handle_qa(prompt: str, timeout_s: float, model: str | None = None) ->
             "Bố cục: Kết luận / Phân tích / Giới hạn.\n"
             "Với CCCD/căn cước gắn chip: nêu nơi nộp (Công an/một cửa hoặc trực tuyến nếu có), "
             "các bước hồ sơ–tiếp nhận–trả kết quả; nhắc đối chiếu Luật Căn cước.\n"
-            "Với cờ bạc: ưu tiên rủi ro hình sự/hành chính (có thể phạt tù). Không khuyến khích vi phạm."
+            "Với cá độ/cờ bạc (+ thuế): ưu tiên rủi ro hình sự/hành chính; TNCN chỉ phụ, "
+            "không hợp thức hóa tiền thắng; không trả lời như thủ tục hành chính.\n"
+            "Không khuyến khích vi phạm."
         )
         raw = await _llm_generate(
             _QA_JSON_SYSTEM, user_msg + "\nJSON, citation_ids=[].", timeout_s, model=model, json_object=True

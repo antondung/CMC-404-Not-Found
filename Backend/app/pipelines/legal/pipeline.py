@@ -70,7 +70,15 @@ async def _index_khoan_vectors(
         await qdrant.upsert("khoan", points)
         return len(points)
     except Exception as exc:  # noqa: BLE001 - indexing is best-effort
-        logger.warning("legal_ingest: Qdrant khoan indexing skipped: %s", exc)
+        details = getattr(exc, "details", None)
+        if details:
+            logger.warning(
+                "legal_ingest: Qdrant khoan indexing skipped: %s | details=%s",
+                exc,
+                details,
+            )
+        else:
+            logger.warning("legal_ingest: Qdrant khoan indexing skipped: %s", exc)
         return 0
 
 

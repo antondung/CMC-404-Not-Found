@@ -5,8 +5,29 @@ import asyncio
 import json
 import os
 import re
+import sys
 from pathlib import Path
 from typing import Any
+
+# Ensure Backend/ is on path and .env is loaded (same as app.main)
+_BACKEND_ROOT = Path(__file__).resolve().parents[1]
+if str(_BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(_BACKEND_ROOT))
+
+
+def _load_dotenv() -> None:
+    env_path = _BACKEND_ROOT / ".env"
+    if not env_path.exists():
+        return
+    for raw in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        os.environ.setdefault(key.strip(), val.strip().strip('"').strip("'"))
+
+
+_load_dotenv()
 
 from app.api.deps import get_db_pool, get_embedder, get_minio, get_neo4j_driver, get_qdrant_client
 from app.pipelines.legal.normalize import normalize_so_hieu

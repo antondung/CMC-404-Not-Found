@@ -12,3 +12,10 @@ secrets/
 .venv/
 venv/
 node_modules/
+
+# Large legal datasets (local / Railway import only — do not commit)
+dataset/
+dataset_*.txt
+Data/raw/
+*_manifest.jsonl
+import_split_legal_manifest.jsonl

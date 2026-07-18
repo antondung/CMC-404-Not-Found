@@ -2,12 +2,33 @@ from __future__ import annotations
 
 import json
 from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, status
+
 from app.api.deps import get_db_pool, require_admin
 from app.core.envelope import success_response
 from app.core.logging import get_request_id
 
 router = APIRouter(tags=["Admin Jobs"], dependencies=[Depends(require_admin())])
+
+
+def _parse_json(raw: Any) -> Any:
+    if isinstance(raw, (dict, list)):
+        return raw
+    if isinstance(raw, str):
+        try:
+            return json.loads(raw)
+        except Exception:  # noqa: BLE001
+            return raw
+    return raw
+
+
+def _iso(value: Any) -> str | None:
+    if value is None:
+        return None
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value)
 
 
 @router.get("/jobs", summary="Danh sách jobs & tổng quan sức khỏe pipeline")
@@ -17,59 +38,55 @@ async def list_jobs(
     limit: int = 50,
     pool: Any = Depends(get_db_pool),
 ) -> dict[str, Any]:
+    """Return real jobs from Postgres only — empty list after purge is correct."""
     items: list[dict[str, Any]] = []
+    running = failed = needs_review = 0
+
     if pool and hasattr(pool, "acquire"):
         try:
             async with pool.acquire() as conn:
-                query = "SELECT id, type, status, payload_json, error, created_at FROM jobs ORDER BY created_at DESC LIMIT $1"
-                rows = await conn.fetch(query, limit)
+                clauses: list[str] = []
+                args: list[Any] = []
+                if type:
+                    args.append(type)
+                    clauses.append(f"type = ${len(args)}")
+                if status_filter:
+                    args.append(status_filter)
+                    clauses.append(f"status::text = ${len(args)}")
+                where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+                args.append(max(1, min(limit, 500)))
+                rows = await conn.fetch(
+                    f"""
+                    SELECT id, type, status::text AS status, payload_json, error, created_at
+                    FROM jobs
+                    {where}
+                    ORDER BY created_at DESC
+                    LIMIT ${len(args)}
+                    """,
+                    *args,
+                )
                 for r in rows:
-                    p = r["payload_json"]
-                    if isinstance(p, str):
-                        p = json.loads(p)
-                    items.append({
-                        "job_id": str(r["id"]),
-                        "type": r["type"],
-                        "status": r["status"],
-                        "payload": p or {},
-                        "error": r["error"],
-                        "created_at": r["created_at"].isoformat() if r["created_at"] else None,
-                    })
+                    st = str(r["status"] or "")
+                    if st in {"running", "queued"}:
+                        running += 1
+                    elif st == "failed":
+                        failed += 1
+                    elif st == "needs_review":
+                        needs_review += 1
+                    items.append(
+                        {
+                            "job_id": str(r["id"]),
+                            "type": r["type"],
+                            "status": st,
+                            "payload": _parse_json(r["payload_json"]) or {},
+                            "error": _parse_json(r["error"]),
+                            "created_at": _iso(r["created_at"]),
+                            "needs_review": st == "needs_review",
+                        }
+                    )
         except Exception:
-            pass
-
-    if not items:
-        # Fallback deterministic mock jobs for dev/test
-        items = [
-            {
-                "job_id": "job-legal-101",
-                "type": "legal_ingest",
-                "status": "success",
-                "payload": {"so_hieu": "15/2020/ND-CP"},
-                "error": None,
-                "created_at": "2026-07-17T09:00:00Z",
-                "needs_review": False,
-            },
-            {
-                "job_id": "job-social-202",
-                "type": "social_ingest",
-                "status": "needs_review",
-                "payload": {"platform": "facebook", "external_id": "999"},
-                "error": {"code": "low_confidence", "message": "Topic classification threshold not met"},
-                "created_at": "2026-07-17T09:15:00Z",
-                "needs_review": True,
-            },
-        ]
-
-    if type:
-        items = [x for x in items if x.get("type") == type]
-    if status_filter:
-        items = [x for x in items if x.get("status") == status_filter]
-
-    # Calculate summary stats
-    running = sum(1 for x in items if x.get("status") in {"running", "queued"})
-    failed = sum(1 for x in items if x.get("status") == "failed")
-    needs_review = sum(1 for x in items if x.get("status") == "needs_review" or x.get("needs_review") is True)
+            # Keep empty list — never invent mock history after purge.
+            items = []
 
     return success_response(
         data={
@@ -91,63 +108,68 @@ async def get_job_detail(
     id: str,
     pool: Any = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    if pool and hasattr(pool, "acquire"):
-        try:
-            async with pool.acquire() as conn:
-                row = await conn.fetchrow("SELECT id, type, status, payload_json, error, created_at, updated_at FROM jobs WHERE id = $1", id)
-                if row:
-                    p = row["payload_json"]
-                    if isinstance(p, str):
-                        p = json.loads(p)
-                    return success_response(
-                        data={
-                            "job_id": str(row["id"]),
-                            "type": row["type"],
-                            "status": row["status"],
-                            "payload": p or {},
-                            "error": row["error"],
-                            "stages": [
-                                {"stage": "parse", "status": "success", "completed_at": row["created_at"].isoformat() if row["created_at"] else None},
-                                {"stage": "extract", "status": row["status"], "completed_at": row["updated_at"].isoformat() if row.get("updated_at") else None},
-                            ],
-                        },
-                        request_id=get_request_id(),
-                    )
-        except Exception:
-            pass
+    if not (pool and hasattr(pool, "acquire")):
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database unavailable")
 
-    if id == "job-legal-101":
-        return success_response(
-            data={
-                "job_id": "job-legal-101",
-                "type": "legal_ingest",
-                "status": "success",
-                "payload": {"so_hieu": "15/2020/ND-CP"},
-                "error": None,
-                "stages": [
-                    {"stage": "download", "status": "success", "completed_at": "2026-07-17T09:00:01Z"},
-                    {"stage": "parse", "status": "success", "completed_at": "2026-07-17T09:00:05Z"},
-                    {"stage": "extract", "status": "success", "completed_at": "2026-07-17T09:00:15Z"},
-                    {"stage": "neo4j_merge", "status": "success", "completed_at": "2026-07-17T09:00:20Z"},
-                ],
-            },
-            request_id=get_request_id(),
-        )
+    try:
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT id, type, status::text AS status, stage, payload_json, error, created_at, updated_at
+                FROM jobs WHERE id::text = $1
+                """,
+                id,
+            )
+            if not row:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Job {id} không tồn tại")
 
-    if id == "job-social-202":
-        return success_response(
-            data={
-                "job_id": "job-social-202",
-                "type": "social_ingest",
-                "status": "needs_review",
-                "payload": {"platform": "facebook", "external_id": "999"},
-                "error": {"code": "low_confidence", "message": "Topic classification threshold not met"},
-                "stages": [
-                    {"stage": "ingest", "status": "success", "completed_at": "2026-07-17T09:15:01Z"},
-                    {"stage": "topic_classify", "status": "needs_review", "completed_at": "2026-07-17T09:15:05Z"},
-                ],
-            },
-            request_id=get_request_id(),
-        )
+            events = await conn.fetch(
+                """
+                SELECT stage, status::text AS status, message, at
+                FROM job_events
+                WHERE job_id::text = $1
+                ORDER BY at ASC
+                """,
+                id,
+            )
+            stages = [
+                {
+                    "stage": e["stage"],
+                    "status": e["status"],
+                    "message": e["message"],
+                    "completed_at": _iso(e["at"]),
+                }
+                for e in events
+            ]
+            # If no event log yet, expose current stage from the job row.
+            if not stages and row.get("stage"):
+                stages = [
+                    {
+                        "stage": row["stage"],
+                        "status": row["status"],
+                        "message": None,
+                        "completed_at": _iso(row.get("updated_at") or row.get("created_at")),
+                    }
+                ]
 
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Job {id} không tồn tại")
+            return success_response(
+                data={
+                    "job_id": str(row["id"]),
+                    "type": row["type"],
+                    "status": row["status"],
+                    "stage": row.get("stage"),
+                    "payload": _parse_json(row["payload_json"]) or {},
+                    "error": _parse_json(row["error"]),
+                    "created_at": _iso(row["created_at"]),
+                    "updated_at": _iso(row.get("updated_at")),
+                    "stages": stages,
+                },
+                request_id=get_request_id(),
+            )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Không đọc được job: {exc}",
+        ) from exc

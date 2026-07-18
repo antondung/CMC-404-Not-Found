@@ -7,7 +7,12 @@ downloading embedding models.
 """
 from __future__ import annotations
 
+import os
 from typing import Any
+
+# Dev bearer shortcuts (test-admin-*) must be enabled before app.security loads settings.
+os.environ.setdefault("ENABLE_DEV_TOKENS", "true")
+os.environ.setdefault("APP_ENV", "local")
 
 import pytest
 

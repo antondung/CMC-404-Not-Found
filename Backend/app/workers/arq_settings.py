@@ -32,7 +32,14 @@ def redis_settings(config: BE2Config | None = None) -> RedisSettings:
 
 async def worker_startup(ctx: dict) -> None:
     """Populate the arq job context with real service instances (fixes KeyError on first job)."""
-    from app.api.deps import get_db_pool, get_neo4j_driver, get_qdrant_client, get_minio, RealLLMClient
+    from app.api.deps import (
+        get_db_pool,
+        get_neo4j_driver,
+        get_qdrant_client,
+        get_minio,
+        RealLLMClient,
+        normalize_service_url,
+    )
     from app.adapters.neo4j_social import Neo4jSocialRepository
     from app.adapters.neo4j_legal import Neo4jLegalRepository
     from app.adapters.postgres_content import PostgresContentRepository
@@ -54,7 +61,15 @@ async def worker_startup(ctx: dict) -> None:
     qdrant = await get_qdrant_client()
     minio = await get_minio()
     embedder = Embedder(cfg)
-    router = LLMRouter(config=cfg, client=RealLLMClient(base_url=os.getenv("BE2_INTELLIGENCE_URL", "http://localhost:8002")))
+    router = LLMRouter(
+        config=cfg,
+        client=RealLLMClient(
+            base_url=normalize_service_url(
+                os.getenv("BE2_INTELLIGENCE_URL"),
+                default="http://localhost:8002",
+            )
+        ),
+    )
 
     social_repo = Neo4jSocialRepository(driver, pool) if driver else None
     legal_repo = Neo4jLegalRepository(driver) if driver else None

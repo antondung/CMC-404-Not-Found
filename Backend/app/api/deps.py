@@ -27,11 +27,25 @@ _embedder: Embedder | None = None
 _minio_storage: MinioStorage | None = None
 
 
+def normalize_service_url(raw: str | None, *, default: str = "http://localhost:8002") -> str:
+    """Ensure BE2 / internal service URLs have an http(s) scheme.
+
+    Railway users often set ``BE2_INTELLIGENCE_URL=${{be2.RAILWAY_PRIVATE_DOMAIN}}:8002``
+    without ``http://``, which makes httpx raise: Request URL is missing protocol.
+    """
+    value = (raw or "").strip().strip('"').strip("'")
+    if not value:
+        return default.rstrip("/")
+    if "://" not in value:
+        value = f"http://{value}"
+    return value.rstrip("/")
+
+
 class RealLLMClient:
     """Real HTTP Client communicating with BE2 Intelligence API / Celery Worker Bridge."""
 
     def __init__(self, base_url: str = "http://localhost:8002", client: httpx.AsyncClient | None = None) -> None:
-        self.base_url = base_url.rstrip("/")
+        self.base_url = normalize_service_url(base_url)
         self.client = client or httpx.AsyncClient(timeout=30.0)
 
     async def complete(self, *, route: str, model: str, task: str, prompt: str, timeout_s: float) -> dict[str, Any]:
@@ -121,7 +135,7 @@ async def get_llm_router(config: BE2Config = Depends(get_config)) -> LLMRouter:
     """Retrieve LLMRouter connected to real BE2 endpoints."""
     global _llm_router
     if _llm_router is None:
-        be2_url = os.getenv("BE2_INTELLIGENCE_URL", "http://localhost:8002")
+        be2_url = normalize_service_url(os.getenv("BE2_INTELLIGENCE_URL"), default="http://localhost:8002")
         _llm_router = LLMRouter(config=config, client=RealLLMClient(base_url=be2_url))
     return _llm_router
 

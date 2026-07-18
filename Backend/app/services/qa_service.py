@@ -766,7 +766,15 @@ class QAService:
         if os.getenv("QA_EXTRACTIVE_FALLBACK", "1") != "1":
             return None
         top = candidates[:3]
-        raw_citations = [{"khoan_id": c.khoan_id, "quote": c.noi_dung} for c in top if c.noi_dung]
+
+        def _clip(text: str, limit: int = 480) -> str:
+            t = " ".join((text or "").split())
+            if len(t) <= limit:
+                return t
+            # Keep a pure prefix (no ellipsis) so citation validation still matches source text.
+            return t[:limit].rstrip()
+
+        raw_citations = [{"khoan_id": c.khoan_id, "quote": _clip(c.noi_dung, 800)} for c in top if c.noi_dung]
         if not raw_citations:
             return None
         is_valid, validated_citations, _errors = await self.validator.validate_quotes(
@@ -774,10 +782,16 @@ class QAService:
         )
         if not validated_citations:
             return None
-        body = "\n\n".join(f"• {c.khoan_id}: {c.noi_dung}" for c in top if c.noi_dung)
+        body_parts = []
+        for c in top:
+            if not c.noi_dung:
+                continue
+            clipped = _clip(c.noi_dung)
+            suffix = "…" if len(" ".join(c.noi_dung.split())) > 480 else ""
+            body_parts.append(f"• {c.khoan_id}: {clipped}{suffix}")
         answer = (
             "Trích dẫn trực tiếp từ văn bản pháp luật liên quan (chưa qua AI tổng hợp vì dịch vụ "
-            "ngôn ngữ chưa sẵn sàng):\n\n" + body
+            "ngôn ngữ chưa sẵn sàng):\n\n" + "\n\n".join(body_parts)
         )
         return {
             "answer": answer,

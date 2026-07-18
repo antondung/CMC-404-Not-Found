@@ -195,7 +195,7 @@ async def test_openai_compatible_embedding_uses_injected_http_not_ollama():
 async def test_be2_llm_uses_one_total_deadline_and_falls_back(monkeypatch):
     calls = []
 
-    async def slow_backend(system, user, timeout_s, model=None):
+    async def slow_backend(system, user, timeout_s, model=None, *, json_object=False):
         calls.append(timeout_s)
         await asyncio.sleep(timeout_s + 0.05)
         return "late"

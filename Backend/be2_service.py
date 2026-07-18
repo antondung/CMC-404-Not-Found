@@ -32,6 +32,8 @@ import unicodedata
 from pathlib import Path
 from typing import Any
 
+from contextlib import asynccontextmanager
+
 import httpx
 from fastapi import FastAPI, Request
 from pydantic import BaseModel
@@ -56,7 +58,6 @@ def _load_dotenv() -> None:
 _load_dotenv()
 
 logger = logging.getLogger("be2")
-app = FastAPI(title="BE2 Intelligence (local dev gateway)", version="0.2.0")
 
 _CTX_LINE = re.compile(r"^\[(?P<kid>[^\]]+)\]\s*(?P<text>.+)$")
 
@@ -73,31 +74,56 @@ OPENAI_API_KEY = os.getenv("BE2_OPENAI_API_KEY") or ""
 _legacy_model = (os.getenv("BE2_OPENAI_MODEL") or "").strip()
 LLM_LOCAL_MODEL = (os.getenv("BE2_LLM_LOCAL_MODEL") or _legacy_model or "gpt-4o-mini").strip()
 LLM_LARGE_MODEL = (os.getenv("BE2_LLM_LARGE_MODEL") or _legacy_model or "gpt-4o").strip()
-LLM_TIMEOUT = float(os.getenv("BE2_LLM_TIMEOUT_S") or "45")
+LLM_TIMEOUT = float(os.getenv("BE2_LLM_TIMEOUT_S") or "40")
 # Anti-loop generation controls for chat completions.
-LLM_TEMPERATURE = float(os.getenv("BE2_LLM_TEMPERATURE") or "0.2")
-LLM_MAX_TOKENS = int(os.getenv("BE2_LLM_MAX_TOKENS") or "320")
-LLM_REPEAT_PENALTY = float(os.getenv("BE2_LLM_REPEAT_PENALTY") or "1.3")
-LLM_CTX_CHARS = int(os.getenv("BE2_LLM_CTX_CHARS") or "220")
+LLM_TEMPERATURE = float(os.getenv("BE2_LLM_TEMPERATURE") or "0.15")
+LLM_MAX_TOKENS = int(os.getenv("BE2_LLM_MAX_TOKENS") or "480")
+LLM_REPEAT_PENALTY = float(os.getenv("BE2_LLM_REPEAT_PENALTY") or "1.15")
+LLM_CTX_CHARS = int(os.getenv("BE2_LLM_CTX_CHARS") or "400")
 
 _SYSTEM_PROMPT = (
-    "Bạn là trợ lý pháp lý Việt Nam của LexSocial AI. Trả lời NGẮN (tối đa ~120 từ), tiếng Việt, rõ ràng.\n"
-    "## Có Ngữ cảnh [số_hiệu::D…K…]\n"
-    "- Chỉ gắn số hiệu/Điều/Khoản đúng chủ đề từ Ngữ cảnh; không chép nguyên văn dài.\n"
-    "- Bỏ điều khoản lệch chủ đề (trùng từ chung như 'thuế'/'100 triệu').\n"
-    "## Không có / lệch ngữ cảnh\n"
-    "- Trả lời nguyên tắc pháp luật VN (hình sự/hành chính/thuế…); không bịa số Điều/Khoản/mức tiền.\n"
-    "- Ví dụ cờ bạc: ưu tiên rủi ro hình sự/hành chính (có thể phạt tù), thuế chỉ phụ.\n"
-    "- Ghi ngắn: chưa gắn điều khoản đã số hóa; cần đối chiếu văn bản gốc.\n"
-    "Không khuyến khích vi phạm. Không chào hỏi dài."
+    "Bạn là trợ lý pháp lý Việt Nam (LexSocial AI). Trả lời tiếng Việt, chính xác, súc tích (~180–220 từ).\n"
+    "Bố cục cố định:\n"
+    "1) **Kết luận ngắn** (1–2 câu, trả lời trực tiếp).\n"
+    "2) **Phân tích** (2–4 ý): đúng lĩnh vực hình sự/hành chính/thuế/dân sự; nêu điều kiện/hệ quả chính.\n"
+    "3) **Căn cứ** (nếu có Ngữ cảnh đúng chủ đề): chỉ liệt kê mã [số_hiệu::Dx.Ky], không chép nguyên văn dài.\n"
+    "4) **Giới hạn** (1 câu): chưa gắn được điều khoản đã số hóa / cần đối chiếu văn bản gốc khi thiếu.\n"
+    "Quy tắc: không bịa số Điều/Khoản/mức tiền nếu Ngữ cảnh không có; bỏ ngữ cảnh lệch chủ đề; "
+    "cờ bạc → ưu tiên rủi ro hình sự/hành chính (có thể phạt tù) trước thuế; không khuyến khích vi phạm."
 )
-
 
 _NO_CONTEXT_SYSTEM = (
-    "Trợ lý pháp lý Việt Nam LexSocial AI. Trả lời NGẮN (~120 từ). "
-    "Nêu hệ quả pháp lý đúng lĩnh vực; không bịa số Điều/Khoản/mức tiền; "
-    "không chỉ nói 'chưa đủ căn cứ' rồi dừng."
+    "Trợ lý pháp lý Việt Nam LexSocial AI. Trả lời ~180–220 từ, bố cục: Kết luận / Phân tích / Giới hạn. "
+    "Đúng lĩnh vực pháp lý VN; không bịa số Điều/Khoản/mức tiền; không dừng ở 'chưa đủ căn cứ'."
 )
+
+# Persistent HTTP client — avoid TLS/handshake cost on every QA call.
+_http: httpx.AsyncClient | None = None
+
+
+def _get_http() -> httpx.AsyncClient:
+    global _http
+    if _http is None or _http.is_closed:
+        _http = httpx.AsyncClient(
+            timeout=httpx.Timeout(LLM_TIMEOUT, connect=5.0),
+            limits=httpx.Limits(max_keepalive_connections=8, max_connections=16),
+        )
+    return _http
+
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    _get_http()
+    try:
+        yield
+    finally:
+        global _http
+        if _http is not None and not _http.is_closed:
+            await _http.aclose()
+        _http = None
+
+
+app = FastAPI(title="BE2 Intelligence (local dev gateway)", version="0.2.0", lifespan=_lifespan)
 
 
 class CompleteRequest(BaseModel):
@@ -126,7 +152,14 @@ def _extract_question(prompt: str) -> str:
     return ""
 
 
-async def _openai_chat(system: str, user: str, timeout_s: float, model: str | None = None) -> str | None:
+async def _openai_chat(
+    system: str,
+    user: str,
+    timeout_s: float,
+    model: str | None = None,
+    *,
+    json_object: bool = False,
+) -> str | None:
     """Call any OpenAI-compatible /chat/completions endpoint. Returns text or None on failure."""
     if not OPENAI_BASE_URL:
         logger.warning("BE2_OPENAI_BASE_URL is not set")
@@ -136,29 +169,31 @@ async def _openai_chat(system: str, user: str, timeout_s: float, model: str | No
         headers = {"Content-Type": "application/json"}
         if OPENAI_API_KEY:
             headers["Authorization"] = f"Bearer {OPENAI_API_KEY}"
-        async with httpx.AsyncClient(timeout=timeout_s) as client:
-            resp = await client.post(
-                f"{OPENAI_BASE_URL}/chat/completions",
-                headers=headers,
-                json={
-                    "model": use_model,
-                    "messages": [
-                        {"role": "system", "content": system},
-                        {"role": "user", "content": user},
-                    ],
-                    "temperature": LLM_TEMPERATURE,
-                    "max_tokens": LLM_MAX_TOKENS,
-                    "frequency_penalty": 0.6,
-                    "presence_penalty": 0.3,
-                    "stream": False,
-                },
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            choices = data.get("choices") or []
-            if choices:
-                return (choices[0].get("message", {}) or {}).get("content", "").strip() or None
-            return None
+        payload: dict[str, Any] = {
+            "model": use_model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            "temperature": LLM_TEMPERATURE,
+            "max_tokens": LLM_MAX_TOKENS,
+            "stream": False,
+        }
+        if json_object:
+            payload["response_format"] = {"type": "json_object"}
+        client = _get_http()
+        resp = await client.post(
+            f"{OPENAI_BASE_URL}/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=timeout_s,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        choices = data.get("choices") or []
+        if choices:
+            return (choices[0].get("message", {}) or {}).get("content", "").strip() or None
+        return None
     except Exception as exc:  # noqa: BLE001
         logger.warning("openai-compatible backend failed: %s", exc)
         return None
@@ -209,17 +244,45 @@ def _clean_llm_text(text: str | None) -> str | None:
     return cleaned or None
 
 
-async def _llm_generate(system: str, user: str, timeout_s: float, model: str | None = None) -> str | None:
-    """Call OpenAI-compatible chat within one deadline; None triggers extractive fallback."""
+async def _llm_generate(
+    system: str,
+    user: str,
+    timeout_s: float,
+    model: str | None = None,
+    *,
+    json_object: bool = False,
+) -> str | None:
+    """Call OpenAI-compatible chat within one deadline."""
     if BACKEND == "extractive":
         return None
     budget = max(0.1, min(timeout_s, LLM_TIMEOUT))
     try:
-        raw = await asyncio.wait_for(_openai_chat(system, user, budget, model=model), timeout=budget)
+        raw = await asyncio.wait_for(
+            _openai_chat(system, user, budget, model=model, json_object=json_object),
+            timeout=budget,
+        )
     except TimeoutError:
         logger.warning("LLM attempt exceeded %.2fs deadline", budget)
         return None
     return _clean_llm_text(raw)
+
+
+def _parse_qa_json(raw: str | None) -> dict[str, Any] | None:
+    if not raw:
+        return None
+    text = raw.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*", "", text)
+        text = re.sub(r"\s*```$", "", text)
+    try:
+        import json
+
+        data = json.loads(text)
+        if isinstance(data, dict) and data.get("answer"):
+            return data
+    except Exception:
+        return None
+    return None
 
 
 def _clip_ctx(text: str, limit: int | None = None) -> str:
@@ -494,6 +557,31 @@ def _extractive_answer(question: str, ctx: list[tuple[str, str]]) -> str:
     )
 
 
+_QA_JSON_SYSTEM = (
+    _SYSTEM_PROMPT
+    + "\nTrả về ĐÚNG một JSON object: "
+    '{"answer":"markdown tiếng Việt","citation_ids":["mã từ Ngữ cảnh nếu đúng chủ đề"],"confidence":"high|medium|low"}. '
+    "citation_ids tối đa 2, chỉ lấy mã có trong Ngữ cảnh; rỗng nếu lệch chủ đề."
+)
+
+
+def _citations_from_answer(top: list[tuple[str, str]], question: str, answer: str, ids: list[str] | None = None) -> list[dict[str, str]]:
+    """Attach at most 2 on-topic citations; prefer model-selected ids when valid."""
+    citations: list[dict[str, str]] = []
+    by_id = {kid: text for kid, text in top}
+    answer_norm = _strip_accents(answer or "")
+    preferred = [str(i).strip() for i in (ids or []) if str(i).strip() in by_id]
+    ordered = preferred + [kid for kid, _ in top if kid not in preferred]
+    for kid in ordered:
+        if len(citations) >= 2:
+            break
+        text = by_id.get(kid) or ""
+        kid_norm = _strip_accents(kid)
+        if kid in preferred or kid_norm in answer_norm or _topic_relevance(question, f"{kid} {text}") >= 0.5:
+            citations.append({"khoan_id": kid, "quote": _clip_ctx(text, 120)})
+    return citations
+
+
 async def _handle_qa(prompt: str, timeout_s: float, model: str | None = None) -> dict[str, Any]:
     ctx = _parse_context(prompt)
     question = _extract_question(prompt)
@@ -516,10 +604,23 @@ async def _handle_qa(prompt: str, timeout_s: float, model: str | None = None) ->
         user_msg = (
             f"Câu hỏi: {question}\n\n"
             "Không có điều khoản đã số hóa phù hợp trong Ngữ cảnh. "
-            "Hãy trả lời NGẮN theo pháp luật Việt Nam (không bịa số Điều/Khoản/mức tiền).\n"
-            "Bố cục: (1) Kết luận ngắn 1–2 câu; (2) Phân tích pháp lý 2–4 câu; (3) Giới hạn 1 câu.\n"
+            "Trả lời ~180–220 từ theo pháp luật Việt Nam (không bịa số Điều/Khoản/mức tiền).\n"
+            "Bố cục: Kết luận / Phân tích / Giới hạn.\n"
             "Với cờ bạc: ưu tiên rủi ro hình sự/hành chính (có thể phạt tù). Không khuyến khích vi phạm."
         )
+        raw = await _llm_generate(
+            _QA_JSON_SYSTEM, user_msg + "\nJSON, citation_ids=[].", timeout_s, model=model, json_object=True
+        )
+        parsed = _parse_qa_json(raw)
+        if parsed:
+            return {
+                "answer": str(parsed.get("answer") or "").strip(),
+                "citations": [],
+                "confidence": str(parsed.get("confidence") or "low"),
+            }
+        # Provider may ignore JSON mode — reuse raw text before a second round-trip.
+        if raw and len(raw.strip()) > 40:
+            return {"answer": raw.strip(), "citations": [], "confidence": "low"}
         llm_answer = await _llm_generate(_NO_CONTEXT_SYSTEM, user_msg, timeout_s, model=model)
         if llm_answer:
             return {"answer": llm_answer, "citations": [], "confidence": "low"}
@@ -537,30 +638,29 @@ async def _handle_qa(prompt: str, timeout_s: float, model: str | None = None) ->
     user_msg = (
         f"Ngữ cảnh (các điều khoản pháp luật liên quan):\n{_context_block(top)}\n\n"
         f"Câu hỏi: {question}\n\n"
-        "Trả lời MỘT LẦN, NGẮN (~120 từ).\n"
+        "Trả lời ~180–220 từ, bố cục Kết luận / Phân tích / Căn cứ / Giới hạn.\n"
         "- Chỉ nêu số hiệu/Điều/Khoản đúng chủ đề từ Ngữ cảnh; KHÔNG chép nguyên văn dài.\n"
-        "- Ngữ cảnh lệch chủ đề: bỏ qua; trả lời nguyên tắc VN, không gắn mã lệch.\n"
-        "Bố cục: (1) Kết luận ngắn; (2) Căn cứ: liệt kê tối đa 2 mã [số_hiệu::Dx.Ky] nếu đúng chủ đề; "
-        "(3) Giới hạn 1 câu nếu thiếu.\n"
+        "- Ngữ cảnh lệch chủ đề: bỏ qua; trả lời nguyên tắc VN, citation_ids=[].\n"
         "Cờ bạc: ưu tiên hình sự/hành chính trước thuế."
     )
-    llm_answer = await _llm_generate(_SYSTEM_PROMPT, user_msg, timeout_s, model=model)
+    raw = await _llm_generate(_QA_JSON_SYSTEM, user_msg, timeout_s, model=model, json_object=True)
+    parsed = _parse_qa_json(raw)
+    llm_answer = str(parsed.get("answer") or "").strip() if parsed else None
+    model_ids = parsed.get("citation_ids") if parsed and isinstance(parsed.get("citation_ids"), list) else None
+    conf = str(parsed.get("confidence") or "medium") if parsed else "medium"
+
+    if not llm_answer and raw and len(raw.strip()) > 40:
+        llm_answer = raw.strip()
+    if not llm_answer:
+        llm_answer = await _llm_generate(_SYSTEM_PROMPT, user_msg, timeout_s, model=model)
 
     if llm_answer and _answer_says_insufficient(llm_answer):
         return {"answer": llm_answer, "citations": [], "confidence": "low"}
 
-    # Only cite clauses that are both selected AND mentioned / on-topic — max 2, quote kept short for BE3 validation.
-    answer_norm = _strip_accents(llm_answer or "")
-    citations: list[dict[str, str]] = []
-    for kid, text in top[:3]:
-        if len(citations) >= 2:
-            break
-        kid_norm = _strip_accents(kid)
-        if kid_norm in answer_norm or _topic_relevance(question, f"{kid} {text}") >= 0.5:
-            citations.append({"khoan_id": kid, "quote": _clip_ctx(text, 120)})
+    citations = _citations_from_answer(top, question, llm_answer or "", model_ids)
 
     if llm_answer:
-        return {"answer": llm_answer, "citations": citations, "confidence": "medium"}
+        return {"answer": llm_answer, "citations": citations, "confidence": conf}
 
     return {
         "answer": (

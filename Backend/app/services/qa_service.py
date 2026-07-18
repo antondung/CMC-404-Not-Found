@@ -392,7 +392,7 @@ class QAService:
         return False
 
     @classmethod
-    def _clip_ctx(cls, text: str, limit: int = 220) -> str:
+    def _clip_ctx(cls, text: str, limit: int = 400) -> str:
         t = " ".join((text or "").split())
         return t if len(t) <= limit else t[:limit].rstrip()
 
@@ -635,13 +635,12 @@ class QAService:
             except Exception:
                 pass
 
-        # Qdrant is the primary retrieval index. Avoid a costly full-text graph scan when vector
-        # retrieval already produced enough usable evidence; Neo4j remains the canonical source
-        # for temporal and citation validation below.
+        # Qdrant is primary. Neo4j CONTAINS scan is expensive — only when vector retrieval returns
+        # zero usable hits (broken embeddings / empty index). Temporal validation still uses Neo4j.
         usable_vector_candidates = [
             c for c in candidates if c.khoan_id and c.noi_dung and self._retrieval_text_ok(c.noi_dung)
         ]
-        needs_graph_fallback = len(usable_vector_candidates) < 4
+        needs_graph_fallback = len(usable_vector_candidates) == 0
 
         if needs_graph_fallback and self.driver and hasattr(self.driver, "session"):
             try:
@@ -983,7 +982,7 @@ class QAService:
             "retrieved_context:\n\n"
             f"Câu hỏi: {question}\n"
             "Không có điều khoản pháp luật đã số hóa phù hợp trong hệ thống.\n"
-            "Hãy trả lời theo đúng nguyên tắc pháp luật Việt Nam (không chỉ nói 'chưa đủ căn cứ' rồi dừng).\n"
+            "Hãy trả lời ~180–220 từ theo đúng nguyên tắc pháp luật Việt Nam (không chỉ nói 'chưa đủ căn cứ' rồi dừng).\n"
             "Bố cục: (1) Kết luận ngắn — trả lời trực tiếp; (2) Phân tích pháp lý theo lĩnh vực "
             "(hình sự/hành chính/thuế/dân sự…); (3) Giới hạn — chưa gắn điều khoản đã số hóa, cần đối chiếu văn bản gốc.\n"
             "Quy tắc: không bịa số Điều/Khoản/mức tiền/thời hạn cụ thể; không khuyến khích vi phạm.\n"
@@ -996,7 +995,8 @@ class QAService:
                 task="qa",
                 prompt=prompt,
                 schema={"required": ["answer", "citations"]},
-                complexity="low",
+                # medium → /large (stronger model) for legal accuracy when corpus miss
+                complexity="medium",
             )
             answer = str(llm_out.get("answer") or "").strip()
             if not answer:
@@ -1093,7 +1093,8 @@ class QAService:
                 reason="Retrieved context does not cover the question topic.",
             )
 
-        context_limit = 2 if audience == "citizen" else 3
+        # 3 clauses × ~400 chars keeps prompt small while giving enough legal detail.
+        context_limit = 3 if audience == "citizen" else 4
         candidates = candidates[:context_limit]
         retrieved_context = "\n".join(
             f"[{c.khoan_id}] {self._clip_ctx(c.noi_dung)}" for c in candidates
@@ -1102,8 +1103,8 @@ class QAService:
             "retrieved_context:\n"
             f"{retrieved_context}\n\n"
             f"Câu hỏi: {question}\n"
-            "Trả lời NGẮN (~120 từ), pháp luật Việt Nam.\n"
-            "- Chỉ gắn số hiệu/Điều/Khoản đúng chủ đề từ ngữ cảnh; không chép nguyên văn.\n"
+            "Trả lời ~180–220 từ, pháp luật Việt Nam, bố cục: Kết luận / Phân tích / Căn cứ / Giới hạn.\n"
+            "- Chỉ gắn số hiệu/Điều/Khoản đúng chủ đề từ ngữ cảnh; không chép nguyên văn dài.\n"
             "- Lệch chủ đề → citations=[]; trả lời nguyên tắc VN.\n"
             "- Cờ bạc: ưu tiên hình sự/hành chính trước thuế.\n"
             "JSON: answer, citations (tối đa 2 phần tử {khoan_id, quote ngắn} hoặc []), confidence."
@@ -1113,9 +1114,8 @@ class QAService:
                 task="qa",
                 prompt=prompt,
                 schema={"required": ["answer", "citations"]},
-                # QA already uses retrieved, canonical context and strict post-validation. The
-                # low-latency route is sufficient for both portals and avoids a slower large model.
-                complexity="low",
+                # medium → BE2 /large (stronger model). Latency controlled via max_tokens/timeouts.
+                complexity="medium",
             )
         except Exception as e:
             return await self._unverified_ai_answer(

@@ -1,10 +1,13 @@
 // API client for the Admin portal. Talks to the BE3 gateway envelope:
 //   success => { ok: true, data: <T>, meta: {...} }
 //   error   => { ok: false, data: { message, code, details }, meta: {...} }
-// Admin endpoints require a bearer token (RBAC). Until a real IdP is wired, we store a
-// deterministic dev token at login (see Login.tsx) — the backend accepts these in dev/eval mode.
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000';
+import { apiFetchErrorMessage, resolveApiBase } from './apiBase';
+
 const TOKEN_KEY = 'lexsocial_admin_token';
+
+export function getApiBase(): string {
+  return resolveApiBase();
+}
 
 export function setToken(token: string): void {
   localStorage.setItem(TOKEN_KEY, token);
@@ -13,7 +16,6 @@ export function setToken(token: string): void {
 export function getToken(): string {
   // No hardcoded fallback: before a real login there is NO token, so unauthenticated admin
   // requests are rejected by the backend (RBAC) instead of silently running as admin.
-  // Login.tsx calls setToken() with the dev bearer once the operator "logs in".
   return localStorage.getItem(TOKEN_KEY) ?? '';
 }
 
@@ -44,25 +46,37 @@ async function parse<T>(res: Response): Promise<T> {
   return json.data;
 }
 
+async function request(path: string, init?: RequestInit): Promise<Response> {
+  const base = resolveApiBase();
+  if (!base) {
+    throw new Error(apiFetchErrorMessage(new Error('Failed to fetch'), base));
+  }
+  try {
+    return await fetch(`${base}${path}`, init);
+  } catch (err) {
+    throw new Error(apiFetchErrorMessage(err, base));
+  }
+}
+
 export async function apiGet<T>(path: string): Promise<T> {
-  return parse<T>(await fetch(`${API_BASE}${path}`, { headers: headers(false) }));
+  return parse<T>(await request(path, { headers: headers(false) }));
 }
 
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
-  return parse<T>(await fetch(`${API_BASE}${path}`, { method: 'POST', headers: headers(true), body: JSON.stringify(body) }));
+  return parse<T>(await request(path, { method: 'POST', headers: headers(true), body: JSON.stringify(body) }));
 }
 
 export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
-  return parse<T>(await fetch(`${API_BASE}${path}`, { method: 'PATCH', headers: headers(true), body: JSON.stringify(body) }));
+  return parse<T>(await request(path, { method: 'PATCH', headers: headers(true), body: JSON.stringify(body) }));
 }
 
 export async function apiDelete<T>(path: string): Promise<T> {
-  return parse<T>(await fetch(`${API_BASE}${path}`, { method: 'DELETE', headers: headers(false) }));
+  return parse<T>(await request(path, { method: 'DELETE', headers: headers(false) }));
 }
 
 // Multipart upload (e.g. raw legal files). Do NOT set Content-Type — the browser sets the
 // multipart boundary automatically. Auth header is still attached.
 export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
   const h: Record<string, string> = { Accept: 'application/json', Authorization: `Bearer ${getToken()}` };
-  return parse<T>(await fetch(`${API_BASE}${path}`, { method: 'POST', headers: h, body: form }));
+  return parse<T>(await request(path, { method: 'POST', headers: h, body: form }));
 }

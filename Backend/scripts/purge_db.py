@@ -320,7 +320,16 @@ async def purge_postgres(scope: str, dry_run: bool) -> None:
         print("  [postgres] SKIP - thiếu DATABASE_URL")
         return
     dsn = dsn.replace("postgresql+asyncpg://", "postgresql://")
-    conn = await asyncpg.connect(dsn)
+    # Railway public TCP proxy typically needs TLS; set DATABASE_SSL=require.
+    ssl_mode = (os.getenv("DATABASE_SSL") or "").strip().lower()
+    ssl_arg: bool | object | None
+    if ssl_mode in {"1", "true", "yes", "require"}:
+        ssl_arg = True
+    elif ssl_mode in {"0", "false", "no", "disable"}:
+        ssl_arg = False
+    else:
+        ssl_arg = None
+    conn = await asyncpg.connect(dsn, ssl=ssl_arg) if ssl_arg is not None else await asyncpg.connect(dsn)
     try:
         for stmt in statements:
             compact = " ".join(stmt.split())

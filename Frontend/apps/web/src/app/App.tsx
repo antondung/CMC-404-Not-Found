@@ -35,6 +35,7 @@ import AskPage from '../citizen/features/ask/AskPage';
 import VanBanPage from '../citizen/features/van-ban/VanBanPage';
 import NewsPage from '../citizen/features/news/NewsPage';
 import NewsDetailPage from '../citizen/features/news/NewsDetailPage';
+import { CitizenChatBubble } from '../citizen/components/CitizenChatBubble';
 
 type NavItem = { to: string; label: string; icon: typeof SquaresFour };
 
@@ -165,17 +166,26 @@ function AdminShell() {
   );
 }
 
+function CitizenScrollTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
+
 function CitizenRoutes() {
-  const location = useLocation();
   return (
-    <div key={location.pathname} className="ls-page min-h-[100dvh]">
-      <Routes location={location}>
+    <div className="relative flex min-h-[100dvh] flex-col">
+      <CitizenScrollTop />
+      <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/ask" element={<AskPage />} />
         <Route path="/van-ban" element={<VanBanPage />} />
         <Route path="/news" element={<NewsPage />} />
         <Route path="/news/:id" element={<NewsDetailPage />} />
       </Routes>
+      <CitizenChatBubble />
     </div>
   );
 }

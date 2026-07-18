@@ -190,13 +190,14 @@ export default function AskPage() {
   const showSuggestions = messages.length <= 1 && !isLoading;
 
   return (
-    <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-background">
+    <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-[#E8EEF8]">
       <Atmosphere tone="chat" />
       <CitizenHeader />
 
-      <div className="relative mx-auto flex w-full max-w-chat flex-1 flex-col overflow-hidden px-4 sm:px-6">
+      <div className="relative z-[1] mx-auto flex w-full max-w-chat flex-1 flex-col overflow-hidden px-3 pb-3 pt-2 sm:px-5 sm:pb-4">
+        <div className="ls-chat-stage flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_20px_50px_-28px_rgba(15,23,42,0.45)]">
         {/* Chat toolbar / metadata — asOf lives here, NOT on the composer */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/80 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-white px-3 py-3 sm:px-4">
           <div className="flex flex-wrap items-center gap-2">
             <Link to="/" className="ls-btn-secondary !min-h-[40px] !px-3 !text-sm">
               <ArrowLeft size={16} weight="bold" aria-hidden /> Trang chủ
@@ -236,7 +237,7 @@ export default function AskPage() {
         <main
           id="main"
           ref={mainRef}
-          className="flex-1 overflow-y-auto py-5"
+          className="flex-1 overflow-y-auto bg-[#F4F7FC] px-3 py-5 sm:px-5"
           aria-live="polite"
         >
           <div className="mx-auto flex max-w-bubble flex-col gap-5">
@@ -255,10 +256,10 @@ export default function AskPage() {
                 <div
                   className={`max-w-full rounded-card px-4 py-4 sm:px-5 ${
                     msg.role === 'user'
-                      ? 'rounded-tr-md bg-gradient-to-br from-primary-soft via-[#D9E4FB] to-[#FFE8D9] text-ink shadow-sm'
+                      ? 'rounded-tr-md bg-[#2557D6] text-white shadow-md'
                       : msg.isTyping
-                        ? 'ls-card-wash rounded-tl-md border border-primary/25 bg-white/95 shadow-[0_0_0_1px_rgba(37,87,214,0.08),0_12px_28px_-14px_rgba(37,87,214,0.35)] backdrop-blur-sm'
-                        : 'ls-card-wash rounded-tl-md border border-border/80 bg-white/95 shadow-soft backdrop-blur-sm'
+                        ? 'rounded-tl-md border border-primary/30 bg-white shadow-[0_8px_24px_-12px_rgba(37,87,214,0.35)]'
+                        : 'rounded-tl-md border border-slate-200 bg-white shadow-sm'
                   }`}
                 >
                   {msg.isTyping ? (
@@ -355,7 +356,7 @@ export default function AskPage() {
         </main>
 
         {/* Sticky composer */}
-        <div className="sticky bottom-0 border-t border-border/70 bg-background/90 pb-4 pt-3 backdrop-blur-md">
+        <div className="sticky bottom-0 border-t border-slate-200 bg-white px-3 pb-3 pt-3 sm:px-4">
           {showSuggestions && (
             <div className="ls-reveal mb-3">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Gợi ý câu hỏi</p>
@@ -366,7 +367,7 @@ export default function AskPage() {
           <form
             id="chat-form"
             onSubmit={handleSend}
-            className={`ls-search-shell flex items-end gap-2 !p-2 ${isLoading ? 'ls-composer-busy' : ''}`}
+            className={`ls-search-shell flex items-end gap-2 !border-slate-200 !bg-slate-50 !p-2 !shadow-none ${isLoading ? 'ls-composer-busy' : ''}`}
           >
             <textarea
               ref={textareaRef}
@@ -402,6 +403,7 @@ export default function AskPage() {
             <WarningCircle size={14} className="mt-0.5 shrink-0" aria-hidden />
             AI có thể sai. Hãy đọc phần căn cứ pháp lý và đối chiếu văn bản gốc khi cần.
           </p>
+        </div>
         </div>
       </div>
     </div>

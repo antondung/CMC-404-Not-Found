@@ -2,9 +2,10 @@
 import {
   ShareNetwork, Hash, ChatCircleText, Spinner, WarningCircle, ArrowClockwise,
   Link as LinkIcon, PaperPlaneRight, MagnifyingGlass, Globe, User, Clock, CheckCircle,
-  YoutubeLogo, PlayCircle, Database, ChartLineUp,
+  YoutubeLogo, PlayCircle, Database, ChartLineUp, Graph,
 } from '@phosphor-icons/react';
 import { apiGet, apiPost } from '../../../lib/api';
+import { SocialInsightsPanel } from './SocialInsightsPanel';
 
 // Backend returns loose Neo4j/Postgres property bags; keep the shapes permissive.
 interface Topic {
@@ -50,7 +51,7 @@ interface CrawlResp {
   message?: string;
 }
 
-type Tab = 'topics' | 'posts' | 'ingest';
+type Tab = 'insights' | 'topics' | 'posts' | 'ingest';
 
 function topicName(t: Topic): string {
   return t.ten ?? t.name ?? t.chu_de ?? t.slug ?? 'Chủ đề';
@@ -77,7 +78,7 @@ function postAuthor(p: Post): string | undefined {
 }
 
 export default function SocialPage() {
-  const [tab, setTab] = useState<Tab>('topics');
+  const [tab, setTab] = useState<Tab>('insights');
   const [metrics, setMetrics] = useState<{ posts: number; topics: number; loading: boolean }>({
     posts: 0,
     topics: 0,
@@ -133,22 +134,28 @@ export default function SocialPage() {
 
       <CrawlPanel />
 
-      <div className="mb-6 flex w-fit items-center gap-1 rounded-xl bg-primary-soft/60 p-1">
-        {([['topics', 'Chủ đề', Hash], ['posts', 'Bài đăng', ChatCircleText], ['ingest', 'Thu thập & Preview', PaperPlaneRight]] as const).map(
-          ([id, label, Icon]) => (
-            <button
-              key={id}
-              onClick={() => setTab(id)}
-              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold transition-all ${
-                tab === id ? 'bg-white text-primary shadow-sm' : 'text-muted hover:text-ink'
-              }`}
-            >
-              <Icon size={16} weight={tab === id ? 'fill' : 'regular'} /> {label}
-            </button>
-          ),
-        )}
+      <div className="mb-6 flex w-fit max-w-full flex-wrap items-center gap-1 rounded-xl bg-primary-soft/60 p-1">
+        {(
+          [
+            ['insights', 'Đồ thị & Bubble', Graph],
+            ['topics', 'Chủ đề', Hash],
+            ['posts', 'Bài đăng', ChatCircleText],
+            ['ingest', 'Thu thập & Preview', PaperPlaneRight],
+          ] as const
+        ).map(([id, label, Icon]) => (
+          <button
+            key={id}
+            onClick={() => setTab(id)}
+            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold transition-all ${
+              tab === id ? 'bg-white text-primary shadow-sm' : 'text-muted hover:text-ink'
+            }`}
+          >
+            <Icon size={16} weight={tab === id ? 'fill' : 'regular'} /> {label}
+          </button>
+        ))}
       </div>
 
+      {tab === 'insights' && <SocialInsightsPanel />}
       {tab === 'topics' && <TopicsTab />}
       {tab === 'posts' && <PostsTab />}
       {tab === 'ingest' && <IngestTab />}

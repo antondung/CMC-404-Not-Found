@@ -31,44 +31,36 @@ function HeroSearch() {
 
   const goAsk = (q: string) => {
     const text = q.trim();
-    const go = () => {
-      if (!text) {
-        navigate('/ask');
-        return;
-      }
-      navigate(`/ask?q=${encodeURIComponent(text)}`);
-    };
-    // Prefer View Transitions when the browser supports them
-    const doc = document as Document & { startViewTransition?: (cb: () => void) => void };
-    if (typeof doc.startViewTransition === 'function') {
-      doc.startViewTransition(go);
+    if (!text) {
+      navigate('/ask');
       return;
     }
-    go();
+    navigate(`/ask?q=${encodeURIComponent(text)}`);
   };
 
   return (
-    <section className="relative overflow-hidden border-b border-border bg-gradient-to-b from-[#EAF0FB] via-[#F4F7FC] to-background">
+    <section className="ls-hero-banner relative w-full overflow-hidden border-b border-border">
+      <div className="ls-hero-banner__plane absolute inset-0" aria-hidden />
       <Atmosphere tone="hero" showMark />
 
-      <div className="ls-container relative grid items-start gap-8 py-9 lg:grid-cols-[1.15fr_0.85fr] lg:gap-10 lg:py-12">
+      <div className="ls-container relative grid min-h-[min(72vh,640px)] items-center gap-8 py-12 lg:grid-cols-[1.15fr_0.85fr] lg:gap-12 lg:py-16">
         <div>
-          <p className="ls-reveal inline-flex items-center gap-2 rounded-control border border-white/80 bg-white/80 px-3 py-1.5 text-sm font-semibold text-muted shadow-sm backdrop-blur-sm">
+          <p className="ls-reveal inline-flex items-center gap-2 rounded-control border border-white/80 bg-white/85 px-3 py-1.5 text-sm font-semibold text-muted shadow-sm backdrop-blur-sm">
             <Scales size={16} className="text-primary" weight="fill" aria-hidden />
             Cổng hỏi đáp pháp luật cho công dân
           </p>
 
-          <h1 className="ls-reveal ls-reveal-delay-1 mt-4 max-w-xl font-display text-3xl font-extrabold leading-tight tracking-tight text-ink sm:text-4xl lg:text-[2.65rem] lg:leading-[1.15]">
+          <h1 className="ls-reveal ls-reveal-delay-1 mt-5 max-w-xl font-display text-3xl font-extrabold leading-tight tracking-tight text-ink sm:text-4xl lg:text-[2.85rem] lg:leading-[1.12]">
             Hiểu pháp luật dễ hơn với{' '}
             <span className="ls-brand-gradient">LexSocial AI</span>
           </h1>
 
-          <p className="ls-reveal ls-reveal-delay-2 mt-3 max-w-xl text-base leading-relaxed text-muted sm:text-lg">
+          <p className="ls-reveal ls-reveal-delay-2 mt-4 max-w-xl text-base leading-relaxed text-muted sm:text-lg">
             Đặt câu hỏi bằng ngôn ngữ đời thường, nhận câu trả lời kèm căn cứ pháp lý rõ ràng.
           </p>
 
           <form
-            className="ls-reveal ls-reveal-delay-3 mt-6"
+            className="ls-reveal ls-reveal-delay-3 mt-7"
             aria-label="Ô hỏi trợ lý pháp lý"
             onSubmit={(e) => {
               e.preventDefault();
@@ -76,7 +68,7 @@ function HeroSearch() {
             }}
           >
             <div className="ls-search-shell flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
-              <div className="flex min-h-search flex-1 items-center gap-3 rounded-control bg-background/80 px-4">
+              <div className="flex min-h-search flex-1 items-center gap-3 rounded-control bg-background/90 px-4">
                 <MagnifyingGlass size={22} className="shrink-0 text-primary" weight="bold" aria-hidden />
                 <input
                   type="text"
@@ -103,11 +95,11 @@ function HeroSearch() {
         </div>
 
         <aside
-          className="ls-reveal ls-reveal-delay-3 ls-float ls-card ls-card-wash relative hidden overflow-hidden p-5 lg:block"
+          className="ls-reveal ls-reveal-delay-3 ls-float ls-hero-banner__panel relative hidden overflow-hidden p-6 lg:block"
           aria-hidden
         >
-          <div className="ls-shimmer pointer-events-none absolute inset-0 opacity-40" />
-          <div className="pointer-events-none absolute -right-3 -top-2 opacity-90">
+          <div className="ls-shimmer pointer-events-none absolute inset-0 opacity-30" />
+          <div className="pointer-events-none absolute -right-2 -top-1 opacity-90">
             <AccentIllustration variant="chat" />
           </div>
           <div className="relative mb-3 flex items-center gap-2 text-sm font-semibold text-muted">
@@ -116,7 +108,7 @@ function HeroSearch() {
             </div>
             Ví dụ câu trả lời
           </div>
-          <div className="relative rounded-control border border-border bg-background/90 p-4 backdrop-blur-sm">
+          <div className="relative rounded-control border border-white/70 bg-white p-4 shadow-sm">
             <p className="text-sm font-bold text-ink">Kết luận ngắn</p>
             <p className="mt-2 text-sm leading-relaxed text-muted">
               Lao động nữ được nghỉ thai sản 6 tháng theo quy định hiện hành (khi đủ điều kiện).

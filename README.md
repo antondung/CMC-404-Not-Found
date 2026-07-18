@@ -127,16 +127,11 @@ Sau khi khởi chạy thành công, bạn có thể truy cập qua các địa c
 
 ---
 
-## 🤝 Đóng góp & Phát triển
+## 🌐 Giao diện Web (Frontend)
 
-Chúng tôi hoan nghênh mọi đóng góp từ cộng đồng!
-1. Fork repository.
-2. Tạo branch mới (`git checkout -b feature/amazing-feature`).
-3. Commit thay đổi (`git commit -m "feat: Add amazing feature"`).
-4. Push lên nhánh (`git push origin feature/amazing-feature`).
-5. Tạo Pull Request.
-
-**Quy tắc:** Mọi PR cần đảm bảo code sạch sẽ, không phá vỡ nguyên tắc Citation-first.
+Hệ thống LexSocial AI bao gồm hai giao diện web chính được tối ưu hóa cho trải nghiệm người dùng:
+- **Admin Dashboard**: Cung cấp bộ công cụ mạnh mẽ để cán bộ pháp chế quản lý kho dữ liệu luật, theo dõi biểu đồ thống kê từ mạng xã hội (tích hợp Nivo và Vis-network để trực quan hóa Đồ thị Tri thức), và xử lý các cảnh báo rủi ro theo thời gian thực.
+- **Citizen Portal**: Giao diện hướng tới người dân với thiết kế tối giản, dễ thao tác. Mọi kết quả hỏi đáp đều được trình bày rõ ràng, nhấn mạnh vào nguồn trích dẫn gốc (Citation-first) giúp người dân dễ dàng xác thực độ tin cậy của câu trả lời từ AI.
 
 ---
 

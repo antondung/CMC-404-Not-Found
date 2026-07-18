@@ -23,7 +23,7 @@
    Backend  BE2 gate  http://localhost:8002
    Frontend Admin      http://localhost:5173/admin/
    Frontend Citizen    http://localhost:5174/citizen/
- Login (seeded): admin@local / admin123  |  citizen@local / citizen123
+ Login (seeded): admin@local / admin123
  External deps (NOT started here - start them yourself):
    - Data stack containers: postgres/neo4j/qdrant/redis/minio (start via your own docker).
    - Ollama on :11434 with model bge-m3 for embeddings.

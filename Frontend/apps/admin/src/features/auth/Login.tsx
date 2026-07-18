@@ -95,7 +95,7 @@ export default function LoginPage({ onLogin }: { onLogin: (role: string) => void
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="VD: admin@local (cán bộ) hoặc citizen@local (người dân)"
+                placeholder="VD: admin@local"
                 className="w-full px-5 py-4 bg-surface border border-border rounded-xl text-primary font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
               />
             </div>

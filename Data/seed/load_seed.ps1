@@ -33,4 +33,4 @@ foreach ($c in 'khoan','baidang','chude') {
   try { Invoke-RestMethod -Method Put -Uri "$QDRANT/collections/$c" -ContentType 'application/json' -Body $body | Out-Null } catch {}
 }
 
-Write-Host "DONE seed. (admin@local/admin123 - citizen@local/citizen123)"
+Write-Host "DONE seed. (admin@local/admin123)"

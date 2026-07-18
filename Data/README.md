@@ -59,7 +59,7 @@ powershell -ExecutionPolicy Bypass -File Data/seed/load_seed.ps1
 ```
 Script sẽ: nạp constraints + indexes → load VB mẫu → seed users → đảm bảo Qdrant collections.
 
-User test sau seed: `admin@local` / `admin123` (admin_phap_che), `citizen@local` / `citizen123` (citizen).
+User test sau seed: `admin@local` / `admin123` (admin_phap_che).
 
 ---
 

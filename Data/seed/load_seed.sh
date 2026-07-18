@@ -34,4 +34,4 @@ for c in khoan baidang chude; do
     -d "{\"vectors\":{\"size\":$DIM,\"distance\":\"Cosine\"}}" >/dev/null || true
 done
 
-echo "DONE seed. (admin@local/admin123 · citizen@local/citizen123)"
+echo "DONE seed. (admin@local/admin123)"

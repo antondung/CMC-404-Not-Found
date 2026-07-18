@@ -1047,46 +1047,44 @@ class QAService:
             return (
                 "**Kết luận:** Thủ tục cấp/đổi **Căn cước (CCCD gắn chip)** do cơ quan quản lý căn cước "
                 "(Công an) thực hiện theo Luật Căn cước và văn bản hướng dẫn hiện hành.\n\n"
-                "**Phân tích — các bước thường gặp:**\n"
-                "1. **Xác định loại việc:** cấp mới, cấp đổi (hết hạn, sai thông tin, hư hỏng), hoặc cấp lại (mất).\n"
-                "2. **Nơi nộp:** bộ phận một cửa / Công an cấp xã hoặc cấp huyện theo phân cấp; một số trường hợp "
+                "**Phân tích:**\n"
+                "- **Xác định loại việc:** cấp mới, cấp đổi (hết hạn, sai thông tin, hư hỏng), hoặc cấp lại (mất).\n"
+                "- **Nơi nộp:** bộ phận một cửa / Công an cấp xã hoặc cấp huyện theo phân cấp; một số trường hợp "
                 "có thể nộp trực tuyến qua Cổng Dịch vụ công / ứng dụng định danh điện tử (nếu được mở).\n"
-                "3. **Hồ sơ thường gồm:** tờ khai theo mẫu; giấy tờ tùy thân cũ (CMND/CCCD) nếu còn; "
+                "- **Hồ sơ thường gồm:** tờ khai theo mẫu; giấy tờ tùy thân cũ (CMND/CCCD) nếu còn; "
                 "giấy tờ chứng minh thay đổi thông tin (nếu đổi); ảnh chân dung khi cơ quan yêu cầu "
                 "(nhiều nơi thu nhận sinh trắc / ảnh tại chỗ).\n"
-                "4. **Thực hiện:** nộp hồ sơ → tiếp nhận, kiểm tra, thu nhận thông tin/sinh trắc "
+                "- **Thực hiện:** nộp hồ sơ → tiếp nhận, kiểm tra, thu nhận thông tin/sinh trắc "
                 "→ giấy hẹn → nhận thẻ theo lịch (hoặc bưu chính nếu có).\n"
-                "5. **Lệ phí/thời hạn:** theo mức công bố tại thời điểm nộp; không nêu số tiền cố định khi "
+                "- **Lệ phí/thời hạn:** theo mức công bố tại thời điểm nộp; không nêu số tiền cố định khi "
                 "chưa có căn cứ đã số hóa.\n\n"
                 "**Giới hạn:** Chưa gắn Điều/Khoản từ kho số hóa. Đối chiếu Luật Căn cước, hướng dẫn Bộ Công an "
                 "và Cổng Dịch vụ công quốc gia, hoặc hỏi Công an nơi cư trú."
             )
 
         if is_gambling:
-            tax_bit = ""
             if is_tax:
-                tax_bit = (
-                    "\n3. **Về thuế:** Câu hỏi “nộp thuế gì” không làm cho tiền thắng cá độ trở thành thu nhập "
-                    "hợp pháp. Về nguyên tắc, thu nhập của cá nhân có thể thuộc diện xem xét **thuế thu nhập "
-                    "cá nhân (TNCN)** theo pháp luật thuế, nhưng **không được dùng việc kê khai/nộp thuế để "
-                    "hợp thức hóa** tiền từ cá độ trái phép. Hệ thống không nêu thuế suất/Điều cụ thể khi chưa "
-                    "có căn cứ đã số hóa.\n"
+                tax_line = (
+                    "- **Về thuế:** Câu hỏi “nộp thuế gì” không làm tiền thắng cá độ trở thành thu nhập hợp pháp. "
+                    "Về nguyên tắc, thu nhập cá nhân có thể thuộc diện xem xét **thuế thu nhập cá nhân (TNCN)**, "
+                    "nhưng **không được dùng kê khai/nộp thuế để hợp thức hóa** tiền từ cá độ trái phép. "
+                    "Không nêu thuế suất/Điều cụ thể khi chưa có căn cứ đã số hóa."
                 )
             else:
-                tax_bit = (
-                    "\n3. **Thuế không phải trọng tâm:** Nghĩa vụ thuế (nếu có) chỉ là khía cạnh phụ và "
-                    "không hợp pháp hóa hành vi.\n"
+                tax_line = (
+                    "- **Thuế không phải trọng tâm:** Nghĩa vụ thuế (nếu có) chỉ là khía cạnh phụ và "
+                    "không hợp pháp hóa hành vi."
                 )
             return (
                 "**Kết luận:** Tiền thắng từ **cá độ/cờ bạc trái phép** trước hết gắn với rủi ro "
                 "**xử lý hành chính hoặc hình sự** (có thể đến mức phạt tù tùy tính chất, quy mô). "
                 "Không coi đây là khoản thu nhập “chỉ cần đóng thuế là xong”.\n\n"
                 "**Phân tích:**\n"
-                "1. **Tính chất hành vi:** Cá độ, đặt cược trái phép thuộc nhóm hành vi bị cấm/"
+                "- **Tính chất hành vi:** Cá độ, đặt cược trái phép thuộc nhóm hành vi bị cấm/"
                 "xử lý theo pháp luật về đánh bạc và trò chơi có thưởng trái phép.\n"
-                "2. **Hệ quả pháp lý chính:** Tùy số tiền, tổ chức và vai trò, có thể bị xử phạt hành chính "
+                "- **Hệ quả pháp lý chính:** Tùy số tiền, tổ chức và vai trò, có thể bị xử phạt hành chính "
                 "hoặc truy cứu trách nhiệm hình sự; tang vật/tiền liên quan có thể bị thu giữ theo quy định.\n"
-                f"{tax_bit}\n"
+                f"{tax_line}\n\n"
                 "**Giới hạn:** Chưa gắn số hiệu/Điều/Khoản từ kho số hóa. Đối chiếu Bộ luật Hình sự, "
                 "nghị định xử phạt hành chính và pháp luật thuế TNCN hiện hành; không khuyến khích vi phạm."
             )
@@ -1097,9 +1095,9 @@ class QAService:
                 "(TNCN / GTGT / TNDN / khác) theo bản chất khoản thu nhập hoặc giao dịch — "
                 "hệ thống chưa gắn được điều khoản đã số hóa phù hợp.\n\n"
                 "**Phân tích:**\n"
-                "1. Xác định nguồn thu nhập/giao dịch có chịu thuế không và thuộc sắc thuế nào.\n"
-                "2. Cá nhân thường xem xét **TNCN**; tổ chức/kinh doanh có thể liên quan GTGT/TNDN.\n"
-                "3. Không nêu thuế suất, mức miễn giảm hay Điều/Khoản cụ thể khi chưa có căn cứ đã số hóa.\n\n"
+                "- Xác định nguồn thu nhập/giao dịch có chịu thuế không và thuộc sắc thuế nào.\n"
+                "- Cá nhân thường xem xét **TNCN**; tổ chức/kinh doanh có thể liên quan GTGT/TNDN.\n"
+                "- Không nêu thuế suất, mức miễn giảm hay Điều/Khoản cụ thể khi chưa có căn cứ đã số hóa.\n\n"
                 "**Giới hạn:** Hãy đối chiếu Luật/Nghị định/Thông tư thuế hiện hành hoặc hỏi cơ quan thuế; "
                 "hoặc nạp thêm văn bản thuế liên quan vào hệ thống."
             )

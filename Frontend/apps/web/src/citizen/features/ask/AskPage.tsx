@@ -16,6 +16,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CitationCard } from '../../../../../../packages/ui-legal/src/components/CitationCard';
 import { GraphPathBreadcrumb } from '../../../../../../packages/ui-legal/src/components/GraphPathBreadcrumb';
 import { AnswerMarkdown } from '../../../../../../packages/ui-legal/src/components/AnswerMarkdown';
+import { HonestyBanner } from '../../../../../../packages/ui-legal/src/components/HonestyBanner';
 import { apiPost } from '../../../lib/api';
 import { CitizenHeader, SuggestionChips } from '../../components/CitizenChrome';
 import { AiTypingIndicator } from '../../components/AiTypingIndicator';
@@ -31,6 +32,9 @@ interface QAResponse {
   refuse_reason?: string[];
   as_of?: string;
   notices?: ChangeNotice[];
+  unverified?: boolean;
+  degraded?: boolean;
+  cached?: boolean;
 }
 
 interface ChangeNotice {
@@ -59,6 +63,9 @@ export interface Message {
   isError?: boolean;
   asOf?: string;
   notices?: ChangeNotice[];
+  unverified?: boolean;
+  degraded?: boolean;
+  progressHint?: string;
 }
 
 const WELCOME_MESSAGE: Message = {
@@ -120,7 +127,28 @@ export default function AskPage() {
 
     const userMsg: Message = { id: Date.now().toString(), role: 'user', content: question };
     const typingId = (Date.now() + 1).toString();
-    setMessages((prev) => [...prev, userMsg, { id: typingId, role: 'ai', content: '', isTyping: true }]);
+    const progressSteps = [
+      'Đang tra cứu điều khoản…',
+      'Đang tổng hợp câu trả lời…',
+      'Đang kiểm tra trích dẫn…',
+    ];
+    setMessages((prev) => [
+      ...prev,
+      userMsg,
+      { id: typingId, role: 'ai', content: '', isTyping: true, progressHint: progressSteps[0] },
+    ]);
+
+    let step = 0;
+    const progressTimer = window.setInterval(() => {
+      step = Math.min(step + 1, progressSteps.length - 1);
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === typingId && msg.isTyping
+            ? { ...msg, progressHint: progressSteps[step] }
+            : msg,
+        ),
+      );
+    }, 2200);
 
     const asOfVal = asOfRef.current;
     try {
@@ -139,6 +167,8 @@ export default function AskPage() {
                 confidence: data.confidence,
                 asOf: data.as_of ?? asOfVal,
                 notices: data.notices ?? [],
+                unverified: Boolean(data.unverified) || (!(data.citations?.length) && data.confidence === 'low'),
+                degraded: Boolean(data.degraded),
               }
             : msg,
         ),
@@ -156,12 +186,14 @@ export default function AskPage() {
                 content: `Không kết nối được trợ lý lúc này (${message}). Bạn có thể thử gửi lại.`,
                 confidence: 'low',
                 isError: true,
+                unverified: true,
               }
             : msg,
         ),
       );
       setIsTypingComplete((prev) => ({ ...prev, [typingId]: true }));
     } finally {
+      window.clearInterval(progressTimer);
       isLoadingRef.current = false;
       setIsLoading(false);
     }
@@ -263,7 +295,12 @@ export default function AskPage() {
                   }`}
                 >
                   {msg.isTyping ? (
-                    <AiTypingIndicator />
+                    <div className="space-y-2">
+                      <AiTypingIndicator />
+                      {msg.progressHint ? (
+                        <p className="text-xs font-semibold text-slate-500">{msg.progressHint}</p>
+                      ) : null}
+                    </div>
                   ) : (
                     <div className={msg.role === 'ai' ? 'ls-answer-in' : undefined}>
                       {msg.role === 'ai' ? (
@@ -272,6 +309,15 @@ export default function AskPage() {
                         </div>
                       ) : (
                         <p className="whitespace-pre-wrap text-[15px] font-semibold leading-relaxed sm:text-base">{msg.content}</p>
+                      )}
+
+                      {msg.role === 'ai' && (
+                        <HonestyBanner
+                          unverified={msg.unverified}
+                          degraded={msg.degraded}
+                          confidence={msg.confidence}
+                          citationCount={msg.citations?.length ?? 0}
+                        />
                       )}
 
                       {msg.role === 'ai' && msg.asOf && (

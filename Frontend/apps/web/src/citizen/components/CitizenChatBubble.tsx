@@ -11,14 +11,42 @@ import {
 } from '@phosphor-icons/react';
 import { apiPost } from '../../lib/api';
 import { SUGGESTIONS } from './CitizenChrome';
+import { AnswerMarkdown } from '../../../../../packages/ui-legal/src/components/AnswerMarkdown';
+import { CitationCard } from '../../../../../packages/ui-legal/src/components/CitationCard';
+import { HonestyBanner } from '../../../../../packages/ui-legal/src/components/HonestyBanner';
 
-type PanelMsg = { id: string; role: 'user' | 'ai'; content: string; isError?: boolean };
+type BackendCitation = {
+  khoan_id?: string;
+  quote?: string;
+  van_ban?: string;
+  dieu?: string;
+  khoan?: string;
+  ref?: string;
+};
+
+type PanelMsg = {
+  id: string;
+  role: 'user' | 'ai';
+  content: string;
+  isError?: boolean;
+  citations?: BackendCitation[];
+  confidence?: 'high' | 'medium' | 'low';
+  unverified?: boolean;
+  degraded?: boolean;
+  progressHint?: string;
+};
 
 const WELCOME: PanelMsg = {
   id: 'welcome',
   role: 'ai',
   content: 'Xin chào! Hỏi pháp luật bằng câu đơn giản — tôi sẽ trả lời kèm căn cứ khi có thể.',
 };
+
+const PROGRESS = [
+  'Đang tra cứu điều khoản…',
+  'Đang tổng hợp câu trả lời…',
+  'Đang kiểm tra trích dẫn…',
+];
 
 /**
  * Floating chat bubble for the citizen landing shell.
@@ -53,26 +81,66 @@ export function CitizenChatBubble() {
     setLoading(true);
     setInput('');
     const userMsg: PanelMsg = { id: `u-${Date.now()}`, role: 'user', content: question };
-    setMessages((m) => [...m, userMsg]);
+    const typingId = `t-${Date.now()}`;
+    setMessages((m) => [
+      ...m,
+      userMsg,
+      { id: typingId, role: 'ai', content: '', progressHint: PROGRESS[0] },
+    ]);
+
+    let step = 0;
+    const timer = window.setInterval(() => {
+      step = Math.min(step + 1, PROGRESS.length - 1);
+      setMessages((m) =>
+        m.map((msg) => (msg.id === typingId ? { ...msg, progressHint: PROGRESS[step] } : msg)),
+      );
+    }, 2000);
+
     try {
-      const data = await apiPost<{ answer?: string; refuse_reason?: string[] }>('/citizen/qa/ask', {
-        question,
-      });
+      const data = await apiPost<{
+        answer?: string;
+        refuse_reason?: string[];
+        citations?: BackendCitation[];
+        confidence?: 'high' | 'medium' | 'low';
+        unverified?: boolean;
+        degraded?: boolean;
+      }>('/citizen/qa/ask', { question });
       const answer =
         (data.answer || '').trim() ||
         (data.refuse_reason?.length ? data.refuse_reason.join(' ') : 'Không nhận được câu trả lời.');
-      setMessages((m) => [...m, { id: `a-${Date.now()}`, role: 'ai', content: answer }]);
+      const citations = data.citations ?? [];
+      setMessages((m) =>
+        m.map((msg) =>
+          msg.id === typingId
+            ? {
+                id: `a-${Date.now()}`,
+                role: 'ai',
+                content: answer,
+                citations,
+                confidence: data.confidence,
+                unverified: Boolean(data.unverified) || (!citations.length && data.confidence === 'low'),
+                degraded: Boolean(data.degraded),
+              }
+            : msg,
+        ),
+      );
     } catch (err) {
-      setMessages((m) => [
-        ...m,
-        {
-          id: `e-${Date.now()}`,
-          role: 'ai',
-          isError: true,
-          content: err instanceof Error ? err.message : 'Không kết nối được trợ lý. Thử lại sau.',
-        },
-      ]);
+      setMessages((m) =>
+        m.map((msg) =>
+          msg.id === typingId
+            ? {
+                id: `e-${Date.now()}`,
+                role: 'ai',
+                isError: true,
+                unverified: true,
+                confidence: 'low',
+                content: err instanceof Error ? err.message : 'Không kết nối được trợ lý. Thử lại sau.',
+              }
+            : msg,
+        ),
+      );
     } finally {
+      window.clearInterval(timer);
       setLoading(false);
     }
   }, [loading]);
@@ -135,15 +203,39 @@ export function CitizenChatBubble() {
                         : 'rounded-bl-md border border-slate-200/80 bg-white text-slate-800'
                   }`}
                 >
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                  {msg.progressHint && !msg.content ? (
+                    <div className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500">
+                      <SpinnerGap size={14} className="animate-spin" weight="bold" /> {msg.progressHint}
+                    </div>
+                  ) : msg.role === 'ai' ? (
+                    <>
+                      <AnswerMarkdown content={msg.content} density="compact" />
+                      <HonestyBanner
+                        unverified={msg.unverified}
+                        degraded={msg.degraded}
+                        confidence={msg.confidence}
+                        citationCount={msg.citations?.length ?? 0}
+                      />
+                      {msg.citations && msg.citations.length > 0 ? (
+                        <div className="mt-2 space-y-2 border-t border-slate-100 pt-2">
+                          {msg.citations.slice(0, 3).map((cit, idx) => (
+                            <CitationCard
+                              key={`${cit.khoan_id || idx}`}
+                              van_ban={cit.van_ban || ''}
+                              dieu={cit.dieu || ''}
+                              quote={cit.quote}
+                              khoan_id={cit.khoan_id}
+                            />
+                          ))}
+                        </div>
+                      ) : null}
+                    </>
+                  ) : (
+                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                  )}
                 </div>
               </div>
             ))}
-            {loading ? (
-              <div className="inline-flex items-center gap-2 self-start rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-500 shadow-sm">
-                <SpinnerGap size={14} className="animate-spin" weight="bold" /> Đang suy nghĩ…
-              </div>
-            ) : null}
           </div>
 
           {messages.length <= 1 && !loading ? (

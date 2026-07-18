@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
-from app.api.deps import get_neo4j_driver, get_qdrant_client, get_llm_router, get_embedder, require_admin, UserToken
+from app.api.deps import get_neo4j_driver, get_qdrant_client, get_llm_router, get_embedder, get_redis, require_admin, UserToken
 from app.core.envelope import success_response
 from app.core.logging import get_request_id
 from app.services.qa_service import QAService
@@ -25,9 +25,16 @@ async def ask_admin_qa(
     qdrant: Any = Depends(get_qdrant_client),
     router_llm: Any = Depends(get_llm_router),
     embedder: Any = Depends(get_embedder),
+    redis_pool: Any = Depends(get_redis),
     user: UserToken = Depends(require_admin()),
 ) -> dict[str, Any]:
-    service = QAService(qdrant_client=qdrant, neo4j_driver=driver, llm_router=router_llm, embedder=embedder)
+    service = QAService(
+        qdrant_client=qdrant,
+        neo4j_driver=driver,
+        llm_router=router_llm,
+        embedder=embedder,
+        redis_pool=redis_pool,
+    )
     res = await service.answer(
         question=request.question,
         audience="admin",

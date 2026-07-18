@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import asyncio
+import hashlib
+import json
+import logging
 import re
 import unicodedata
 from datetime import date
 from typing import Any
+
 from app.schemas import CandidateKhoan, Citation
 from app.services.citation_validator import CitationValidator
 from app.intelligence.llm_router import LLMRouter
@@ -11,94 +16,18 @@ from app.intelligence.embedder import Embedder
 from app.intelligence.nli import NLIService
 from app.adapters.qdrant_vector import QdrantVectorClient
 from app.pipelines.legal.normalize import normalize_so_hieu
+from app.config import get_config
+from app.services import qa_topic as topic
 
+logger = logging.getLogger(__name__)
 
-# Chitchat / identity / meta — must NEVER retrieve or cite legal provisions.
-_NON_LEGAL_META_RE = re.compile(
-    r"(?:"
-    r"\bban\s+la\s+(?:ai|gi|model|chatgpt|gemini|claude|bot|tro\s*ly)\b|"
-    r"\b(?:ban|may|ai)\s+la\s+model\b|"
-    r"\bmodel\s+(?:gi|nao|ai|gi\s+vay)\b|"
-    r"\b(?:what|which)\s+model\b|"
-    r"\bwho\s+are\s+you\b|"
-    r"\bban\s+(?:ten|goi)\s+(?:gi|la\s+gi)\b|"
-    r"\b(?:xin\s+chao|hello|hi|hey|cam\s+on|thank(?:s|\s+you)|bye|tam\s+biet)\b|"
-    r"\bban\s+co\s+the\s+(?:lam|giup)\s+gi\b|"
-    r"\bhuong\s+dan\s+su\s+dung\b|"
-    r"\bban\s+biet\s+(?:tieng|noi)\b"
-    r")",
-    re.IGNORECASE,
-)
-
-# Ambiguous tokens that often false-positive against legal corpus (e.g. "model" ↔ model xe).
-_AMBIGUOUS_TOPIC_STOP = frozenset({
-    "model", "ban", "toi", "minh", "chung", "ta", "ai", "bot", "chat", "chatbot",
-    "llm", "gpt", "openai", "gemini", "claude", "tro", "ly", "he", "thong", "may",
-    "tinh", "phan", "mem", "ung", "dung", "app", "website", "web",
-    # Amounts / filler — "100 triệu" must not match example figures in unrelated circulars.
-    "trieu", "ty", "nghin", "dong", "vnd", "tram", "chuc", "nop", "choi", "khong", "can",
-})
-
-_ANCHOR_TOPIC_CHECKS: list[tuple[tuple[str, ...], list[str]]] = [
-    (("thue thu nhap ca nhan", "thu nhap ca nhan", "tncn"), ["thue thu nhap ca nhan", "thu nhap ca nhan", "tncn"]),
-    (
-        (
-            "co bac",
-            "ca cuoc",
-            "ca do",
-            "casino",
-            "lo de",
-            "danh bac",
-            "dat cuoc",
-            "keo nha cai",
-            "tro choi co thuong",
-        ),
-        [
-            "co bac",
-            "danh bac",
-            "ca cuoc",
-            "ca do",
-            "casino",
-            "tro choi co thuong",
-            "danh bac trai phep",
-            "dat cuoc",
-        ],
-    ),
-    (("nong do con",), ["nong do con", "vi pham nong do con"]),
-    (("hoa don dien tu",), ["hoa don dien tu"]),
-    (("hoan thue",), ["hoan thue"]),
-    # CCCD / căn cước — block tax/fee false positives when corpus is tax-heavy.
-    (
-        ("cccd", "can cuoc", "can cuoc cong dan", "the can cuoc", "cmnd"),
-        ["cccd", "can cuoc", "can cuoc cong dan", "the can cuoc", "chung minh nhan dan", "cmnd", "chip"],
-    ),
-]
-
-# Shared topic needles (accent-stripped) for principle fallback routing.
-_GAMBLING_NEEDLES = (
-    "co bac",
-    "danh bac",
-    "ca cuoc",
-    "ca do",
-    "casino",
-    "lo de",
-    "dat cuoc",
-    "keo nha cai",
-    "nha cai",
-    "tro choi co thuong",
-    "ca do bong",
-)
-_CCCD_NEEDLES = ("cccd", "can cuoc", "cmnd", "the can cuoc", "chung minh nhan dan")
-_TAX_NEEDLES = (
-    "thue",
-    "tncn",
-    "gtgt",
-    "tndn",
-    "nop thue",
-    "khai thue",
-    "quyet toan",
-    "hoan thue",
-)
+# Re-export shared constants for tests / callers that imported from qa_service.
+_NON_LEGAL_META_RE = topic._NON_LEGAL_META_RE
+_AMBIGUOUS_TOPIC_STOP = topic.AMBIGUOUS_TOPIC_STOP
+_ANCHOR_TOPIC_CHECKS = topic.ANCHOR_TOPIC_CHECKS
+_GAMBLING_NEEDLES = topic.GAMBLING_NEEDLES
+_CCCD_NEEDLES = topic.CCCD_NEEDLES
+_TAX_NEEDLES = topic.TAX_NEEDLES
 
 
 # Idea 01 — Time-Travel: which candidate Khoản are INVALID as of a given date, because either
@@ -203,30 +132,12 @@ class QAService:
 
     @staticmethod
     def _strip_accents(text: str) -> str:
-        text = re.sub(r"[đĐ]", "d", text or "")
-        return unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("utf-8").lower()
+        return topic.strip_accents(text)
 
     @classmethod
     def _is_non_legal_meta_question(cls, question: str) -> bool:
         """True for identity / chitchat / product-meta questions that must not cite law."""
-        raw = (question or "").strip()
-        if not raw:
-            return False
-        # Explicit legal anchors always treated as legal questions.
-        if cls._extract_so_hieus(raw) or cls._KHOAN_ID_RE.search(raw):
-            return False
-        norm = cls._strip_accents(raw)
-        compact = re.sub(r"\s+", " ", norm).strip()
-        if _NON_LEGAL_META_RE.search(compact):
-            return True
-        # Very short questions with only ambiguous tokens (e.g. "model gì?").
-        tokens = [cls._strip_accents(t) for t in re.findall(r"[\wÀ-ỹĐđ]+", raw.lower())]
-        content = [t for t in tokens if len(t) >= 2 and t not in {
-            "gi", "nao", "vay", "the", "a", "o", "u", "nhi", "nha", "vay", "the", "ay",
-        }]
-        if content and all(t in _AMBIGUOUS_TOPIC_STOP for t in content):
-            return True
-        return False
+        return topic.is_non_legal_meta_question(question)
 
     @staticmethod
     def _meta_assistant_answer(*, question: str, audience: str, as_of: str) -> dict[str, Any]:
@@ -380,56 +291,15 @@ class QAService:
 
     @staticmethod
     def _contains_term(body: str, term: str) -> bool:
-        """Accent-stripped containment with whole-token match (avoids 'con' matching inside 'cong')."""
-        if not body or not term:
-            return False
-        if " " in term:
-            return term in body
-        return re.search(rf"(?<![a-z0-9]){re.escape(term)}(?![a-z0-9])", body) is not None
+        return topic.contains_term(body, term)
 
     @classmethod
     def _anchor_phrases(cls, question: str) -> list[str]:
-        """Accent-stripped phrases that MUST appear in a candidate when the question implies them."""
-        norm = cls._strip_accents(question or "")
-        anchors: list[str] = []
-        for needles, phrases in _ANCHOR_TOPIC_CHECKS:
-            if any(n in norm for n in needles):
-                for p in phrases:
-                    if p not in anchors:
-                        anchors.append(p)
-        return anchors
+        return topic.anchor_phrases(question)
 
     @classmethod
     def _topic_relevance(cls, question: str, text: str) -> float:
-        """How well a provision matches the question's distinctive topic terms (not generic legal words)."""
-        body = cls._strip_accents(text or "")
-        if not body:
-            return 0.0
-        anchors = cls._anchor_phrases(question)
-        if anchors and not any(cls._contains_term(body, a) for a in anchors):
-            # Cá độ/cờ bạc + hỏi thuế: cho phép căn cứ TNCN (không bắt buộc văn bản có chữ "cá độ").
-            norm_q = cls._strip_accents(question or "")
-            gambling_q = any(g in norm_q for g in _GAMBLING_NEEDLES)
-            tax_q = any(t in norm_q for t in _TAX_NEEDLES)
-            tncn_ok = any(
-                cls._contains_term(body, t)
-                for t in ("thue thu nhap ca nhan", "thu nhap ca nhan", "tncn", "thu nhap chiu thue")
-            )
-            if gambling_q and tax_q and tncn_ok:
-                return 0.6
-            return 0.0
-        required = [cls._strip_accents(r) for r in cls._required_keyword_queries(question)]
-        if not required:
-            return 0.0 if anchors else 1.0  # no distinctive topic → do not gate (unless anchors failed already)
-        # Prefer multi-word phrases; fall back to single topic tokens so one hit (e.g. "cồn") is enough.
-        phrases = [r for r in required if " " in r]
-        if any(cls._contains_term(body, p) for p in phrases):
-            return 1.0
-        tokens = [r for r in required if " " not in r] or required
-        if len(tokens) == 1 and tokens[0] in {"thue", "phi", "le"}:
-            return 0.0
-        hits = sum(1 for req in tokens if cls._contains_term(body, req))
-        return hits / max(len(tokens), 1)
+        return topic.topic_relevance(question, text)
 
     @classmethod
     def _filter_relevant_candidates(
@@ -944,12 +814,16 @@ class QAService:
         """Idea 03 — entailment check: does each claim in `answer` follow from a cited Khoản?
 
         Returns {score, contradiction, unsupported}. `contradiction=True` means at least one claim
-        is DIRECTLY CONTRADICTED by its citation (the dangerous case where the quote is verbatim but
-        the answer says the opposite) — the caller must fail-closed on it.
+        is DIRECTLY CONTRADICTED by its citation — the caller must fail-closed on it.
         """
         claims = self._split_claims(answer)
         if not claims:
             return {"score": 1.0, "contradiction": False, "unsupported": []}
+
+        # Only NLI-check high-risk claims (numbers, legal refs, strong conditions) for speed.
+        risky = [c for c in claims if self._is_risky_claim(c)]
+        if not risky:
+            risky = claims[:2]
 
         source_map = {c.khoan_id: c.noi_dung for c in candidates}
         premises: list[str] = []
@@ -961,30 +835,54 @@ class QAService:
         if not premises:
             return {"score": 0.0, "contradiction": False, "unsupported": claims}
 
-        supported = 0
-        contradiction = False
-        unsupported: list[str] = []
-        for claim in claims:
-            claim_supported = False
-            for premise in premises:
-                res = await self.nli.nli_pair(premise=premise, hypothesis=claim)
+        async def _check_claim(claim: str) -> tuple[str, str]:
+            """Return (status, claim) where status is supported|contradiction|unsupported."""
+            results = await asyncio.gather(
+                *[self.nli.nli_pair(premise=p, hypothesis=claim) for p in premises],
+                return_exceptions=True,
+            )
+            saw_contra = False
+            saw_support = False
+            for res in results:
+                if isinstance(res, Exception):
+                    continue
                 raw_label = res.get("label")
                 label = getattr(raw_label, "value", raw_label)
-                # nli_pair already downgrades low-confidence contradictions to khong_ro, so any
-                # remaining "mau_thuan" is a confident contradiction.
+                needs_review = bool(res.get("needs_review"))
                 if label == "mau_thuan":
-                    contradiction = True
-                    claim_supported = False
-                    break
-                if label == "khop":
-                    claim_supported = True
-            if claim_supported:
-                supported += 1
-            else:
-                unsupported.append(claim)
+                    # Low-confidence contradiction still blocks (safer than treating as clear).
+                    saw_contra = True
+                    if not needs_review or float(res.get("score") or 0) >= 0.45:
+                        return "contradiction", claim
+                if label == "khop" and not needs_review:
+                    saw_support = True
+            if saw_contra and not saw_support:
+                return "contradiction", claim
+            if saw_support:
+                return "supported", claim
+            return "unsupported", claim
 
-        score = round(supported / len(claims), 3)
+        outcomes = await asyncio.gather(*[_check_claim(c) for c in risky])
+        contradiction = any(status == "contradiction" for status, _ in outcomes)
+        supported = sum(1 for status, _ in outcomes if status == "supported")
+        unsupported = [claim for status, claim in outcomes if status != "supported"]
+        score = round(supported / max(len(risky), 1), 3)
         return {"score": score, "contradiction": contradiction, "unsupported": unsupported}
+
+    @classmethod
+    def _is_risky_claim(cls, claim: str) -> bool:
+        norm = cls._strip_accents(claim or "")
+        if re.search(r"\d", claim or ""):
+            return True
+        if cls._SO_HIEU_RE.search(claim or "") or cls._KHOAN_ID_RE.search(claim or ""):
+            return True
+        return any(
+            k in norm
+            for k in (
+                "phat", "tien", "thang", "nam", "ngay", "dieu", "khoan",
+                "khong duoc", "cam", "tu", "hinh su", "hanh chinh",
+            )
+        )
 
     async def _graph_paths_for_citations(self, citations: list[dict[str, Any]], enabled: bool = True) -> tuple[str, str | None, list[dict[str, Any]]]:
         """Return real Neo4j paths from cited Khoản to Điều and Văn bản. Never uses LLM-provided paths."""
@@ -1354,7 +1252,7 @@ class QAService:
             "Không tạo citations."
         )
         last_err = ""
-        for complexity in ("medium", "low"):
+        for complexity in ("low", "medium"):
             try:
                 llm_out = await self.router.complete(
                     task="qa",
@@ -1388,6 +1286,44 @@ class QAService:
             extra_reasons=[f"LLMRouter fallback used: {last_err}"],
         )
 
+    def _cache_key(self, question: str, as_of: str, audience: str) -> str:
+        norm = re.sub(r"\s+", " ", (question or "").strip().lower())
+        digest = hashlib.sha256(f"{audience}|{as_of}|{norm}".encode("utf-8")).hexdigest()[:32]
+        return f"qa:v2:{digest}"
+
+    async def _cache_get(self, question: str, as_of: str, audience: str) -> dict[str, Any] | None:
+        cfg = get_config()
+        if not cfg.qa_cache_enabled or not self.redis or cfg.qa_cache_ttl_s <= 0:
+            return None
+        try:
+            raw = await self.redis.get(self._cache_key(question, as_of, audience))
+            if not raw:
+                return None
+            data = json.loads(raw)
+            if isinstance(data, dict) and data.get("answer"):
+                data["cached"] = True
+                return data
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("QA cache get failed: %s", exc)
+        return None
+
+    async def _cache_set(self, question: str, as_of: str, audience: str, payload: dict[str, Any]) -> None:
+        cfg = get_config()
+        if not cfg.qa_cache_enabled or not self.redis or cfg.qa_cache_ttl_s <= 0:
+            return
+        # Do not cache hard refusals that ask the user to retry (transient LLM failure).
+        if payload.get("isError"):
+            return
+        try:
+            to_store = {k: v for k, v in payload.items() if k != "cached"}
+            await self.redis.set(
+                self._cache_key(question, as_of, audience),
+                json.dumps(to_store, ensure_ascii=False, default=str),
+                ex=int(cfg.qa_cache_ttl_s),
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("QA cache set failed: %s", exc)
+
     async def answer(
         self,
         question: str,
@@ -1398,9 +1334,15 @@ class QAService:
         """Execute strictly real RAG QA flow: Retrieve -> Time-Travel filter -> LLM -> Citation Verify -> Fail-Closed output."""
         as_of_val = (as_of or date.today().isoformat()).strip()
 
+        cached = await self._cache_get(question, as_of_val, audience)
+        if cached:
+            return cached
+
         # 0. Non-legal meta / chitchat — never retrieve or cite law (fixes "bạn là model gì" → TT thuế xe).
         if self._is_non_legal_meta_question(question):
-            return self._meta_assistant_answer(question=question, audience=audience, as_of=as_of_val)
+            out = self._meta_assistant_answer(question=question, audience=audience, as_of=as_of_val)
+            await self._cache_set(question, as_of_val, audience, out)
+            return out
 
         # 1. Retrieve candidates
         candidates = await self.retrieve_candidates(question, audience=audience, as_of=as_of_val)
@@ -1481,13 +1423,17 @@ class QAService:
             "JSON: answer, citations (tối đa 5 nếu hỏi theo số hiệu, còn lại tối đa 2; "
             "{khoan_id, quote ngắn} hoặc []), confidence."
         )
+        # Fast path: direct số hiệu / high-score hits → local model; overview of many clauses → large.
+        direct_hit = bool(self._extract_so_hieus(question)) and all(
+            float(c.score or 0) >= 0.9 for c in candidates[: min(3, len(candidates))]
+        )
+        complexity = "low" if direct_hit and not overview_q else ("low" if len(candidates) <= 2 else "medium")
         try:
             llm_out = await self.router.complete(
                 task="qa",
                 prompt=prompt,
                 schema={"required": ["answer", "citations"]},
-                # medium → BE2 /large (stronger model). Latency controlled via max_tokens/timeouts.
-                complexity="medium",
+                complexity=complexity,
             )
         except Exception as e:
             if candidates and (doc_q or overview_q):
@@ -1667,7 +1613,7 @@ class QAService:
             validated_citations, enabled=is_enabled
         )
 
-        return {
+        out = {
             "answer": raw_answer,
             "citations": self._compact_citations(validated_citations),
             "confidence": confidence,
@@ -1678,4 +1624,8 @@ class QAService:
             "citation_faithfulness": faith["score"],
             "as_of": as_of_val,
             "notices": notices,
+            "unverified": False,
+            "degraded": False,
         }
+        await self._cache_set(question, as_of_val, audience, out)
+        return out

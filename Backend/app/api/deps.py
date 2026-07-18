@@ -231,4 +231,5 @@ __all__ = [
     "get_minio",
     "get_postgres_repo",
     "get_neo4j_repo",
+    "get_redis",
 ]

@@ -295,8 +295,13 @@ def _context_block(ctx: list[tuple[str, str]]) -> str:
     return "\n".join(f"[{kid}] {_clip_ctx(text)}" for kid, text in ctx)
 
 def _strip_accents(text: str) -> str:
-    text = re.sub(r"[đĐ]", "d", text or "")
-    return unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("utf-8").lower()
+    try:
+        from app.services.qa_topic import strip_accents
+
+        return strip_accents(text)
+    except Exception:
+        text = re.sub(r"[đĐ]", "d", text or "")
+        return unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("utf-8").lower()
 
 def _doc_key(khoan_id: str) -> str:
     return (khoan_id or "").split("::", 1)[0].strip().rstrip(" .")
@@ -328,145 +333,50 @@ def _clean_quote_for_answer(text: str) -> str:
     return txt[:700].strip()
 
 def _question_terms(question: str) -> list[str]:
-    stop = {
-        "ho", "so", "thu", "tuc", "dieu", "kien", "doi", "tuong", "thoi", "han", "muc", "phat",
-        "can", "nhung", "gi", "la", "theo", "quy", "dinh", "hien", "hanh", "cua", "cho", "ve",
-        "nghi", "quyet", "thong", "van", "ban", "phap", "luat", "noi", "ro", "lien", "quan",
-        "xu", "tham", "quyen", "trach", "nhiem", "nghia", "vu", "loi", "chinh", "sach", "bao", "nhieu",
-        # Ambiguous / chitchat — "model" must not match "model xe" in tax circulars.
-        "model", "ai", "bot", "chatbot", "llm", "gpt", "toi", "minh", "chung", "ta",
-        # Amounts / numbers must not match example figures in unrelated circulars ("100 triệu").
-        "trieu", "ty", "nghin", "dong", "vnd", "tram", "chuc", "nop", "can", "choi", "khong",
-    }
-    terms: list[str] = []
-    tokens = re.findall(r"[\wÀ-ỹĐđ]+", (question or "").lower())
-    meaningful: list[str] = []
-    for t in tokens:
-        plain = _strip_accents(t)
-        if plain.isdigit() or re.fullmatch(r"\d+[a-z]*", plain or ""):
-            continue
-        if len(plain) >= 3 and plain not in stop:
-            meaningful.append(t)
-    # Prefer multi-word phrases first (stronger topic signal).
-    for n in (4, 3, 2):
-        for i in range(0, max(0, len(meaningful) - n + 1)):
-            phrase = " ".join(meaningful[i:i + n])
-            if phrase not in terms:
-                terms.append(phrase)
-    for token in meaningful:
-        if token not in terms:
-            terms.append(token)
-    return terms[:12]
+    try:
+        from app.services.qa_topic import question_terms
+        return question_terms(question)
+    except Exception:
+        return []
 
 
 def _anchor_phrases(question: str) -> list[str]:
-    """Distinctive legal topics that MUST appear in a candidate (accent-stripped).
-
-    Prevents 'thuế' + '100 triệu' from matching thuế nhập khẩu examples.
-    """
-    norm = _strip_accents(question or "")
-    anchors: list[str] = []
-    checks = [
-        (("thue thu nhap ca nhan", "thu nhap ca nhan", "tncn"), ["thue thu nhap ca nhan", "thu nhap ca nhan", "tncn"]),
-        (
-            ("co bac", "ca cuoc", "ca do", "casino", "lo de", "danh bac", "dat cuoc", "keo nha cai"),
-            ["co bac", "danh bac", "ca cuoc", "ca do", "casino", "tro choi co thuong", "dat cuoc"],
-        ),
-        (("nong do con", "cong"), ["nong do con", "vi pham nong do con"]),
-        (("hoa don dien tu",), ["hoa don dien tu"]),
-        (("hoan thue",), ["hoan thue"]),
-        (
-            ("cccd", "can cuoc", "can cuoc cong dan", "the can cuoc", "cmnd"),
-            ["cccd", "can cuoc", "can cuoc cong dan", "the can cuoc", "chung minh nhan dan", "cmnd", "chip"],
-        ),
-    ]
-    for needles, phrases in checks:
-        if any(n in norm for n in needles):
-            for p in phrases:
-                if p not in anchors:
-                    anchors.append(p)
-    return anchors
+    try:
+        from app.services.qa_topic import anchor_phrases
+        return anchor_phrases(question)
+    except Exception:
+        return []
 
 
 def _contains_term(body: str, term: str) -> bool:
-    if not body or not term:
-        return False
-    if " " in term:
-        return term in body
-    return re.search(rf"(?<![a-z0-9]){re.escape(term)}(?![a-z0-9])", body) is not None
+    try:
+        from app.services.qa_topic import contains_term
+        return contains_term(body, term)
+    except Exception:
+        return bool(term and term in (body or ""))
 
 
 def _topic_relevance(question: str, text: str) -> float:
-    body = _strip_accents(text or "")
-    if not body:
+    try:
+        from app.services.qa_topic import topic_relevance
+        return topic_relevance(question, text)
+    except Exception:
         return 0.0
-    anchors = _anchor_phrases(question)
-    if anchors and not any(_contains_term(body, a) for a in anchors):
-        norm_q = _strip_accents(question or "")
-        gambling_q = any(
-            g in norm_q
-            for g in (
-                "co bac", "danh bac", "ca cuoc", "ca do", "casino", "lo de", "dat cuoc", "keo nha cai",
-            )
-        )
-        tax_q = any(t in norm_q for t in ("thue", "tncn", "nop thue"))
-        tncn_ok = any(
-            _contains_term(body, t)
-            for t in ("thue thu nhap ca nhan", "thu nhap ca nhan", "tncn", "thu nhap chiu thue")
-        )
-        if gambling_q and tax_q and tncn_ok:
-            return 0.6
-        return 0.0
-    terms = [_strip_accents(t) for t in _question_terms(question)]
-    if not terms:
-        return 0.0 if anchors else 1.0
-    phrases = [t for t in terms if " " in t]
-    if any(_contains_term(body, p) for p in phrases):
-        return 1.0
-    tokens = [t for t in terms if " " not in t] or terms
-    # Single generic token "thue" is not enough when the question is more specific.
-    if len(tokens) == 1 and tokens[0] in {"thue", "thuee", "phi", "le"}:
-        return 0.0
-    hits = sum(1 for t in tokens if _contains_term(body, t))
-    return hits / max(len(tokens), 1)
 
 
 _SO_HIEU_RE = re.compile(
     r"\b\d{1,4}/(?:\d{4}/)?[A-Za-zĐđ][A-Za-zĐđ0-9.\-]*",
     re.IGNORECASE,
 )
-_KHOAN_ID_RE = re.compile(r"\d{1,4}/\d{4}/[A-Za-zĐĐđ\-]+::D\d+(?:\.K\d+)?", re.IGNORECASE)
-
-_NON_LEGAL_META_RE = re.compile(
-    r"(?:"
-    r"\bban\s+la\s+(?:ai|gi|model|chatgpt|gemini|claude|bot|tro\s*ly)\b|"
-    r"\b(?:ban|may|ai)\s+la\s+model\b|"
-    r"\bmodel\s+(?:gi|nao|ai)\b|"
-    r"\b(?:what|which)\s+model\b|"
-    r"\bwho\s+are\s+you\b|"
-    r"\bban\s+(?:ten|goi)\s+(?:gi|la\s+gi)\b|"
-    r"\b(?:xin\s+chao|hello|hi|hey|cam\s+on|thanks|thank\s+you|bye|tam\s+biet)\b|"
-    r"\bban\s+co\s+the\s+(?:lam|giup)\s+gi\b"
-    r")",
-    re.IGNORECASE,
-)
+_KHOAN_ID_RE = re.compile(r"[A-Za-z0-9/.|\-]+::D\d+(?:\.K\d+)?", re.IGNORECASE)
 
 
 def _is_non_legal_meta_question(question: str) -> bool:
-    raw = (question or "").strip()
-    if not raw:
+    try:
+        from app.services.qa_topic import is_non_legal_meta_question
+        return is_non_legal_meta_question(question)
+    except Exception:
         return False
-    if _SO_HIEU_RE.search(raw) or _KHOAN_ID_RE.search(raw):
-        return False
-    norm = _strip_accents(raw)
-    compact = re.sub(r"\s+", " ", norm).strip()
-    if _NON_LEGAL_META_RE.search(compact):
-        return True
-    tokens = [_strip_accents(t) for t in re.findall(r"[\wÀ-ỹĐđ]+", raw.lower())]
-    filler = {"gi", "nao", "vay", "the", "a", "o", "u", "nhi", "nha", "ay", "vay"}
-    content = [t for t in tokens if len(t) >= 2 and t not in filler]
-    ambiguous = {"model", "ban", "toi", "minh", "ai", "bot", "chatbot", "llm", "gpt"}
-    return bool(content) and all(t in ambiguous for t in content)
 
 
 def _answer_has_legal_refs(answer: str) -> bool:

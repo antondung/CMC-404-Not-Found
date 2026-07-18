@@ -240,7 +240,9 @@ async def test_nli_closed_labels_low_confidence_safe():
             return {"label": "contradiction", "score": 0.2, "model": "fake"}
     result = await NLIService(BE2Config(nli_confidence_threshold=0.7), Model()).nli_pair("premise", "hypothesis")
     assert result["label"] in {label.value for label in NliLabel}
-    assert result["label"] == "khong_ro"
+    # Keep mau_thuan (with needs_review) so faithfulness can treat near-contradiction as unsafe.
+    assert result["label"] == "mau_thuan"
+    assert result.get("needs_review") is True
     assert 0 <= result["score"] <= 1
 
 

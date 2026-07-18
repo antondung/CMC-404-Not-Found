@@ -59,9 +59,24 @@ def _apply_railway_env() -> None:
 
     os.environ.setdefault("QDRANT_URL", "http://tokaido.proxy.rlwy.net:30541")
 
-    dim = os.environ.get("EMBEDDING_DIM") or os.environ.get("BE2_EMBEDDING_DIMENSION") or "1536"
+    dim = os.environ.get("EMBEDDING_DIM") or os.environ.get("BE2_EMBEDDING_DIMENSION")
+    model = (
+        os.environ.get("BE2_EMBEDDING_MODEL")
+        or os.environ.get("BE2_OPENAI_MODEL")
+        or "text-embedding-3-small"
+    ).strip()
+    if not dim:
+        # Infer from common OpenAI embedding model ids when user forgot DIMENSION.
+        low = model.lower()
+        if "large" in low:
+            dim = "3072"
+        elif "small" in low or "ada-002" in low:
+            dim = "1536"
+        else:
+            dim = "1536"
     os.environ["BE2_EMBEDDING_DIMENSION"] = dim
     os.environ["EMBEDDING_DIM"] = dim
+    os.environ.setdefault("BE2_EMBEDDING_MODEL", model)
 
     emb_base = (
         os.environ.get("BE2_EMBEDDING_BASE_URL") or os.environ.get("BE2_OPENAI_BASE_URL") or ""
@@ -78,7 +93,6 @@ def _apply_railway_env() -> None:
     os.environ.setdefault("BE2_EMBEDDING_BASE_URL", emb_base)
     os.environ.setdefault("BE2_EMBEDDING_API_KEY", emb_key)
     os.environ.setdefault("BE2_EMBEDDING_PROVIDER", "openai")
-    os.environ.setdefault("BE2_EMBEDDING_MODEL", "text-embedding-3-small")
     # Many OpenAI-compatible proxies only return 1 vector per request when input is an array.
     os.environ.setdefault("BE2_EMBEDDING_BATCH_SIZE", "1")
 
@@ -140,15 +154,17 @@ async def _ensure_dim_compatible(*, embedder: Any, recreate: bool) -> int:
     """Probe one embedding, compare to Qdrant collection; recreate if requested."""
     from qdrant_client import AsyncQdrantClient
 
-    probe = await embedder.embed_texts(["kiểm tra chiều embedding pháp luật"])
+    # Allow probe even if BE2_EMBEDDING_DIMENSION was wrong (e.g. large model + dim=1536).
+    embedder._dimension = None
+    embedder.config.embedding_dimension = None
+
+    probe = await embedder.embed_texts(["kiem tra chieu embedding phap luat"])
     actual_dim = len(probe[0])
-    configured = int(os.environ.get("BE2_EMBEDDING_DIMENSION") or actual_dim)
-    if actual_dim != configured:
-        print(f"  WARN: BE2_EMBEDDING_DIMENSION={configured} nhưng model trả dim={actual_dim} → dùng {actual_dim}")
-        os.environ["BE2_EMBEDDING_DIMENSION"] = str(actual_dim)
-        os.environ["EMBEDDING_DIM"] = str(actual_dim)
-        embedder.config.embedding_dimension = actual_dim
-        embedder._dimension = actual_dim
+    os.environ["BE2_EMBEDDING_DIMENSION"] = str(actual_dim)
+    os.environ["EMBEDDING_DIM"] = str(actual_dim)
+    embedder.config.embedding_dimension = actual_dim
+    embedder._dimension = actual_dim
+    print(f"  Probe embedding OK dim={actual_dim}")
 
     url = os.environ["QDRANT_URL"]
     client = AsyncQdrantClient(url=url, timeout=30.0)

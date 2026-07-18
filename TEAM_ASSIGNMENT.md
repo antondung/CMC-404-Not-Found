@@ -28,8 +28,8 @@
                                 ▼
                     ┌───────────────────────┐
                     │ Frontend (FE)          │
-                    │ Admin + Citizen        │
-                    │ ui-legal · api-client  │
+                    │ apps/web               │
+                    │ / + /admin/* · ui-legal│
                     └───────────────────────┘
 ```
 
@@ -38,7 +38,7 @@
 | **BE1 — Legal Pipeline** | `Backend/ROLE_BE1_LEGAL_PIPELINE.md` | 1, 2, 4 | Ingest → Parse → Extract → Diff → nạp KG/Vector |
 | **BE2 — Social & Intelligence** | `Backend/ROLE_BE2_SOCIAL_INTEL.md` | 3, 5, 6, 9a, 9b | MXH, link, NLI, Brief, Suggest, embedding/LLM router |
 | **BE3 — API & QA Services** | `Backend/ROLE_BE3_API_QA_SERVICES.md` | 7, 8 + toàn bộ API | FastAPI Admin/Citizen, RAG QA, Auth, Jobs, PublishGate |
-| **FE — Dual Portal** | `Frontend/ROLE_FRONTEND.md` | UI Admin + Citizen | 2 apps + shared packages, map API §8.1 |
+| **FE — Dual Portal** | `Frontend/SYSTEM_FRONTEND.md` | UI Admin + Citizen | 1 app `apps/web` (`/` + `/admin/*`) + `packages/ui-legal` |
 | **DB — Data Platform** | `Data/SYSTEM_DATA.md` | Ontology + persistence | Schema Neo4j/PG/Qdrant, seed, backup, lineage |
 
 ---
@@ -50,8 +50,8 @@
 | Hệ thống | Phiên bản gợi ý | Ai sở hữu chính | Mục đích |
 |---|---|---|---|
 | **Python** | 3.11+ | BE1, BE2, BE3, DB | Backend, pipeline, script migrate |
-| **Node.js** | 20 LTS | FE | Vite monorepo Admin/Citizen |
-| **TypeScript** | 5.x | FE | Type-safe UI + api-client |
+| **Node.js** | **22+** (Vite 8) | FE | Vite monorepo `apps/web` |
+| **TypeScript** | 5.x | FE | Type-safe UI (`src/lib/api.ts`) |
 | **Docker + Docker Compose** | mới nhất ổn định | DB (+ cả team) | Chạy Neo4j, Postgres, Redis, Qdrant local/dev |
 | **Git** | — | cả team | nhánh theo role: `be1/*`, `be2/*`, `be3/*`, `fe/*`, `db/*` |
 
@@ -79,9 +79,9 @@
 
 | Hệ thống | Mục đích | Owner |
 |---|---|---|
-| **LLM local (Gemma qua gateway)** | Parse fallback, extract nhẹ | BE1, BE2 |
-| **9R-Shield LLM Router** | Route local vs large theo độ phức tạp/chi phí | BE2 sở hữu router; BE1/BE3 gọi |
-| **Embedding `bge-m3` hoặc vietnamese-sbert** | Vector Khoản + topic MXH | BE2 |
+| **LLM (OpenAI-compatible)** | Chat local/large qua BE2 gateway (`BE2_OPENAI_*`) — **không dùng Ollama** | BE1, BE2, BE3 |
+| **9R-Shield / LLM Router** | Route local vs large theo độ phức tạp | BE2 sở hữu router; BE1/BE3 gọi |
+| **Embedding `text-embedding-3-small`** | Vector Khoản + topic MXH — dim **1536** (`BE2_EMBEDDING_*`) | BE2 |
 | **NLI model (VN hoặc multilingual)** | Claim ↔ Khoản → khop/mau_thuan/khong_ro | BE2 |
 | **GPTCache** (optional) + Redis | Semantic cache câu hỏi lặp | BE3 |
 | **pdfplumber / PyMuPDF / lxml** | Đọc PDF/HTML luật | BE1 |
@@ -98,11 +98,10 @@
 
 | Hệ thống | Mục đích | Owner |
 |---|---|---|
-| **React 18 + Vite** | 2 apps: admin, citizen | FE |
-| **TanStack Query (React Query)** | Server state, polling jobs/alerts | FE |
+| **React 19 + Vite 8** | 1 app `web`: citizen `/`, admin `/admin` | FE |
 | **React Router** | IA theo `SYSTEM_FRONTEND.md` | FE |
-| **vis-network** hoặc **Nivo/Cytoscape** | GraphCanvas Admin | FE |
-| **Zod** | Validate response API phía client | FE |
+| **react-force-graph-2d** | GraphCanvas Admin | FE |
+| **TailwindCSS** | UI tokens Admin + Citizen | FE |
 
 ### 2.7 Quan sát & chất lượng
 
@@ -184,8 +183,7 @@
 | `Backend/ROLE_BE1_LEGAL_PIPELINE.md` | Việc BE1 chi tiết |
 | `Backend/ROLE_BE2_SOCIAL_INTEL.md` | Việc BE2 chi tiết |
 | `Backend/ROLE_BE3_API_QA_SERVICES.md` | Việc BE3 chi tiết |
-| `Frontend/ROLE_FRONTEND.md` | Việc FE chi tiết |
+| `Frontend/SYSTEM_FRONTEND.md` | Kiến trúc + IA FE (Admin `/admin` + Citizen `/`) |
 | `Data/SYSTEM_DATA.md` | Việc DB + thiết kế data đầy đủ |
 | `Backend/SYSTEM_BACKEND.md` | Kiến trúc backend (contract) |
-| `Frontend/SYSTEM_FRONTEND.md` | Kiến trúc frontend (contract) |
 | `base_core.md` | Đề bài & mục tiêu sản phẩm |

@@ -21,9 +21,9 @@ Dự án cung cấp hai phân hệ (Portal) phục vụ hai nhóm đối tượn
 
 ## 🌐 Giao diện Web & Phân hệ Hệ thống
 
-Hệ thống LexSocial AI bao gồm hai giao diện web chính được tối ưu hóa cho trải nghiệm người dùng:
+Hệ thống LexSocial AI gồm **hai phân hệ UI trong một SPA** (`Frontend/apps/web`, cổng 5173):
 
-### 1️⃣ Phân hệ Admin Dashboard
+### 1️⃣ Phân hệ Admin Dashboard (`/admin`)
 *Dành cho cơ quan nhà nước, cán bộ pháp chế, giám sát truyền thông, quản trị dữ liệu.*
 
 - Cung cấp bộ công cụ mạnh mẽ để cán bộ pháp chế quản lý kho dữ liệu luật, theo dõi biểu đồ thống kê từ mạng xã hội (đồ thị tri thức Admin dùng `react-force-graph-2d`).
@@ -33,7 +33,7 @@ Hệ thống LexSocial AI bao gồm hai giao diện web chính được tối ư
 - **Cảnh báo rủi ro**: Xử lý các cảnh báo rủi ro theo thời gian thực (gắn nhãn `khớp / mâu thuẫn / không rõ`).
 - **Gợi ý & Xuất bản**: Duyệt đề xuất đính chính truyền thông, và xuất bản nội dung (Publish) ra công chúng.
 
-### 2️⃣ Phân hệ Citizen Portal
+### 2️⃣ Phân hệ Citizen Portal (`/`)
 *Dành cho người dân tra cứu.*
 
 - Giao diện thiết kế tối giản, dễ thao tác, ưu tiên tính dễ đọc và truy cập nhanh.
@@ -74,7 +74,7 @@ Dự án cung cấp một script hợp nhất `run.ps1` (trên PowerShell/Window
 
 ### Yêu cầu hệ thống
 - **Python** 3.10+
-- **Node.js** 20 LTS+
+- **Node.js** **22+** (Vite 8 / Rolldown; Railway FE ghim Node 22)
 - **Docker & Docker Compose**
 - **OpenAI-compatible API** cho chat + embedding (không dùng Ollama). Copy `Backend/.env.example` → `Backend/.env` và điền:
   - `BE2_OPENAI_BASE_URL`, `BE2_OPENAI_API_KEY`

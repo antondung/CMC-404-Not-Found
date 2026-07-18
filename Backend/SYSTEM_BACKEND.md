@@ -302,8 +302,8 @@ Envelope:
 | Vector | Qdrant hoặc pgvector | retrieve Khoản/bài |
 | Meta DB | PostgreSQL | users, jobs, publish audit, briefs |
 | Cache | Redis + GPTCache | QA lặp |
-| LLM | Local Gemma + large qua 9R-Shield | chi phí/độ phức tạp |
-| Embedding | `bge-m3` / vietnamese-sbert | tiếng Việt |
+| LLM | OpenAI-compatible (`BE2_OPENAI_*`) — **không Ollama** | chat local/large qua BE2 |
+| Embedding | `text-embedding-3-small` (dim **1536**) | `BE2_EMBEDDING_*` |
 | Parse PDF | pdfplumber / PyMuPDF | VB hỗn hợp |
 
 ---

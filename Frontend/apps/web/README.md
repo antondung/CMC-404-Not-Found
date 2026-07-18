@@ -1,32 +1,44 @@
-# React + TypeScript + Vite
+# LexSocial AI — Frontend (`apps/web`)
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Một Vite app phục vụ **hai phân hệ** trên cùng origin:
 
-Currently, two official plugins are available:
+| Path | Phân hệ |
+|------|---------|
+| `/`, `/ask`, `/news`, `/van-ban` | Citizen (công khai) |
+| `/admin/*` | Admin (RBAC, đăng nhập) |
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Dev
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+cd Frontend
+npm install
+npm run dev          # → http://localhost:5173
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Hoặc từ root repo: `./run.ps1 -Frontend`
+
+- Citizen: http://localhost:5173/
+- Admin: http://localhost:5173/admin/ — seed `admin@local` / `admin123`
+
+## Build / Railway
+
+```bash
+npm run build        # → apps/web/dist
+```
+
+- **Root Directory** trên Railway = `Frontend`
+- **Node.js ≥ 22** (Vite 8 / Rolldown)
+- **Không** đặt Build Command = `npm ci && …` (Railpack đã install)
+- Biến bắt buộc: `VITE_API_URL=https://<backend-public>.up.railway.app`
+- Chi tiết: `Frontend/nixpacks.toml`, `Frontend/SYSTEM_FRONTEND.md`
+
+## Cấu trúc
+
+```
+src/
+  app/App.tsx           # routes / + /admin/*
+  lib/                  # api, apiBase, base
+  admin/features/…      # dashboard, alerts, graph, …
+  citizen/features/…    # home, ask, news, van-ban
+packages/ui-legal/      # CitationCard, RiskBadge, …
+```

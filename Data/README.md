@@ -54,10 +54,17 @@ docker compose -f Data/docker-compose.data.yml --env-file Data/.env up -d postgr
 ### Neo4j + seed + Qdrant collections (một lệnh)
 ```bash
 bash Data/seed/load_seed.sh            # Linux/macOS/Git-Bash
-# hoặc Windows PowerShell:
+# hoặc Windows PowerShell (local Docker stack):
 powershell -ExecutionPolicy Bypass -File Data/seed/load_seed.ps1
 ```
 Script sẽ: nạp constraints + indexes → load VB mẫu → seed users → đảm bảo Qdrant collections.
+
+**Railway (public TCP proxy)** — Python, không cần `psql` / `cypher-shell`:
+```powershell
+# Set DATABASE_PUBLIC_URL, NEO4J_PASSWORD, QDRANT_URL, …
+powershell -ExecutionPolicy Bypass -File Data/seed/load_seed_railway.ps1
+python Backend/scripts/purge_db_railway.py --scope all --yes   # xóa trước khi seed lại
+```
 
 User test sau seed: `admin@local` / `admin123` (admin_phap_che).
 
@@ -88,6 +95,8 @@ Data/
     social_mau/baidang_mau.json
     users_seed.sql
     load_seed.sh / load_seed.ps1
+    load_seed_railway.py / load_seed_railway.ps1   # seed qua Railway TCP proxy
+    purge_railway.ps1 → Backend/scripts/purge_db_railway.py
   gold/
     citations.json            # >=20 Q-A, quote = substring nguyen van Khoan
     links.json                # >=20 bai -> expected_khoan_ids (precision@k)

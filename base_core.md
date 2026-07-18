@@ -90,11 +90,11 @@ Từ 01/07/2026, nhiều luật/nghị định/thông tư mới có hiệu lực
 
 | Module | Approach chính | Stack đề xuất |
 |---|---|---|
-| 1. Cấu trúc hóa văn bản | Regex state machine Điều/Khoản/Điểm; fallback LLM local | `pdfplumber`/`PyMuPDF`, `lxml`, gateway.py (Gemma local) |
-| 2. Trích xuất thực thể pháp lý | LLM few-shot, ép JSON schema mỗi Khoản | Routing local/lớn qua 9R-Shield |
-| 3. Giám sát MXH theo chủ đề | Zero-shot topic classification embedding VN | Facebook Graph API, YouTube API, `bge-m3`/`vietnamese-sbert` |
+| 1. Cấu trúc hóa văn bản | Regex state machine Điều/Khoản/Điểm; fallback LLM | `pdfplumber`/`PyMuPDF`, `lxml`, OpenAI-compatible LLM |
+| 2. Trích xuất thực thể pháp lý | LLM few-shot, ép JSON schema mỗi Khoản | Routing local/large qua BE2 gateway |
+| 3. Giám sát MXH theo chủ đề | Zero-shot / LLM topic + embedding | Facebook Graph API, YouTube API, embedding dim 1536 |
 | 4. Trích xuất thay đổi | Regex dẫn chiếu tường minh + embedding similarity; LLM diff có cấu trúc | Cache cặp Khoản đã so sánh |
-| 5. Liên kết bài đăng ↔ quy định | Retrieval 2 tầng: vector → LLM re-rank; MVP qua ChuDe | Vector DB (Qdrant/pgvector) |
+| 5. Liên kết bài đăng ↔ quy định | Retrieval 2 tầng: vector → LLM re-rank; MVP qua ChuDe | Qdrant (dim 1536) |
 | 6. Phát hiện hiểu lầm | Claim → NLI với Khoản đã link; chỉ mức khớp/mâu thuẫn/không rõ | — |
 | 7. Q&A API | RAG (vector + graph), ép citation, validate substring nguyên văn | GPTCache+Redis; FastAPI |
 | 8. Graph Explorer | Cypher neighborhood theo VB/Khoản/ChuThe; không sinh cạnh ảo | Neo4j + vis frontend |
@@ -136,6 +136,5 @@ Từ 01/07/2026, nhiều luật/nghị định/thông tư mới có hiệu lực
 | `Backend/ROLE_BE1_LEGAL_PIPELINE.md` | BE1 — Parse / NER / Diff |
 | `Backend/ROLE_BE2_SOCIAL_INTEL.md` | BE2 — MXH / LLM router / Brief–Suggest |
 | `Backend/ROLE_BE3_API_QA_SERVICES.md` | BE3 — FastAPI / RAG QA / Auth / PublishGate |
-| `Frontend/SYSTEM_FRONTEND.md` | Kiến trúc Admin + Citizen + map API §8.1 |
-| `Frontend/ROLE_FRONTEND.md` | Việc FE chi tiết + stack UI |
+| `Frontend/SYSTEM_FRONTEND.md` | Kiến trúc Admin `/admin` + Citizen `/` (1 app `apps/web`) |
 | `Data/SYSTEM_DATA.md` | Neo4j / Postgres / Qdrant / Redis / MinIO + seed/gold |

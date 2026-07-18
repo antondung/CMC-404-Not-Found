@@ -1,8 +1,8 @@
 # Frontend — Tư Duy Hệ Thống & Logic Xây Dựng
 
 > Nguồn chân lý: `base_core.md` + `Backend/SYSTEM_BACKEND.md`  
-> Phân công FE: `TEAM_ASSIGNMENT.md` · `ROLE_FRONTEND.md`  
-> Vai trò: **hai phân hệ giao diện** dùng chung design primitives (citation, Khoản, risk labels)  
+> Phân công FE: `TEAM_ASSIGNMENT.md` · `Frontend/SYSTEM_FRONTEND.md`  
+> Vai trò: **hai phân hệ giao diện trong một SPA** (`apps/web`) dùng chung design primitives (citation, Khoản, risk labels)  
 > Nguyên tắc: evidence trước opinion; wording rủi ro bị khóa; Citizen chỉ thấy nội dung đã publish
 
 ---
@@ -52,20 +52,19 @@ Frontend **không** suy diễn pháp lý; mọi khẳng định phải mở đư
 ## 4. Kiến trúc frontend
 
 ```
-┌──────────────────────────┐     ┌──────────────────────────┐
-│ apps/admin               │     │ apps/citizen             │
-│ Shell: nav + alert badge │     │ Shell: brand + hỏi nhanh │
-│ Auth RBAC admin_*        │     │ Auth citizen/anonymous   │
-└────────────┬─────────────┘     └────────────┬─────────────┘
-             │                                │
-             └────────────┬───────────────────┘
-                          ▼
-             packages/ui-legal + api-client
-             CitationCard · KhoanViewer · RiskBadge
-             DiffHunk · GraphCanvas · RefuseState
+┌──────────────────────────────────────────────────────────┐
+│ apps/web  (một Vite app, cổng :5173)                      │
+│  / … /ask /news /van-ban     → Citizen shell             │
+│  /admin/*                    → Admin shell + RBAC        │
+└──────────────────────────┬───────────────────────────────┘
+                           ▼
+              packages/ui-legal
+              CitationCard · KhoanViewer · RiskBadge
+              DiffHunk · GraphPathBreadcrumb · AnswerMarkdown
+              src/lib/api.ts (+ Bearer admin) · apiBase · VITE_API_URL
 ```
 
-**Stack MVP:** React + TypeScript + Vite (2 apps). Prototype nội bộ có thể Streamlit cho Admin, nhưng production nên SPA.
+**Stack:** React 19 + TypeScript + Vite 8 (Node ≥ 22). Graph Admin: `react-force-graph-2d`. TailwindCSS.
 
 ---
 
@@ -95,20 +94,17 @@ Frontend **không** suy diễn pháp lý; mọi khẳng định phải mở đư
 /admin/review               → GET /admin/review
 ```
 
-### 5.2 Citizen Portal (`/` hoặc `/portal`)
+### 5.2 Citizen Portal (`/`)
 
 ```
 /                           → Home: tin nổi bật (GET /citizen/news) + ô hỏi trợ lý
-/news                       → GET /citizen/news (lọc media_type nếu cần)
+/news                       → GET /citizen/news
 /news/:id                   → GET /citizen/news/{id} + citations + CTA “Hỏi thêm”
-/ask                        → POST /citizen/qa/ask (Answer + Citations + graph_paths optional)
-/van-ban                    → GET /citizen/legal/van-ban (tên, số hiệu, tóm tắt)
-/van-ban/:id                → GET /citizen/legal/van-ban/{id} + files đính kèm
-/van-ban/:id/files/:fileId  → GET /citizen/legal/files/{file_id} (tải file điều luật)
-/khoan/:id                  → GET /citizen/legal/khoan/{id} (+ brief liên quan nếu có)
+/ask                        → POST /citizen/qa/ask
+/van-ban                    → GET /citizen/legal/van-ban
 ```
 
-**Cấm trên Citizen:** `/alerts`, `/mxh` thô, `/jobs`, `/review`, `/suggestions`, bản `draft`/`review`/`archived` của brief.
+**Cấm trên Citizen:** `/admin/*` (alerts, jobs, review, suggestions nội bộ), brief chưa `published`.
 
 ---
 
@@ -375,9 +371,10 @@ Hero gọn: brand + 1 CTA hỏi + tin — không nhồi stats/alerts.
 
 ### Phase A — MVP
 
-1. `apps/admin`: shell RBAC, Ingest, Van bản (list+detail+files), Diff, QA Admin (+ graph_paths), Jobs list/detail  
-2. `apps/citizen`: shell, Ask + CitationCard + GraphPathBreadcrumb (public filter)  
-3. Shared `CitationCard` / `KhoanViewer` / `RefuseState` / `FileAttachList`
+1. `apps/web`: shell Citizen `/` + Admin `/admin/*` (RBAC login)  
+2. Admin: Ingest, Van bản, Diff, QA Admin, Jobs, Dashboard  
+3. Citizen: Ask + CitationCard + GraphPathBreadcrumb  
+4. Shared `packages/ui-legal`
 
 ### Phase B — Admin giám sát & graph
 
@@ -395,20 +392,22 @@ Hero gọn: brand + 1 CTA hỏi + tin — không nhồi stats/alerts.
 
 ---
 
-## 12. Cấu trúc thư mục đề xuất
+## 12. Cấu trúc thư mục (hiện tại)
 
 ```
 Frontend/
   SYSTEM_FRONTEND.md
+  package.json              # workspaces + npm run build/start (Railway)
+  nixpacks.toml             # Node 22, không npm ci trong build
   apps/
-    admin/
-      src/app/ features/ ...
-    citizen/
-      src/app/ features/ ...
+    web/
+      src/
+        app/App.tsx         # BrowserRouter: / + /admin/*
+        lib/                # api, apiBase, base
+        admin/features/…    # dashboard, alerts, graph, ingest, …
+        citizen/features/…  # home, ask, news, van-ban
   packages/
-    ui-legal/          # shared components
-    api-client/        # types + admin/citizen clients
-  tests/
+    ui-legal/               # shared components
 ```
 
 ---

@@ -145,9 +145,9 @@ Alembic versioning: mọi thay đổi schema qua migration — **cấm** sửa t
 
 | Collection | Vector size | Payload bắt buộc | Ai ghi |
 |---|---|---|---|
-| `khoan` | theo model (vd. 1024 bge-m3) | `khoan_id`, `van_ban_id`, `dieu`, `text_preview` | BE1 (sau extract) |
-| `baidang` | cùng dim | `bai_dang_id`, `chu_de`, `platform` | BE2 |
-| `chude` | cùng dim | `slug`, `ten` | BE2 |
+| `khoan` | **1536** (`text-embedding-3-small`) | `khoan_id`, `van_ban_id`, `dieu`, `text_preview` | BE1 (sau extract) |
+| `baidang` | cùng dim (**1536**) | `bai_dang_id`, `chu_de`, `platform` | BE2 |
+| `chude` | cùng dim (**1536**) | `slug`, `ten` | BE2 |
 
 **Quy tắc:** Vector **không** là nguồn trích dẫn. Mọi citation phải lấy `noi_dung` từ Neo4j bằng `khoan_id`.
 

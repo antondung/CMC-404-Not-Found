@@ -80,14 +80,17 @@ LLM_MAX_TOKENS = int(os.getenv("BE2_LLM_MAX_TOKENS") or "512")
 LLM_REPEAT_PENALTY = float(os.getenv("BE2_LLM_REPEAT_PENALTY") or "1.3")
 
 _SYSTEM_PROMPT = (
-    "Bạn là trợ lý pháp lý tiếng Việt. CHỈ được dựa vào các điều khoản pháp luật được cung cấp "
+    "Bạn là trợ lý pháp lý tiếng Việt của LexSocial AI. CHỈ được dựa vào các điều khoản pháp luật được cung cấp "
     "trong phần Ngữ cảnh để trả lời. Tuyệt đối không bịa đặt, không thêm thông tin ngoài Ngữ cảnh.\n"
     "Mỗi dòng Ngữ cảnh bắt đầu bằng mã khoản dạng [<số hiệu văn bản>::D<điều>.K<khoản>]. "
     "Ví dụ [168/2024/ND-CP::D6.K1] nghĩa là Nghị định 168/2024/NĐ-CP, Điều 6, Khoản 1. "
     "Khi dẫn chiếu, PHẢI dùng đúng số Điều và số Khoản trong mã; không được tự bịa ra số Điều khác, "
     "không gọi nhầm 'Nghị định' thành 'Nghị quyết'.\n"
     "Chỉ viện dẫn điều khoản thật sự trả lời đúng chủ đề câu hỏi; không liệt kê lan man các điều khoản "
-    "chỉ vì trùng từ chung (ví dụ 'mức phạt' khi câu hỏi về 'nồng độ cồn'). "
+    "chỉ vì trùng từ chung (ví dụ 'mức phạt' khi câu hỏi về 'nồng độ cồn', hoặc 'model' khi câu hỏi "
+    "về danh tính AI).\n"
+    "Nếu câu hỏi hỏi danh tính trợ lý/AI/model hoặc không phải câu hỏi pháp luật: nói rõ ngoài phạm vi "
+    "tra cứu pháp lý và KHÔNG liệt kê căn cứ pháp lý.\n"
     "Nếu Ngữ cảnh không đủ căn cứ hoặc không quy định về chủ đề câu hỏi, hãy nói rõ là chưa đủ căn cứ "
     "và KHÔNG liệt kê căn cứ pháp lý."
 )
@@ -257,6 +260,8 @@ def _question_terms(question: str) -> list[str]:
         "can", "nhung", "gi", "la", "theo", "quy", "dinh", "hien", "hanh", "cua", "cho", "ve",
         "nghi", "quyet", "thong", "van", "ban", "phap", "luat", "noi", "ro", "lien", "quan",
         "xu", "tham", "quyen", "trach", "nhiem", "nghia", "vu", "loi", "chinh", "sach", "bao", "nhieu",
+        # Ambiguous / chitchat — "model" must not match "model xe" in tax circulars.
+        "model", "ai", "bot", "chatbot", "llm", "gpt", "toi", "minh", "chung", "ta",
     }
     terms: list[str] = []
     tokens = re.findall(r"[\wÀ-ỹĐđ]+", (question or "").lower())
@@ -299,6 +304,37 @@ def _topic_relevance(question: str, text: str) -> float:
 _SO_HIEU_RE = re.compile(r"\d{1,4}/\d{4}/[A-Za-zĐĐđ\-]+")
 _KHOAN_ID_RE = re.compile(r"\d{1,4}/\d{4}/[A-Za-zĐĐđ\-]+::D\d+(?:\.K\d+)?", re.IGNORECASE)
 
+_NON_LEGAL_META_RE = re.compile(
+    r"(?:"
+    r"\bban\s+la\s+(?:ai|gi|model|chatgpt|gemini|claude|bot|tro\s*ly)\b|"
+    r"\b(?:ban|may|ai)\s+la\s+model\b|"
+    r"\bmodel\s+(?:gi|nao|ai)\b|"
+    r"\b(?:what|which)\s+model\b|"
+    r"\bwho\s+are\s+you\b|"
+    r"\bban\s+(?:ten|goi)\s+(?:gi|la\s+gi)\b|"
+    r"\b(?:xin\s+chao|hello|hi|hey|cam\s+on|thanks|thank\s+you|bye|tam\s+biet)\b|"
+    r"\bban\s+co\s+the\s+(?:lam|giup)\s+gi\b"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def _is_non_legal_meta_question(question: str) -> bool:
+    raw = (question or "").strip()
+    if not raw:
+        return False
+    if _SO_HIEU_RE.search(raw) or _KHOAN_ID_RE.search(raw):
+        return False
+    norm = _strip_accents(raw)
+    compact = re.sub(r"\s+", " ", norm).strip()
+    if _NON_LEGAL_META_RE.search(compact):
+        return True
+    tokens = [_strip_accents(t) for t in re.findall(r"[\wÀ-ỹĐđ]+", raw.lower())]
+    filler = {"gi", "nao", "vay", "the", "a", "o", "u", "nhi", "nha", "ay", "vay"}
+    content = [t for t in tokens if len(t) >= 2 and t not in filler]
+    ambiguous = {"model", "ban", "toi", "minh", "ai", "bot", "chatbot", "llm", "gpt"}
+    return bool(content) and all(t in ambiguous for t in content)
+
 
 def _answer_has_legal_refs(answer: str) -> bool:
     text = answer or ""
@@ -338,6 +374,8 @@ def _answer_says_insufficient(answer: str) -> bool:
 def _select_context(ctx: list[tuple[str, str]], question: str) -> list[tuple[str, str]]:
     """Keep topic-relevant clauses from one coherent document; drop off-topic noise."""
     if not ctx:
+        return []
+    if _is_non_legal_meta_question(question):
         return []
 
     # Document-id / mã khoản questions: keep all clauses from that văn bản (no topic gate).
@@ -413,6 +451,19 @@ def _extractive_answer(question: str, ctx: list[tuple[str, str]]) -> str:
 async def _handle_qa(prompt: str, timeout_s: float, model: str | None = None) -> dict[str, Any]:
     ctx = _parse_context(prompt)
     question = _extract_question(prompt)
+
+    # Identity / chitchat must never cite tax/auto "model" clauses.
+    if _is_non_legal_meta_question(question):
+        return {
+            "answer": (
+                "Tôi là trợ lý pháp lý LexSocial AI — hỏi đáp dựa trên văn bản pháp luật đã số hóa, "
+                "không phải một model AI công khai cụ thể. Câu hỏi về danh tính model/AI không thuộc "
+                "phạm vi tra cứu pháp lý. Hãy hỏi một vấn đề pháp luật cụ thể (ví dụ mức phạt, thủ tục thuế)."
+            ),
+            "citations": [],
+            "confidence": "high",
+        }
+
     top = _select_context(ctx, question) if ctx else []
 
     if not top:

@@ -12,6 +12,31 @@ from app.intelligence.nli import NLIService
 from app.adapters.qdrant_vector import QdrantVectorClient
 
 
+# Chitchat / identity / meta — must NEVER retrieve or cite legal provisions.
+_NON_LEGAL_META_RE = re.compile(
+    r"(?:"
+    r"\bban\s+la\s+(?:ai|gi|model|chatgpt|gemini|claude|bot|tro\s*ly)\b|"
+    r"\b(?:ban|may|ai)\s+la\s+model\b|"
+    r"\bmodel\s+(?:gi|nao|ai|gi\s+vay)\b|"
+    r"\b(?:what|which)\s+model\b|"
+    r"\bwho\s+are\s+you\b|"
+    r"\bban\s+(?:ten|goi)\s+(?:gi|la\s+gi)\b|"
+    r"\b(?:xin\s+chao|hello|hi|hey|cam\s+on|thank(?:s|\s+you)|bye|tam\s+biet)\b|"
+    r"\bban\s+co\s+the\s+(?:lam|giup)\s+gi\b|"
+    r"\bhuong\s+dan\s+su\s+dung\b|"
+    r"\bban\s+biet\s+(?:tieng|noi)\b"
+    r")",
+    re.IGNORECASE,
+)
+
+# Ambiguous tokens that often false-positive against legal corpus (e.g. "model" ↔ model xe).
+_AMBIGUOUS_TOPIC_STOP = frozenset({
+    "model", "ban", "toi", "minh", "chung", "ta", "ai", "bot", "chat", "chatbot",
+    "llm", "gpt", "openai", "gemini", "claude", "tro", "ly", "he", "thong", "may",
+    "tinh", "phan", "mem", "ung", "dung", "app", "website", "web",
+})
+
+
 # Idea 01 — Time-Travel: which candidate Khoản are INVALID as of a given date, because either
 # (a) their văn bản is not yet effective at $as_of, or (b) they have been replaced (THAY_THE) by a
 # văn bản already effective at $as_of. Uses toString() so it works whether ngay_hieu_luc is stored
@@ -72,6 +97,52 @@ class QAService:
         return unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("utf-8").lower()
 
     @classmethod
+    def _is_non_legal_meta_question(cls, question: str) -> bool:
+        """True for identity / chitchat / product-meta questions that must not cite law."""
+        raw = (question or "").strip()
+        if not raw:
+            return False
+        # Explicit legal anchors always treated as legal questions.
+        if cls._SO_HIEU_RE.search(raw) or cls._KHOAN_ID_RE.search(raw):
+            return False
+        norm = cls._strip_accents(raw)
+        compact = re.sub(r"\s+", " ", norm).strip()
+        if _NON_LEGAL_META_RE.search(compact):
+            return True
+        # Very short questions with only ambiguous tokens (e.g. "model gì?").
+        tokens = [cls._strip_accents(t) for t in re.findall(r"[\wÀ-ỹĐđ]+", raw.lower())]
+        content = [t for t in tokens if len(t) >= 2 and t not in {
+            "gi", "nao", "vay", "the", "a", "o", "u", "nhi", "nha", "vay", "the", "ay",
+        }]
+        if content and all(t in _AMBIGUOUS_TOPIC_STOP for t in content):
+            return True
+        return False
+
+    @staticmethod
+    def _meta_assistant_answer(*, question: str, audience: str, as_of: str) -> dict[str, Any]:
+        """Safe reply for non-legal meta questions — zero citations."""
+        answer = (
+            "Tôi là **trợ lý pháp lý LexSocial AI** — dịch vụ hỏi đáp dựa trên văn bản pháp luật "
+            "đã số hóa trong hệ thống LexSocial, không phải một model AI công khai cụ thể "
+            "(không phải ChatGPT/Gemini/Claude).\n\n"
+            "Tôi chỉ trả lời câu hỏi **pháp luật kèm căn cứ** (điều/khoản/số hiệu). "
+            "Câu hỏi về danh tính model/AI không thuộc phạm vi tra cứu pháp lý.\n\n"
+            "Bạn có thể hỏi ví dụ: *Nghỉ thai sản được bao nhiêu ngày?*, *Mức phạt nồng độ cồn hiện nay?*"
+        )
+        return {
+            "answer": answer,
+            "citations": [],
+            "confidence": "high",
+            "graph_paths": [],
+            "graph_paths_status": "not_requested",
+            "graph_paths_reason": "Non-legal meta question",
+            "audience": audience,
+            "as_of": as_of,
+            "notices": [],
+            "refuse_reason": ["non_legal_meta_question"],
+        }
+
+    @classmethod
     def _keyword_queries(cls, question: str) -> list[str]:
         """Build broad legal-search phrases from a vague user question.
 
@@ -121,6 +192,7 @@ class QAService:
             "cua", "cho", "toi", "hoi", "la", "ve", "thi", "muc", "bao", "nhieu", "khong", "duoc", "quy", "dinh",
             "luat", "nghi", "dinh", "quyet", "thong", "tu", "van", "ban", "phap", "ly", "can", "cu", "nao", "gi",
             "nhu", "the", "neu", "thi", "hay", "noi", "ro", "lien", "quan", "chinh", "sach",
+            "model", "ai", "bot", "chatbot", "llm", "gpt", "minh", "chung",
         }
         tokens = re.findall(r"[\wÀ-ỹĐđ]+", raw.lower())
         meaningful: list[str] = []
@@ -154,10 +226,11 @@ class QAService:
             "xử", "thẩm", "quyền", "trách", "nhiệm", "nghĩa", "vụ", "quyền", "lợi", "cần", "những",
             "gì", "là", "theo", "quy", "định", "hiện", "hành", "của", "cho", "về", "liên", "quan",
             "nghị", "quyết", "thông", "văn", "bản", "pháp", "luật", "chính", "sách", "bao", "nhiêu",
+            "bạn", "tôi", "mình", "model", "ai", "bot", "chatbot", "llm", "gpt",
         }
         tokens = re.findall(r"[\wÀ-ỹĐđ]+", raw)
         topic_tokens: list[str] = []
-        stop_plain = {cls._strip_accents(s) for s in stop}
+        stop_plain = {cls._strip_accents(s) for s in stop} | set(_AMBIGUOUS_TOPIC_STOP)
         for token in tokens:
             plain = cls._strip_accents(token)
             # Keep 3+ char topic terms (e.g. "cồn", "thuế") so generic hits like "mức phạt" alone cannot pass.
@@ -889,6 +962,10 @@ class QAService:
         """Execute strictly real RAG QA flow: Retrieve -> Time-Travel filter -> LLM -> Citation Verify -> Fail-Closed output."""
         as_of_val = (as_of or date.today().isoformat()).strip()
 
+        # 0. Non-legal meta / chitchat — never retrieve or cite law (fixes "bạn là model gì" → TT thuế xe).
+        if self._is_non_legal_meta_question(question):
+            return self._meta_assistant_answer(question=question, audience=audience, as_of=as_of_val)
+
         # 1. Retrieve candidates
         candidates = await self.retrieve_candidates(question, audience=audience, as_of=as_of_val)
         had_candidates_before_time_filter = bool(candidates)
@@ -941,7 +1018,9 @@ class QAService:
             f"Câu hỏi: {question}\n"
             "Chỉ trả lời dựa trên retrieved_context ở trên. Tuyệt đối không bịa. "
             "Xác định chủ đề chính của câu hỏi rồi chỉ dùng điều khoản thật sự trả lời đúng chủ đề đó "
-            "(không viện dẫn điều khoản chỉ vì có từ chung như 'mức phạt', 'hồ sơ', 'thủ tục'). "
+            "(không viện dẫn điều khoản chỉ vì có từ chung như 'mức phạt', 'hồ sơ', 'thủ tục', 'model'). "
+            "Nếu câu hỏi hỏi về danh tính trợ lý/AI/model (ví dụ 'bạn là model gì') hoặc không phải câu hỏi pháp luật: "
+            "nói rõ ngoài phạm vi tra cứu pháp lý, trả về citations = []. "
             "Nếu retrieved_context không chứa quy định đúng chủ đề câu hỏi: nói rõ chưa đủ căn cứ / ngữ cảnh không quy định về chủ đề đó, "
             "và trả về citations = [] (mảng rỗng). "
             "Khi đủ căn cứ: chỉ trích 1-3 điều khoản chuẩn nhất, mỗi ý kèm số văn bản/Điều/Khoản từ khoan_id; "

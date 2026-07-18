@@ -49,72 +49,55 @@ export const CitationCard: React.FC<CitationCardProps> = ({ khoan_id, van_ban, d
   const showQuote = Boolean(quote?.trim());
 
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm transition-all duration-300 hover:border-emerald-200 hover:shadow-md">
-      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-500" />
+    <div className="group relative flex flex-col justify-center overflow-hidden rounded-[12px] border border-slate-200/70 bg-white/80 p-2 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-white hover:shadow-md">
+      <div className="absolute bottom-0 left-0 top-0 w-1 bg-gradient-to-b from-emerald-500 via-cyan-500 to-blue-500 opacity-80 transition-all duration-300 group-hover:w-1.5 group-hover:opacity-100" />
 
-      <div className="px-4 pt-4 sm:px-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
-              <Scales size={18} weight="fill" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-white">
-                  {kind}
-                </span>
-                {khoan_id ? (
-                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-bold text-slate-500">
-                    {khoan_id}
-                  </span>
-                ) : null}
-              </div>
-              <div className="mt-1.5 flex items-center gap-2 text-xs font-semibold text-slate-500">
-                <FileText size={14} weight="fill" className="shrink-0 text-slate-400" />
-                <span className="truncate">{van_ban || documentNumber}</span>
-              </div>
-            </div>
-          </div>
-          {url ? (
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-xl border border-slate-200 bg-white p-2 text-slate-400 transition-colors hover:border-emerald-200 hover:text-emerald-600"
-              title="Mở chi tiết văn bản"
-            >
-              <ArrowSquareOut size={17} weight="bold" />
-            </a>
-          ) : null}
+      <div className="flex items-center gap-2.5 pl-3 pr-1">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100 transition-transform duration-300 group-hover:scale-110 group-hover:bg-emerald-500 group-hover:text-white group-hover:ring-emerald-500">
+          <Scales size={16} weight="fill" />
         </div>
+
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="shrink-0 rounded-[4px] bg-slate-800 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white shadow-sm">
+            {kind}
+          </span>
+          <span className="truncate text-sm font-bold text-slate-800 transition-colors duration-300 group-hover:text-emerald-700">
+            {documentNumber}
+          </span>
+          <span className="text-slate-300" aria-hidden>•</span>
+          <span className="shrink-0 text-[13px] font-semibold text-slate-600">
+            {article}
+          </span>
+          {clause !== '—' && (
+            <>
+              <span className="text-slate-300" aria-hidden>•</span>
+              <span className="shrink-0 text-[13px] font-semibold text-slate-600">
+                {clause}
+              </span>
+            </>
+          )}
+          {showQuote && (
+            <>
+              <span className="hidden text-slate-300 sm:inline" aria-hidden>—</span>
+              <span className="truncate text-[13px] text-slate-400 sm:flex-1" title={quote}>
+                {quote}
+              </span>
+            </>
+          )}
+        </div>
+
+        {url ? (
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 transition-all duration-300 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-600"
+            title="Mở chi tiết văn bản"
+          >
+            <ArrowSquareOut size={16} weight="bold" />
+          </a>
+        ) : null}
       </div>
-
-      <div className="grid gap-2 px-4 py-4 sm:grid-cols-3 sm:px-5">
-        <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-3">
-          <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-blue-500">
-            <BookOpen size={13} weight="fill" /> Văn bản
-          </div>
-          <div className="mt-1 text-sm font-black text-blue-950">{documentNumber}</div>
-        </div>
-        <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 p-3">
-          <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-500">
-            <Article size={13} weight="fill" /> Điều
-          </div>
-          <div className="mt-1 text-sm font-black text-emerald-950">{article}</div>
-        </div>
-        <div className="rounded-xl border border-amber-100 bg-amber-50/80 p-3">
-          <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-amber-500">
-            <Hash size={13} weight="fill" /> Khoản
-          </div>
-          <div className="mt-1 text-sm font-black text-amber-950">{clause}</div>
-        </div>
-      </div>
-
-      {showQuote ? (
-        <div className="border-t border-slate-100 px-4 pb-4 sm:px-5">
-          <p className="line-clamp-3 text-xs leading-relaxed text-slate-600">{quote}</p>
-        </div>
-      ) : null}
     </div>
   );
 };

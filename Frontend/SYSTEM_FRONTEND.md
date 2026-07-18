@@ -14,7 +14,7 @@
 | **1** | **Admin Dashboard** — trung tâm chỉ huy CQNN | Pháp chế, giám sát TT, ops dữ liệu | Kiểm soát, đối chiếu, cảnh báo, duyệt phát hành |
 | **2** | **Citizen Portal** — cổng người dân | Người dân | Dễ hiểu, tin cậy, hỏi nhanh có căn cứ |
 
-Triển khai đề xuất: **2 app** (hoặc 2 zone rõ trong monorepo) — `apps/admin` và `apps/citizen` — chia sẻ `packages/ui-legal` (CitationCard, KhoanViewer, RiskBadge…).
+Triển khai: **1 app** `apps/web` — citizen tại `/`, admin tại `/admin/*` — chia sẻ `packages/ui-legal` (CitationCard, KhoanViewer, RiskBadge…).
 
 Frontend **không** suy diễn pháp lý; mọi khẳng định phải mở được citation/graph path từ API.
 

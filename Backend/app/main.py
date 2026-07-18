@@ -67,9 +67,9 @@ app = FastAPI(
 )
 
 # CORS configuration.
-# Admin dev server runs on :5173 and the Citizen dev server on :5174 (see Frontend/apps/*/vite.config.ts).
-# Both localhost and 127.0.0.1 origins are allowed because the browser treats them as distinct.
-# Extra origins can be appended via the CORS_EXTRA_ORIGINS env var (comma-separated).
+# Default: allow any http(s) origin (Railway custom domains, tunnels, local FE).
+# Set CORS_ALLOW_ALL=false to restrict to localhost + CORS_EXTRA_ORIGINS only.
+_cors_allow_all = os.getenv("CORS_ALLOW_ALL", "true").lower() in {"1", "true", "yes"}
 _cors_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
@@ -82,13 +82,23 @@ _extra = os.getenv("CORS_EXTRA_ORIGINS", "")
 if _extra.strip():
     _cors_origins.extend(o.strip() for o in _extra.split(",") if o.strip())
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_cors_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+if _cors_allow_all:
+    # Reflect any Origin (cannot use "*" with allow_credentials=True).
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=r"https?://.*",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 
 @app.middleware("http")

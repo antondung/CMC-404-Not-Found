@@ -23,10 +23,13 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5174,
     strictPort: true,
+    // Railway / public tunnels send custom Host headers — do not block them.
+    allowedHosts: true,
   },
   preview: {
     host: '0.0.0.0',
     port: 5174,
     strictPort: true,
-  }
+    allowedHosts: true,
+  },
 })

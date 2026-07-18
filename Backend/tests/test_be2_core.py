@@ -92,11 +92,28 @@ class FakeOpenAIEmbeddingHttp:
         self.calls = []
     async def post(self, url, headers=None, json=None):
         self.calls.append((url, headers, json))
+        inp = json["input"]
+        if isinstance(inp, str):
+            inp = [inp]
         return FakeResponse({"data": [
             {"index": index, "embedding": [float(index + 1), 0.0]}
-            for index, _ in enumerate(json["input"])
+            for index, _ in enumerate(inp)
         ]})
 
+
+class FakeOpenAIEmbeddingHttpBatchBroken:
+    """Simulates a proxy that only returns the first embedding for array input."""
+
+    def __init__(self):
+        self.calls = []
+
+    async def post(self, url, headers=None, json=None):
+        self.calls.append((url, headers, json))
+        inp = json["input"]
+        if isinstance(inp, str):
+            inp = [inp]
+        # Broken batch: always return only index 0
+        return FakeResponse({"data": [{"index": 0, "embedding": [1.0, 0.0]}]})
 class FakeYouTubeHttp:
     def __init__(self):
         self.calls = []
@@ -184,11 +201,29 @@ async def test_openai_compatible_embedding_uses_injected_http_not_ollama():
         embedding_api_key="test-key",
         embedding_model="text-embedding-3-small",
         embedding_dimension=2,
+        embedding_batch_size=1,
     )
     vectors = await Embedder(cfg, http_client=http).embed_texts(["một", "hai"])
-    assert vectors == [[1.0, 0.0], [2.0, 0.0]]
+    assert vectors == [[1.0, 0.0], [1.0, 0.0]]  # each single-call returns index-0 → [1.0, 0.0]
     assert http.calls[0][0] == "https://example.test/v1/embeddings"
     assert http.calls[0][2]["model"] == "text-embedding-3-small"
+    assert isinstance(http.calls[0][2]["input"], str)
+
+
+@pytest.mark.asyncio
+async def test_embedding_falls_back_when_batch_count_mismatches():
+    http = FakeOpenAIEmbeddingHttpBatchBroken()
+    cfg = BE2Config(
+        embedding_provider="openai",
+        embedding_base_url="http://example.test/v1",
+        embedding_api_key="test",
+        embedding_batch_size=8,
+        embedding_dimension=2,
+    )
+    vectors = await Embedder(cfg, http_client=http).embed_texts(["a", "b", "c"])
+    assert len(vectors) == 3
+    # 1 failed batch attempt + 3 singles
+    assert len(http.calls) >= 4
 
 
 @pytest.mark.asyncio

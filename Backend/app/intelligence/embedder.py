@@ -56,11 +56,8 @@ class Embedder:
         batch_size = max(1, int(self.config.embedding_batch_size or 1))
         for start in range(0, len(normalized), batch_size):
             batch = normalized[start : start + batch_size]
-            batch_vectors = await asyncio.wait_for(
-                self._embed_openai(batch),
-                timeout=self.config.embedding_timeout_s,
-            )
-            vectors.extend(batch_vectors)
+            # Timeout is per HTTP call inside _embed_openai_once (fallback may do N calls).
+            vectors.extend(await self._embed_openai(batch))
         self._validate_vectors(vectors, len(normalized))
         return vectors
 
@@ -79,14 +76,11 @@ class Embedder:
         except ExternalServiceError as exc:
             # Proxies (e.g. some OpenAI-compatible gateways) often return 1 vector for an
             # array input — fall back to sequential single-text embeds.
-            details = getattr(exc, "details", None) or {}
-            if len(batch) > 1 and "count mismatch" in str(exc):
+            if len(batch) > 1 and (
+                "count mismatch" in str(exc)
+                or (exc.details.get("expected") is not None and exc.details.get("actual") != exc.details.get("expected"))
+            ):
                 out: list[list[float]] = []
-                for text in batch:
-                    out.extend(await self._embed_openai_once([text]))
-                return out
-            if len(batch) > 1 and details.get("expected") and details.get("actual") != details.get("expected"):
-                out = []
                 for text in batch:
                     out.extend(await self._embed_openai_once([text]))
                 return out
@@ -102,10 +96,13 @@ class Embedder:
         # OpenAI accepts string | string[]; some proxies mishandle arrays — send scalar when n=1.
         payload_input: str | list[str] = batch[0] if len(batch) == 1 else batch
         try:
-            response = await client.post(
-                url,
-                headers=headers,
-                json={"model": self.config.embedding_model, "input": payload_input},
+            response = await asyncio.wait_for(
+                client.post(
+                    url,
+                    headers=headers,
+                    json={"model": self.config.embedding_model, "input": payload_input},
+                ),
+                timeout=self.config.embedding_timeout_s,
             )
             if response.status_code >= 400:
                 detail = (response.text or "")[:400]

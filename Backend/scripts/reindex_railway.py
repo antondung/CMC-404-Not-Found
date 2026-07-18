@@ -74,6 +74,8 @@ def _apply_railway_env() -> None:
     os.environ.setdefault("BE2_EMBEDDING_API_KEY", emb_key)
     os.environ.setdefault("BE2_EMBEDDING_PROVIDER", "openai")
     os.environ.setdefault("BE2_EMBEDDING_MODEL", "text-embedding-3-small")
+    # Many OpenAI-compatible proxies only return 1 vector per request when input is an array.
+    os.environ.setdefault("BE2_EMBEDDING_BATCH_SIZE", "1")
 
 
 async def _resolve_van_ban_id(driver, needle: str | None) -> str | None:
@@ -159,7 +161,7 @@ async def main_async(*, van_ban_id: str | None, batch_size: int, dry_run: bool) 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Reindex Railway Qdrant from Neo4j via public proxies.")
     ap.add_argument("--van-ban-id", default=None, help="Chỉ 1 văn bản (vb_id hoặc so_hieu)")
-    ap.add_argument("--batch-size", type=int, default=8, help="Số Khoản / lần gọi embed (default 8)")
+    ap.add_argument("--batch-size", type=int, default=1, help="Số Khoản / lần gọi embed (default 1 — an toàn với proxy)")
     ap.add_argument("--dry-run", action="store_true", help="Chỉ đếm Khoản, không ghi Qdrant")
     ap.add_argument("--yes", action="store_true", help="Bỏ qua xác nhận")
     args = ap.parse_args()

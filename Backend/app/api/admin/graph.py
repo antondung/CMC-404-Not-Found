@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 from fastapi import APIRouter, Depends, Query
-from app.api.deps import get_neo4j_driver, require_admin
+from app.api.deps import get_llm_router, get_neo4j_driver, require_admin
 from app.core.envelope import success_response
 from app.core.logging import get_request_id
 from app.services.graph_query import GraphQueryService
@@ -24,10 +24,18 @@ async def get_graph_neighborhood(
     seed_id: str = Query(..., description="ID nút gốc (khoan_id, vb_id, slug, bai_dang_id, hoặc internal neo4j id)"),
     depth: int = Query(default=1, ge=1, le=2, description="Bán kính mở rộng (tối đa 2 hops)"),
     limit: int = Query(default=100, ge=1, le=300, description="Số lượng nút tối đa trả về"),
+    min_importance: float = Query(default=0, ge=0, description="Điểm quan trọng tối thiểu"),
+    include_types: str | None = Query(default=None, description="Danh sách type phân cách bằng dấu phẩy"),
+    enrich: bool = Query(default=False, description="Bổ sung metadata qua 9Router cho tối đa 12 node"),
     driver: Any = Depends(get_neo4j_driver),
+    llm_router: Any = Depends(get_llm_router),
 ) -> dict[str, Any]:
-    service = GraphQueryService(driver=driver)
-    res = await service.get_neighborhood(seed_id=seed_id, depth=depth, limit=limit)
+    service = GraphQueryService(driver=driver, llm_router=llm_router)
+    types = [item.strip() for item in include_types.split(",")] if include_types else None
+    res = await service.get_neighborhood(
+        seed_id=seed_id, depth=depth, limit=limit,
+        min_importance=min_importance, include_types=types, enrich=enrich,
+    )
     return success_response(data=res, request_id=get_request_id())
 
 

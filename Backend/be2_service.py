@@ -24,9 +24,11 @@ Run:  uvicorn be2_service:app --port 8002
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import re
+import time
 import unicodedata
 from pathlib import Path
 from typing import Any
@@ -111,10 +113,10 @@ def _extract_question(prompt: str) -> str:
     return ""
 
 
-async def _ollama_chat(system: str, user: str) -> str | None:
+async def _ollama_chat(system: str, user: str, timeout_s: float) -> str | None:
     """Call Ollama native chat API. Returns text or None on failure."""
     try:
-        async with httpx.AsyncClient(timeout=LLM_TIMEOUT) as client:
+        async with httpx.AsyncClient(timeout=timeout_s) as client:
             resp = await client.post(
                 f"{OLLAMA_URL}/api/chat",
                 json={
@@ -142,13 +144,13 @@ async def _ollama_chat(system: str, user: str) -> str | None:
         return None
 
 
-async def _openai_chat(system: str, user: str) -> str | None:
+async def _openai_chat(system: str, user: str, timeout_s: float) -> str | None:
     """Call any OpenAI-compatible /chat/completions endpoint. Returns text or None on failure."""
     try:
         headers = {"Content-Type": "application/json"}
         if OPENAI_API_KEY:
             headers["Authorization"] = f"Bearer {OPENAI_API_KEY}"
-        async with httpx.AsyncClient(timeout=LLM_TIMEOUT) as client:
+        async with httpx.AsyncClient(timeout=timeout_s) as client:
             resp = await client.post(
                 f"{OPENAI_BASE_URL}/chat/completions",
                 headers=headers,
@@ -221,16 +223,32 @@ def _clean_llm_text(text: str | None) -> str | None:
     return cleaned or None
 
 
-async def _llm_generate(system: str, user: str) -> str | None:
-    """Dispatch to the configured LLM backend. Returns None if unavailable (caller falls back)."""
+async def _llm_generate(system: str, user: str, timeout_s: float) -> str | None:
+    """Dispatch within one total deadline, leaving the caller time for extractive fallback."""
     if BACKEND == "extractive":
         return None
+    budget = max(0.1, min(timeout_s, LLM_TIMEOUT))
+    deadline = time.monotonic() + budget
+
+    async def attempt(call: Any, share_s: float) -> str | None:
+        remaining = min(share_s, deadline - time.monotonic())
+        if remaining <= 0:
+            return None
+        try:
+            return await asyncio.wait_for(call(system, user, remaining), timeout=remaining)
+        except TimeoutError:
+            logger.warning("LLM attempt exceeded %.2fs deadline", remaining)
+            return None
+
     if BACKEND == "openai":
-        return _clean_llm_text(await _openai_chat(system, user))
+        return _clean_llm_text(await attempt(_openai_chat, budget))
     if BACKEND == "ollama":
-        return _clean_llm_text(await _ollama_chat(system, user))
-    # auto: prefer local Ollama native, then OpenAI-compatible.
-    raw = await _ollama_chat(system, user) or await _openai_chat(system, user)
+        return _clean_llm_text(await attempt(_ollama_chat, budget))
+    # Auto shares one budget instead of allowing two full sequential timeouts.
+    first_budget = max(0.1, budget * 0.6)
+    raw = await attempt(_ollama_chat, first_budget)
+    if raw is None:
+        raw = await attempt(_openai_chat, max(0.1, deadline - time.monotonic()))
     return _clean_llm_text(raw)
 
 
@@ -340,7 +358,7 @@ def _extractive_answer(question: str, ctx: list[tuple[str, str]]) -> str:
     )
 
 
-async def _handle_qa(prompt: str) -> dict[str, Any]:
+async def _handle_qa(prompt: str, timeout_s: float) -> dict[str, Any]:
     ctx = _parse_context(prompt)
     question = _extract_question(prompt)
     if not ctx:
@@ -360,6 +378,7 @@ async def _handle_qa(prompt: str) -> dict[str, Any]:
             "Bạn là trợ lý thông tin pháp lý tiếng Việt. Khi không có ngữ cảnh pháp lý được xác thực, "
             "không được suy đoán điều/khoản/số văn bản/mức tiền. Ưu tiên hỏi lại thông tin còn thiếu và giải thích vì sao chưa thể kết luận.",
             user_msg,
+            timeout_s,
         )
         if llm_answer:
             return {"answer": llm_answer, "citations": [], "confidence": "low"}
@@ -386,7 +405,7 @@ async def _handle_qa(prompt: str) -> dict[str, Any]:
         "Nếu hỏi về mức tiền, thời hạn, điều kiện, xử phạt, thẩm quyền, chỉ trích đúng dữ kiện có trong Ngữ cảnh. "
         "Không hỏi lại nếu Ngữ cảnh đủ; không kết luận chắc chắn khi Ngữ cảnh chỉ có một phần."
     )
-    llm_answer = await _llm_generate(_SYSTEM_PROMPT, user_msg)
+    llm_answer = await _llm_generate(_SYSTEM_PROMPT, user_msg, timeout_s)
 
     if llm_answer:
         return {"answer": llm_answer, "citations": citations, "confidence": "medium"}
@@ -395,7 +414,7 @@ async def _handle_qa(prompt: str) -> dict[str, Any]:
     return {"answer": _extractive_answer(question, top), "citations": citations, "confidence": "medium"}
 
 
-async def _handle_brief_or_suggest(task: str, prompt: str) -> dict[str, Any]:
+async def _handle_brief_or_suggest(task: str, prompt: str, timeout_s: float) -> dict[str, Any]:
     ctx = _parse_context(prompt)
     citations = [{"khoan_id": kid, "quote": text} for kid, text in ctx[:3]]
     kind = "bài tóm tắt pháp lý cho người dân" if task == "brief" else "đề xuất đính chính thông tin sai lệch"
@@ -403,7 +422,7 @@ async def _handle_brief_or_suggest(task: str, prompt: str) -> dict[str, Any]:
         f"Ngữ cảnh (các điều khoản pháp luật liên quan):\n{_context_block(ctx[:3])}\n\n"
         f"Hãy soạn một {kind} ngắn gọn, tự nhiên bằng tiếng Việt, chỉ dựa vào Ngữ cảnh, dẫn chiếu mã khoản."
     )
-    llm_text = await _llm_generate(_SYSTEM_PROMPT, user_msg)
+    llm_text = await _llm_generate(_SYSTEM_PROMPT, user_msg, timeout_s)
     if not llm_text:
         body = "\n".join(f"- {kid}: {text}" for kid, text in ctx[:3]) or "(không có ngữ cảnh)"
         prefix = "Bản nháp tóm tắt dựa trên quy định pháp luật:" if task == "brief" else "Đề xuất đính chính dựa trên quy định pháp luật:"
@@ -418,11 +437,11 @@ async def _handle_brief_or_suggest(task: str, prompt: str) -> dict[str, Any]:
     }
 
 
-async def _handle(task: str, prompt: str) -> dict[str, Any]:
+async def _handle(task: str, prompt: str, timeout_s: float) -> dict[str, Any]:
     if task == "qa":
-        return await _handle_qa(prompt)
+        return await _handle_qa(prompt, timeout_s)
     if task in {"brief", "suggest"}:
-        return await _handle_brief_or_suggest(task, prompt)
+        return await _handle_brief_or_suggest(task, prompt, timeout_s)
     return {"output": "", "answer": "", "citations": []}
 
 
@@ -451,5 +470,8 @@ async def health() -> dict[str, Any]:
 @app.post("/local")
 @app.post("/large")
 async def complete(req: CompleteRequest) -> dict[str, Any]:
-    output = await _handle(req.task, req.prompt)
+    request_budget = min(req.timeout_s or LLM_TIMEOUT, LLM_TIMEOUT)
+    # Reserve time so the grounded extractive fallback is returned before the upstream timeout.
+    model_budget = max(0.1, request_budget - min(2.0, request_budget * 0.15))
+    output = await _handle(req.task, req.prompt, model_budget)
     return {"output": output, "token_usage": {"prompt": len(req.prompt.split()), "completion": 0}}

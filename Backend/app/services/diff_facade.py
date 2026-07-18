@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import uuid
 from typing import Any
@@ -9,6 +10,9 @@ from datetime import datetime, timezone
 from app.pipelines.legal.version_diff import VersionDiff
 from app.pipelines.legal.normalize import normalize_so_hieu, generate_van_ban_id
 from app.pipelines.legal.pipeline import run_legal_ingest, reindex_khoan_from_neo4j, run_ner_backfill
+from app.exceptions import QueueUnavailableError
+
+logger = logging.getLogger(__name__)
 
 _JOB_STATUSES = {"queued", "running", "success", "error", "needs_review"}
 
@@ -50,6 +54,7 @@ class LegalDiffFacade:
         self.llm_router = llm_router
         self.minio = minio
         self.differ = VersionDiff()
+        self._redis_pool = None
 
     async def store_upload(
         self,
@@ -129,13 +134,13 @@ class LegalDiffFacade:
 
         # Async path (B): enqueue to the Arq worker if explicitly enabled and reachable.
         if os.getenv("LEGAL_INGEST_ASYNC", "0") == "1":
-            if await self._enqueue_arq("legal_ingest", job_id, payload):
-                return {
-                    "job_id": job_id,
-                    "so_hieu": norm_so_hieu,
-                    "status": "queued",
-                    "message": "Đã đưa vào hàng đợi Arq để worker xử lý bất đồng bộ.",
-                }
+            await self._enqueue_arq("legal_ingest", job_id, payload)
+            return {
+                "job_id": job_id,
+                "so_hieu": norm_so_hieu,
+                "status": "queued",
+                "message": "Đã đưa vào hàng đợi Arq để worker xử lý bất đồng bộ.",
+            }
 
         # Synchronous path (A): parse + write to Neo4j + index vectors (NER decoupled by default).
         result = await run_legal_ingest(
@@ -233,7 +238,7 @@ class LegalDiffFacade:
                     datetime.now(timezone.utc),
                 )
         except Exception:
-            pass
+            logger.warning("Failed to insert job metadata, continuing best-effort", exc_info=True, extra={"job_id": job_id})
 
     async def _update_job_status(self, job_id: str, status: str, message: str | None = None) -> None:
         db_status = status if status in _JOB_STATUSES else "error"
@@ -249,19 +254,23 @@ class LegalDiffFacade:
                     job_id,
                 )
         except Exception:
-            pass
+            logger.warning("Failed to update job status metadata", exc_info=True, extra={"job_id": job_id, "status": status})
 
     async def _enqueue_arq(self, func_name: str, job_id: str, payload: dict[str, Any]) -> bool:
         try:
-            from arq import create_pool
-            from app.workers.arq_settings import redis_settings
+            if self._redis_pool is None:
+                from arq import create_pool
+                from app.workers.arq_settings import redis_settings
+                import redis.exceptions
+                self._redis_pool = await create_pool(redis_settings())
 
-            pool = await create_pool(redis_settings())
-            await pool.enqueue_job(func_name, job_id, payload)
-            await pool.close()
+            job = await self._redis_pool.enqueue_job(func_name, job_id, payload, _job_id=job_id)
+            if job is None:
+                logger.warning("Job %s already exists in queue", job_id)
             return True
-        except Exception:
-            return False
+        except Exception as exc:
+            logger.exception("Failed to enqueue job %s to Redis/ARQ", job_id)
+            raise QueueUnavailableError(f"Hệ thống hàng đợi đang bảo trì, không thể tạo job {job_id}.") from exc
 
     async def list_van_ban(self, visibility: str | None = None, status: str | None = None) -> list[dict[str, Any]]:
         """List legal documents from Neo4j (VanBanPhapLuat node or Postgres van_ban table)."""

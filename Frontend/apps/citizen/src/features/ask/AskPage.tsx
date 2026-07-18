@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { PaperPlaneRight, User, Robot, Scales, ShieldCheck, ArrowLeft, Trash, Lightbulb, WarningCircle } from '@phosphor-icons/react';
+import { PaperPlaneRight, User, Robot, Scales, ShieldCheck, ArrowLeft, Trash, Lightbulb, WarningCircle, CalendarBlank, ArrowSquareOut } from '@phosphor-icons/react';
 import { Link } from 'react-router-dom';
 import { CitationCard } from '../../../../../packages/ui-legal/src/components/CitationCard';
 import { GraphPathBreadcrumb } from '../../../../../packages/ui-legal/src/components/GraphPathBreadcrumb';
@@ -59,6 +59,15 @@ interface QAResponse {
   graph_paths: GraphPath[];
   confidence: 'high' | 'medium' | 'low';
   refuse_reason?: string[];
+  as_of?: string;
+  notices?: ChangeNotice[];
+}
+
+interface ChangeNotice {
+  khoan_van_ban?: string;
+  thay_the_boi?: string;
+  tu_ngay: string;
+  message: string;
 }
 
 // Tương thích hoàn toàn với Contract API Backend (Mục 6.4 SYSTEM_BACKEND.md)
@@ -78,11 +87,14 @@ export interface Message {
   graphPaths?: GraphPath[];
   confidence?: 'high' | 'medium' | 'low';
   isTyping?: boolean;
+  asOf?: string;
+  notices?: ChangeNotice[];
 }
 
 export default function AskPage() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [asOf, setAsOf] = useState(() => new Date().toISOString().slice(0, 10));
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',
@@ -119,7 +131,7 @@ export default function AskPage() {
     setMessages(prev => [...prev, { id: typingId, role: 'ai', content: '', isTyping: true }]);
 
     try {
-      const data = await apiPost<QAResponse>('/citizen/qa/ask', { question });
+      const data = await apiPost<QAResponse>('/citizen/qa/ask', { question, as_of: asOf });
       setMessages(prev => prev.map(msg =>
         msg.id === typingId
           ? {
@@ -129,6 +141,8 @@ export default function AskPage() {
               citations: data.citations ?? [],
               graphPaths: data.graph_paths ?? [],
               confidence: data.confidence,
+              asOf: data.as_of ?? asOf,
+              notices: data.notices ?? [],
             }
           : msg
       ));
@@ -214,13 +228,34 @@ export default function AskPage() {
                       {msg.role === 'ai' ? (
                         <Typewriter 
                           text={msg.content} 
-                          speed={8} 
+                          speed={2}
                           onComplete={() => setIsTypingComplete(prev => prev[msg.id] ? prev : { ...prev, [msg.id]: true })} 
                         />
                       ) : (
                         msg.content
                       )}
                     </p>
+
+                    {msg.role === 'ai' && msg.asOf && (
+                      <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">
+                        <CalendarBlank size={15} weight="bold" /> Áp dụng pháp luật tại ngày {new Date(`${msg.asOf}T00:00:00`).toLocaleDateString('vi-VN')}
+                      </div>
+                    )}
+
+                    {msg.notices?.map((notice, idx) => (
+                      <div key={`${notice.tu_ngay}-${idx}`} className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950">
+                        <div className="flex gap-3">
+                          <WarningCircle size={22} weight="fill" className="mt-0.5 shrink-0 text-amber-500" />
+                          <div>
+                            <p className="font-black">Quy định này thay đổi từ {new Date(`${notice.tu_ngay}T00:00:00`).toLocaleDateString('vi-VN')}</p>
+                            <p className="mt-1 text-sm leading-relaxed">{notice.message}</p>
+                            <a href="/admin/diff" target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-sm font-bold text-amber-800 hover:underline">
+                              Xem thay đổi <ArrowSquareOut size={15} weight="bold" />
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                     
                     {msg.citations && msg.citations.length > 0 && (msg.role === 'user' || isTypingComplete[msg.id] || msg.id === 'welcome') && (
                       <div className="mt-8 pt-6 border-t border-slate-100 animate-fade-in-up">
@@ -274,6 +309,17 @@ export default function AskPage() {
           )}
           
           <form id="chat-form" onSubmit={handleSend} className="relative group shadow-2xl shadow-slate-200/50 rounded-[28px] flex items-end bg-white border border-slate-200/80 p-2 transition-all focus-within:border-brand/50 focus-within:ring-4 focus-within:ring-brand/10">
+            <label className="absolute -top-11 left-2 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 shadow-sm">
+              <CalendarBlank size={16} className="text-brand" weight="bold" />
+              Thời điểm áp dụng
+              <input
+                type="date"
+                value={asOf}
+                onChange={(event) => setAsOf(event.target.value)}
+                className="bg-transparent font-bold text-slate-900 outline-none"
+                aria-label="Thời điểm áp dụng pháp luật"
+              />
+            </label>
             <textarea 
               value={input}
               onChange={(e) => setInput(e.target.value)}

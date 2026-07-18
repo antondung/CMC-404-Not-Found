@@ -56,7 +56,7 @@ async def worker_startup(ctx: dict) -> None:
     embedder = Embedder(cfg)
     router = LLMRouter(config=cfg, client=RealLLMClient(base_url=os.getenv("BE2_INTELLIGENCE_URL", "http://localhost:8002")))
 
-    social_repo = Neo4jSocialRepository(driver) if driver else None
+    social_repo = Neo4jSocialRepository(driver, pool) if driver else None
     legal_repo = Neo4jLegalRepository(driver) if driver else None
     content_repo = PostgresContentRepository(pool) if pool else None
 

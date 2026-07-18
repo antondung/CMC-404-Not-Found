@@ -92,6 +92,8 @@ export default function LoginPage({ onLogin }: { onLogin: (role: string) => void
               <label className="text-sm font-bold text-primary">Mã định danh / Email</label>
               <input 
                 type="text" 
+                name="username"
+                autoComplete="username"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -107,6 +109,8 @@ export default function LoginPage({ onLogin }: { onLogin: (role: string) => void
               <div className="relative">
                 <input 
                   type={showPassword ? "text" : "password"}
+                  name="password"
+                  autoComplete="current-password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

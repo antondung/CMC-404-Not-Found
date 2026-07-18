@@ -10,8 +10,9 @@ from app.schemas import LinkCandidate, NliResult, SocialPost, TopicResult
 class Neo4jSocialRepository:
     """BE2 Neo4j writes limited to labels/relationships in SYSTEM_DATA.md."""
 
-    def __init__(self, driver: Any) -> None:
+    def __init__(self, driver: Any, pool: Any | None = None) -> None:
         self.driver = driver
+        self.pool = pool
 
     async def upsert_post(self, post: SocialPost) -> str:
         bai_dang_id = f"{post.platform}:{post.external_id}"
@@ -120,7 +121,7 @@ class Neo4jSocialRepository:
             result = await session.run(query, platform=platform, external_id=external_id, khoan_id=candidate.khoan_id, score=candidate.score, method=method, updated_at=datetime.now(timezone.utc).isoformat())
             await result.consume()
 
-    async def save_nli(self, bai_dang_id: str, khoan_id: str, result: NliResult) -> None:
+    async def save_nli(self, bai_dang_id: str, khoan_id: str, result: NliResult, *, claim_text: str, evidence_span: str) -> str:
         platform, external_id = bai_dang_id.split(":", 1)
         query = """
         MATCH (b:BaiDang {platform: $platform, external_id: $external_id})
@@ -129,29 +130,62 @@ class Neo4jSocialRepository:
         SET y.bai_dang_id = $bai_dang_id,
             y.claim_hash = $claim_hash,
             y.claim_text = $claim_text,
+            y.evidence_span = $evidence_span,
             y.stance = $label,
             y.confidence = $score
         MERGE (b)-[:CO_YKIEN]->(y)
         MERGE (y)-[r:DOI_CHIEU]->(k)
         SET r.label = $label, r.score = $score
         """
-        claim_hash = f"{bai_dang_id}:{khoan_id}:{result.label}"
+        claim_hash = str(uuid5(NAMESPACE_URL, f"{bai_dang_id}:{khoan_id}:{claim_text}:{evidence_span}"))
         ykien_uuid = str(uuid5(NAMESPACE_URL, f"be2:ykien:{claim_hash}"))
         async with self.driver.session() as session:
-            result_cursor = await session.run(query, platform=platform, external_id=external_id, khoan_id=khoan_id, bai_dang_id=bai_dang_id, uuid=ykien_uuid, claim_hash=claim_hash, claim_text=claim_hash, label=result.label.value, score=result.score)
+            result_cursor = await session.run(query, platform=platform, external_id=external_id, khoan_id=khoan_id, bai_dang_id=bai_dang_id, uuid=ykien_uuid, claim_hash=claim_hash, claim_text=claim_text, evidence_span=evidence_span, label=result.label.value, score=result.score)
             await result_cursor.consume()
+        return ykien_uuid
 
     async def save_alert(self, alert: dict[str, Any]) -> str:
         alert_uuid = alert.get("uuid") or alert.get("alert_id") or str(uuid5(NAMESPACE_URL, f"be2:alert:{alert.get('dedupe_key') or alert}"))
         query = """
         MERGE (a:AlertMeta {uuid: $uuid})
         SET a.chu_de = $chu_de, a.khoan_ids = $khoan_ids, a.severity = $severity,
-            a.volume = $volume, a.status = $status, a.created_at = coalesce(a.created_at, datetime($created_at))
+            a.volume = $volume, a.status = $status, a.provenance_status = $provenance_status,
+            a.signals_json = $signals_json,
+            a.created_at = coalesce(a.created_at, datetime($created_at))
+        WITH a
+        UNWIND $signal_ids AS signal_id
+        OPTIONAL MATCH (y:YKien {uuid: signal_id})
+        FOREACH (_ IN CASE WHEN y IS NULL THEN [] ELSE [1] END | MERGE (a)-[:BAO_GOM_TIN_HIEU]->(y))
         RETURN a.uuid AS uuid
         """
         async with self.driver.session() as session:
-            result = await session.run(query, uuid=alert_uuid, chu_de=alert.get("chu_de"), khoan_ids=alert.get("khoan_ids", []), severity=alert.get("severity"), volume=alert.get("volume"), status=alert.get("status", "open"), created_at=datetime.now(timezone.utc).isoformat())
+            signals = alert.get("signals", [])
+            result = await session.run(query, uuid=alert_uuid, chu_de=alert.get("chu_de"), khoan_ids=alert.get("khoan_ids", []), severity=alert.get("severity"), volume=alert.get("volume"), status=alert.get("status", "open"), provenance_status=alert.get("provenance_status", "missing"), signals_json=json.dumps(signals, ensure_ascii=False, default=str), signal_ids=[s.get("ykien_id") for s in signals if s.get("ykien_id")], created_at=datetime.now(timezone.utc).isoformat())
             record = await result.single()
+        if self.pool and hasattr(self.pool, "acquire"):
+            async with self.pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO alerts (id, chu_de, khoan_ids, severity, volume, status, signals, provenance_status)
+                    VALUES ($1::uuid, $2, $3::jsonb, $4, $5, $6::alert_status, $7::jsonb, $8)
+                    ON CONFLICT (id) DO UPDATE SET
+                      chu_de = EXCLUDED.chu_de,
+                      khoan_ids = EXCLUDED.khoan_ids,
+                      severity = EXCLUDED.severity,
+                      volume = EXCLUDED.volume,
+                      status = EXCLUDED.status,
+                      signals = EXCLUDED.signals,
+                      provenance_status = EXCLUDED.provenance_status
+                    """,
+                    str(alert_uuid),
+                    alert.get("chu_de"),
+                    json.dumps(alert.get("khoan_ids", []), ensure_ascii=False),
+                    alert.get("severity"),
+                    alert.get("volume", 0),
+                    alert.get("status", "open"),
+                    json.dumps(alert.get("signals", []), ensure_ascii=False, default=str),
+                    alert.get("provenance_status", "missing"),
+                )
         return record["uuid"] if record else str(alert_uuid)
 
     async def find_recent_alert(self, key: str, cooldown_s: int) -> dict[str, Any] | None:

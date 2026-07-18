@@ -32,7 +32,8 @@ class CitationValidator:
                 if record:
                     return str(record["noi_dung"])
         except Exception:
-            pass
+            import logging
+            logging.getLogger(__name__).warning("Failed to fetch canonical text for %s", khoan_id, exc_info=True)
         return None
 
     async def validate_quotes(

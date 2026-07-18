@@ -20,7 +20,13 @@ class ClaimChecker:
         result = await self.router.complete("extract_short", prompt, ClaimsOutput, "low")
         if result.get("needs_review"):
             return []
-        return [Claim.model_validate(item) for item in result.get("claims", [])]
+        claims = [Claim.model_validate(item) for item in result.get("claims", [])]
+        grounded: list[Claim] = []
+        for claim in claims:
+            if claim.evidence_span not in content or claim.text not in claim.evidence_span:
+                continue
+            grounded.append(claim)
+        return grounded
 
     async def check_claims(self, *, post_content: str, khoan_id: str, khoan_text: str) -> list[dict]:
         claims = await self.extract_claims(post_content)

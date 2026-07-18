@@ -68,9 +68,8 @@ async def get_db_pool() -> Any:
         try:
             import asyncpg
             _db_pool = await asyncpg.create_pool(pg_url, min_size=2, max_size=10)
-        except Exception as e:
-            # Raise exception if real DB is required and unreachable
-            pass
+        except Exception:
+            logger.exception("PostgreSQL pool initialization failed")
     return _db_pool
 
 

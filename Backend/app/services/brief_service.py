@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from typing import Any
 from datetime import datetime, timezone
+
+from app.exceptions import BriefPersistenceError, BriefConflictError
 from app.services.publish_gate import PublishGateService
 
+logger = logging.getLogger(__name__)
 
 _VALID_MEDIA = {"text", "image", "audio", "video"}
 # Map các nhãn nghiệp vụ (article/qa/infographic/video_script) sang enum media_type của DB.
@@ -52,6 +56,8 @@ class BriefService:
             data["created_by"] = str(data["created_by"])
         return data
 
+    # ── Read operations: best-effort — log on failure, return empty ──
+
     async def list_briefs(self, status: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
         """Liệt kê brief trực tiếp từ bảng Postgres `briefs`."""
         items: list[dict[str, Any]] = []
@@ -73,7 +79,8 @@ class BriefService:
                         )
                     items = [self._row_to_dict(r) for r in rows]
             except Exception:
-                pass
+                # Nhóm 3 — best-effort read: log warning, return empty list
+                logger.warning("Failed to list briefs from Postgres", exc_info=True, extra={"operation": "list_briefs"})
         return items
 
     async def get_brief(self, brief_id: str) -> dict[str, Any] | None:
@@ -85,8 +92,11 @@ class BriefService:
                     if row:
                         return self._row_to_dict(row)
             except Exception:
-                pass
+                # Nhóm 3 — best-effort read
+                logger.warning("Failed to get brief %s from Postgres", brief_id, exc_info=True, extra={"operation": "get_brief", "brief_id": brief_id})
         return None
+
+    # ── Write operations: MUST propagate errors — no false success ──
 
     async def generate_brief(self, payload: dict[str, Any], user_id: str) -> dict[str, Any]:
         """Tạo bản nháp brief mới và ghi vào Postgres (id = UUID, khớp uuid BaiTomTat của Neo4j)."""
@@ -111,8 +121,15 @@ class BriefService:
                         json.dumps(citations, ensure_ascii=False),
                         user_id if _is_uuid(user_id) else None,
                     )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.exception(
+                    "Failed to INSERT brief into Postgres",
+                    extra={"operation": "generate_brief", "brief_id": brief_id},
+                )
+                raise BriefPersistenceError(
+                    "Không thể tạo bản tóm tắt. Vui lòng thử lại.",
+                    details={"brief_id": brief_id},
+                ) from exc
 
         return {
             "id": brief_id,
@@ -147,8 +164,15 @@ class BriefService:
                         json.dumps(item["citations"], ensure_ascii=False),
                         brief_id,
                     )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.exception(
+                    "Failed to UPDATE brief in Postgres",
+                    extra={"operation": "update_brief", "brief_id": brief_id},
+                )
+                raise BriefPersistenceError(
+                    "Không thể cập nhật bản tóm tắt.",
+                    details={"brief_id": brief_id},
+                ) from exc
         return item
 
     async def publish_brief(self, brief_id: str, actor: Any) -> tuple[bool, dict[str, Any], list[str]]:
@@ -176,8 +200,15 @@ class BriefService:
                     await conn.execute(
                         "UPDATE briefs SET status = 'archived' WHERE id = $1::uuid", brief_id
                     )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.exception(
+                    "Failed to archive brief in Postgres",
+                    extra={"operation": "archive_brief", "brief_id": brief_id},
+                )
+                raise BriefPersistenceError(
+                    "Không thể lưu trữ bản tóm tắt.",
+                    details={"brief_id": brief_id},
+                ) from exc
         return item
 
 

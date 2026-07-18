@@ -3,12 +3,19 @@ import ForceGraph2D from 'react-force-graph-2d';
 import { apiGet } from '../../lib/api';
 import {
   ShareNetwork, MagnifyingGlass, Info, FileText, Article, ShieldWarning, HandCoins, Warning,
-  Spinner, TreeStructure, Gauge,
+  Spinner, TreeStructure, Gauge, ArrowsOut, FrameCorners, Eye, EyeSlash, ArrowClockwise,
 } from '@phosphor-icons/react';
 
-interface GraphNode { id: string; type: string; label?: string; properties?: Record<string, unknown> }
+interface GraphNode {
+  id: string; type: string; raw_type?: string; label?: string; short_label?: string;
+  importance_score: number; connection_count: number; centrality: number; size: number;
+  properties?: Record<string, unknown>;
+}
 interface GraphEdge { source: string; target: string; type: string }
-interface NeighborhoodResponse { seed_id: string; depth: number; nodes: GraphNode[]; edges: GraphEdge[] }
+interface NeighborhoodResponse {
+  seed_id: string; depth: number; nodes: GraphNode[]; edges: GraphEdge[];
+  meta?: { total_nodes: number; returned_nodes: number; truncated: boolean; layout_hint: string };
+}
 interface SeedSuggestion { id: string; type: string; label: string; degree: number }
 interface SeedResponse { items: SeedSuggestion[]; total: number }
 
@@ -16,6 +23,7 @@ interface ClarityItem { khoan_id: string; noi_dung: string; mau_thuan: number; k
 interface ClarityResponse { min_volume: number; items: ClarityItem[]; total: number }
 
 const NODE_COLORS: Record<string, string> = {
+  van_ban: '#344767', chuong: '#7c3aed', dieu: '#17c1e8', khoan: '#0ea5e9', chu_de: '#cb0c9f',
   VanBanPhapLuat: '#1e293b',
   VanBan: '#1e293b',
   Dieu: '#3b82f6',
@@ -40,7 +48,11 @@ const NODE_ICONS: Record<string, React.FC<any>> = {
   CheTai: HandCoins,
 };
 
-type FgNode = { id: string; name: string; type: string; val: number; properties?: Record<string, unknown>; x?: number; y?: number };
+type FgNode = {
+  id: string; name: string; shortLabel: string; type: string; rawType?: string; val: number;
+  importanceScore: number; connectionCount: number; centrality: number; isMostImportant?: boolean;
+  properties?: Record<string, unknown>; x?: number; y?: number;
+};
 type FgLink = { source: string; target: string; label: string };
 
 export default function GraphPage() {
@@ -70,6 +82,10 @@ export default function GraphPage() {
 function ExploreTab() {
   const [seed, setSeed] = useState('');
   const [depth, setDepth] = useState(1);
+  const [mode, setMode] = useState<'overview' | 'detail'>('overview');
+  const [nodeLimit, setNodeLimit] = useState(50);
+  const [showLabels, setShowLabels] = useState(true);
+  const [graphMeta, setGraphMeta] = useState<NeighborhoodResponse['meta']>();
   const [graphData, setGraphData] = useState<{ nodes: FgNode[]; links: FgLink[] }>({ nodes: [], links: [] });
   const [selectedNode, setSelectedNode] = useState<FgNode | null>(null);
   const [seeds, setSeeds] = useState<SeedSuggestion[]>([]);
@@ -83,30 +99,41 @@ function ExploreTab() {
     if (!seedId.trim()) { setError('Nhập một seed ID (vb_id / khoan_id / slug) để khám phá.'); return; }
     setLoading(true);
     setError(null);
-    apiGet<NeighborhoodResponse>(`/admin/graph/neighborhood?seed_id=${encodeURIComponent(seedId.trim())}&depth=${d}`)
+    const effectiveDepth = mode === 'overview' ? 1 : d;
+    apiGet<NeighborhoodResponse>(`/admin/graph/neighborhood?seed_id=${encodeURIComponent(seedId.trim())}&depth=${effectiveDepth}&limit=${nodeLimit}`)
       .then((res) => {
-        const nodes: FgNode[] = (res.nodes ?? []).map((n) => ({ id: n.id, name: n.label || n.id, type: n.type, val: Math.max(4, Math.min(10, 4 + (n.properties ? Object.keys(n.properties).length / 3 : 0))), properties: n.properties }));
+        const sourceNodes = res.nodes ?? [];
+        const highestImportance = Math.max(0, ...sourceNodes.map((n) => n.importance_score || 0));
+        const nodes: FgNode[] = sourceNodes.map((n) => ({
+          id: n.id, name: n.label || n.id, shortLabel: n.short_label || n.label || n.id,
+          type: n.type, rawType: n.raw_type,
+          val: (n.importance_score || 0) === highestImportance && highestImportance > 0
+            ? 34
+            : Math.max(n.type === 'van_ban' ? 18 : 7, (n.size || (n.type === 'van_ban' ? 44 : 18)) / 2),
+          importanceScore: n.importance_score || 0, connectionCount: n.connection_count || 0,
+          centrality: n.centrality || 0,
+          isMostImportant: (n.importance_score || 0) === highestImportance && highestImportance > 0,
+          properties: n.properties,
+        }));
         const links: FgLink[] = (res.edges ?? []).map((e) => ({ source: e.source, target: e.target, label: e.type }));
         setGraphData({ nodes, links });
+        setGraphMeta(res.meta);
+        setSelectedNode(null);
         if (nodes.length === 0) setError('Không tìm thấy nút nào cho seed này trong đồ thị.');
-        setTimeout(() => fgRef.current?.zoomToFit(400, 60), 400);
+        setTimeout(() => fgRef.current?.zoomToFit(650, 110), 700);
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Lỗi tải đồ thị'))
       .finally(() => setLoading(false));
-  }, []);
+  }, [mode, nodeLimit]);
 
   useEffect(() => {
     apiGet<SeedResponse>('/admin/graph/seeds?limit=12')
       .then((res) => {
         const list = res.items ?? [];
         setSeeds(list);
-        if (!seed && list.length > 0) {
-          setSeed(list[0].id);
-          fetchGraph(list[0].id, depth);
-        }
       })
       .catch(() => setSeeds([]));
-  }, [depth, fetchGraph, seed]);
+  }, []);
 
   useEffect(() => {
     const update = () => containerRef.current && setDims({ width: containerRef.current.clientWidth, height: containerRef.current.clientHeight });
@@ -115,34 +142,89 @@ function ExploreTab() {
     return () => window.removeEventListener('resize', update);
   }, []);
 
+  useEffect(() => {
+    if (graphData.nodes.length === 0 || !fgRef.current) return;
+    fgRef.current.d3Force('charge')?.strength(mode === 'overview' ? -650 : -520).distanceMax(850);
+    fgRef.current.d3Force('link')?.distance(mode === 'overview' ? 160 : 125).strength(0.2);
+    fgRef.current.d3Force('center')?.strength?.(0.035);
+    fgRef.current.d3ReheatSimulation();
+  }, [graphData.nodes.length, mode]);
+
   const handleNodeClick = useCallback((node: any) => {
     setSelectedNode(node);
-    fgRef.current?.centerAt(node.x, node.y, 800);
+    if (Number.isFinite(node.x) && Number.isFinite(node.y)) {
+      fgRef.current?.centerAt(node.x, node.y, 800);
+    }
     fgRef.current?.zoom(4, 800);
   }, []);
 
+  const relatedIds = React.useMemo(() => {
+    if (!selectedNode) return null;
+    const ids = new Set<string>([selectedNode.id]);
+    graphData.links.forEach((link: any) => {
+      const source = String(link.source?.id ?? link.source);
+      const target = String(link.target?.id ?? link.target);
+      if (source === selectedNode.id) ids.add(target);
+      if (target === selectedNode.id) ids.add(source);
+    });
+    return ids;
+  }, [graphData.links, selectedNode]);
+
+  const relayout = useCallback(() => {
+    graphData.nodes.forEach((node: any) => { node.fx = undefined; node.fy = undefined; });
+    fgRef.current?.d3ReheatSimulation();
+    setTimeout(() => fgRef.current?.zoomToFit(600, 80), 700);
+  }, [graphData.nodes]);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) containerRef.current?.requestFullscreen();
+    else document.exitFullscreen();
+  }, []);
+
   const paintNode = useCallback((node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
-    const label = node.name;
-    const fontSize = 12 / globalScale;
-    const color = NODE_COLORS[node.type] || '#94a3b8';
-    const r = node.val || 4;
+    const x = Number(node.x);
+    const y = Number(node.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    const scale = Number.isFinite(globalScale) && globalScale > 0 ? globalScale : 1;
+    const label = String(node.shortLabel ?? node.name ?? node.id ?? '');
+    const fontSize = 12 / scale;
+    const color = node.isMostImportant ? '#f97316' : (NODE_COLORS[node.type] || '#94a3b8');
+    const rawRadius = Number(node.val);
+    const r = Number.isFinite(rawRadius) && rawRadius > 0 ? Math.min(rawRadius, 80) : 4;
+    if (graphData.nodes.length <= 120 && (node.isMostImportant || node.type === 'van_ban' || node.importanceScore >= 35)) {
+      const halo = ctx.createRadialGradient(x, y, r * 0.4, x, y, r * 1.8);
+      halo.addColorStop(0, node.isMostImportant ? 'rgba(249,115,22,.55)' : `${color}3d`);
+      halo.addColorStop(1, `${color}00`);
+      ctx.beginPath();
+      ctx.arc(x, y, r * 1.8, 0, 2 * Math.PI);
+      ctx.fillStyle = halo;
+      ctx.fill();
+    }
     ctx.beginPath();
-    ctx.arc(node.x, node.y, r, 0, 2 * Math.PI, false);
+    ctx.arc(x, y, r, 0, 2 * Math.PI, false);
+    ctx.globalAlpha = relatedIds && !relatedIds.has(node.id) ? 0.14 : 1;
     ctx.fillStyle = color;
     ctx.fill();
+    ctx.lineWidth = (node.isMostImportant ? 5 : node.type === 'van_ban' ? 3 : 1.2) / scale;
+    ctx.strokeStyle = node.isMostImportant ? '#fef3c7' : node.type === 'van_ban' ? '#ffffff' : `${color}cc`;
+    ctx.stroke();
     if (selectedNode && selectedNode.id === node.id) {
-      ctx.lineWidth = 2 / globalScale;
+      ctx.lineWidth = 2 / scale;
       ctx.strokeStyle = '#0f172a';
       ctx.stroke();
     }
-    if (globalScale > 1.4) {
-      ctx.font = `${fontSize}px Sans-Serif`;
+    if (showLabels && (scale > 1.35 || node.isMostImportant || node.type === 'van_ban' || node.importanceScore >= 35)) {
+      ctx.font = `${node.isMostImportant ? '700 ' : ''}${node.isMostImportant ? fontSize * 1.25 : fontSize}px Sans-Serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#0f172a';
-      ctx.fillText(label.length > 40 ? label.slice(0, 40) + '…' : label, node.x, node.y + r + fontSize);
+      ctx.lineWidth = 3 / scale;
+      ctx.strokeStyle = 'rgba(255,255,255,.95)';
+      ctx.strokeText(label.length > 40 ? label.slice(0, 40) + '…' : label, x, y + r + fontSize);
+      ctx.fillStyle = node.isMostImportant ? '#c2410c' : '#334155';
+      ctx.fillText(label.length > 40 ? label.slice(0, 40) + '…' : label, x, y + r + fontSize);
     }
-  }, [selectedNode]);
+    ctx.globalAlpha = 1;
+  }, [graphData.nodes.length, relatedIds, selectedNode, showLabels]);
 
   return (
     <>
@@ -161,9 +243,28 @@ function ExploreTab() {
           <option value={1}>Độ sâu 1</option>
           <option value={2}>Độ sâu 2</option>
         </select>
+        <select value={nodeLimit} onChange={(e) => setNodeLimit(Number(e.target.value))} className="px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none" title="Giới hạn node render">
+          {[50, 80, 120, 200, 300].map((value) => <option key={value} value={value}>{value} node</option>)}
+        </select>
         <button onClick={() => fetchGraph(seed, depth)} disabled={loading} className="px-5 py-2.5 bg-slate-900 text-white rounded-lg text-sm font-bold hover:bg-primary transition-colors flex items-center gap-2 disabled:opacity-50">
           {loading ? <Spinner size={16} className="animate-spin" /> : <TreeStructure size={16} weight="bold" />} Khám phá
         </button>
+      </div>
+
+      <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1">
+          {(['overview', 'detail'] as const).map((value) => (
+            <button key={value} onClick={() => setMode(value)} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${mode === value ? 'bg-white text-primary shadow-sm' : 'text-slate-500'}`}>
+              {value === 'overview' ? 'Tổng quan' : 'Chi tiết'}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => fgRef.current?.zoomToFit(500, 80)} className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold flex items-center gap-1.5"><FrameCorners size={15} /> Fit màn hình</button>
+          <button onClick={relayout} className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold flex items-center gap-1.5"><ArrowClockwise size={15} /> Sắp xếp lại</button>
+          <button onClick={() => setShowLabels((value) => !value)} className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold flex items-center gap-1.5">{showLabels ? <EyeSlash size={15} /> : <Eye size={15} />} Nhãn</button>
+          <button onClick={toggleFullscreen} className="p-2 bg-white border border-slate-200 rounded-lg" title="Toàn màn hình"><ArrowsOut size={16} /></button>
+        </div>
       </div>
 
       {error && <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3 text-sm font-medium">{error}</div>}
@@ -184,7 +285,11 @@ function ExploreTab() {
       )}
 
       <div className="flex-1 flex gap-6 min-h-[560px]">
-        <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative" ref={containerRef}>
+        <div
+          className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative"
+          ref={containerRef}
+          style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(148,163,184,.18) 1px, transparent 0)', backgroundSize: '24px 24px' }}
+        >
           {graphData.nodes.length > 0 ? (
             <ForceGraph2D
               ref={fgRef}
@@ -196,10 +301,20 @@ function ExploreTab() {
               nodeRelSize={1}
               nodeCanvasObject={paintNode}
               onNodeClick={handleNodeClick}
-              linkColor={() => '#cbd5e1'}
-              linkDirectionalArrowLength={3.5}
+              linkColor={(link: any) => {
+                if (!relatedIds) return 'rgba(148,163,184,.32)';
+                const source = String(link.source?.id ?? link.source);
+                const target = String(link.target?.id ?? link.target);
+                return relatedIds.has(source) && relatedIds.has(target) ? 'rgba(52,71,103,.62)' : 'rgba(148,163,184,.08)';
+              }}
+              linkDirectionalArrowLength={2.5}
               linkDirectionalArrowRelPos={1}
-              linkWidth={1.5}
+              linkWidth={() => relatedIds ? 1.4 : 0.8}
+              linkCurvature={0.04}
+              cooldownTicks={graphData.nodes.length > 120 ? 80 : 120}
+              d3AlphaDecay={0.025}
+              d3VelocityDecay={0.4}
+              onBackgroundClick={() => setSelectedNode(null)}
             />
           ) : (
             <div className="h-full flex flex-col items-center justify-center text-center text-slate-400 space-y-3 p-8">
@@ -216,6 +331,12 @@ function ExploreTab() {
                   <span className="text-slate-600">{type}</span>
                 </div>
               ))}
+            </div>
+          )}
+          {graphMeta && (
+            <div className="absolute top-4 left-4 rounded-lg border border-slate-200 bg-white/90 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm backdrop-blur-sm">
+              {graphMeta.returned_nodes}/{graphMeta.total_nodes} node
+              {graphMeta.truncated && <span className="ml-2 text-amber-600">Đã giới hạn</span>}
             </div>
           )}
         </div>
@@ -240,6 +361,11 @@ function ExploreTab() {
                   <div>
                     <div className="text-xs font-semibold text-slate-500 mb-1">Canonical ID</div>
                     <code className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-700 font-mono break-all">{selectedNode.id}</code>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[['Quan trọng', selectedNode.importanceScore.toFixed(1)], ['Liên kết', selectedNode.connectionCount], ['Centrality', selectedNode.centrality.toFixed(3)]].map(([label, value]) => (
+                      <div key={label} className="rounded-lg bg-slate-50 p-2 text-center"><div className="text-sm font-black text-primary">{value}</div><div className="text-[10px] text-slate-500">{label}</div></div>
+                    ))}
                   </div>
                   {selectedNode.properties && Object.keys(selectedNode.properties).length > 0 && (
                     <div>

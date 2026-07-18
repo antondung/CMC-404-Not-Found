@@ -113,11 +113,27 @@ async def request_context_middleware(request: Request, call_next: Any) -> Any:
 async def be2_error_handler(request: Request, exc: BE2Error) -> JSONResponse:
     req_id = get_request_id()
     logger.warning(f"BE2Error [{exc.code}]: {exc.message}")
+
+    # Mặc định là 400 Bad Request
     status_code = status.HTTP_400_BAD_REQUEST
+
+    # Map các loại lỗi cụ thể sang HTTP status thích hợp
     if exc.code in {"validation_error", "contract_missing"}:
         status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-    elif exc.code == "external_service_error":
+    elif exc.code == "security_config_error":
+        status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+    elif getattr(exc, "retryable", False) or exc.code in {
+        "external_service_error",
+        "brief_persistence_error",
+        "suggestion_persistence_error",
+        "queue_unavailable",
+        "graph_paths_unavailable"
+    }:
         status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    elif exc.code == "brief_conflict":
+        status_code = status.HTTP_409_CONFLICT
+    elif exc.code == "publish_gate_error":
+        status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
 
     body = error_response(
         message=exc.message,

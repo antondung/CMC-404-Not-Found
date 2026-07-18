@@ -2,15 +2,18 @@ from __future__ import annotations
 
 import json
 import uuid
+import logging
 from typing import Any
 from datetime import datetime, timezone
 import httpx
 from app.adapters.neo4j_social import Neo4jSocialRepository
 from app.adapters.postgres_content import PostgresContentRepository
 from app.config import get_config
+from app.exceptions import BE2Error
 from app.pipelines.social.collectors import FacebookGraphCollector, ForumFeedCollector, YouTubeDataCollector
 from app.pipelines.social.ingest import SocialIngestService
 
+logger = logging.getLogger(__name__)
 
 class SocialAlertFacade:
     """Facade orchestrating BE2 Social Intelligence queries, Alert triage, and real link previews."""
@@ -114,7 +117,7 @@ class SocialAlertFacade:
                     async for record in res:
                         items.append(dict(record["t"]))
             except Exception:
-                pass
+                logger.warning("Failed to list topics from Neo4j, falling back to Postgres", exc_info=True)
 
         if not items and self.pool and hasattr(self.pool, "acquire"):
             try:
@@ -123,7 +126,7 @@ class SocialAlertFacade:
                     for r in rows:
                         items.append(dict(r))
             except Exception:
-                pass
+                logger.warning("Failed to list topics from Postgres", exc_info=True)
 
         return items
 
@@ -151,7 +154,7 @@ class SocialAlertFacade:
                             continue
                         items.append(data)
             except Exception:
-                pass
+                logger.warning("Failed to list posts from Neo4j, falling back to Postgres", exc_info=True)
 
         if not items and self.pool and hasattr(self.pool, "acquire"):
             try:
@@ -165,7 +168,7 @@ class SocialAlertFacade:
                             continue
                         items.append(data)
             except Exception:
-                pass
+                logger.warning("Failed to list posts from Postgres", exc_info=True)
 
         return items
 
@@ -200,6 +203,9 @@ class SocialAlertFacade:
         severity = row.get("severity")
         volume = row.get("volume", 0) or 0
         created_at = row.get("created_at")
+        signals = row.get("signals") or []
+        if isinstance(signals, str):
+            signals = json.loads(signals)
         return {
             "alert_id": str(row.get("id")),
             "chu_de": row.get("chu_de"),
@@ -208,7 +214,8 @@ class SocialAlertFacade:
             "volume": volume,
             "cluster_size": volume,
             "status": str(row.get("status")) if row.get("status") is not None else "open",
-            "nli_label": "mau_thuan" if severity == "high" else "khong_ro",
+            "signals": signals,
+            "provenance_status": row.get("provenance_status", "missing"),
             "created_at": created_at.isoformat() if hasattr(created_at, "isoformat") else created_at,
         }
 
@@ -219,7 +226,7 @@ class SocialAlertFacade:
             try:
                 async with self.pool.acquire() as conn:
                     rows = await conn.fetch(
-                        "SELECT id, chu_de, khoan_ids, severity, volume, status, created_at FROM alerts ORDER BY created_at DESC LIMIT 100"
+                        "SELECT id, chu_de, khoan_ids, severity, volume, status, signals, provenance_status, created_at FROM alerts ORDER BY created_at DESC LIMIT 100"
                     )
                     for r in rows:
                         data = self._alert_from_row(dict(r))
@@ -229,7 +236,7 @@ class SocialAlertFacade:
                             continue
                         items.append(data)
             except Exception:
-                pass
+                logger.warning("Failed to list alerts from Postgres", exc_info=True)
 
         return items
 
@@ -239,12 +246,12 @@ class SocialAlertFacade:
             try:
                 async with self.pool.acquire() as conn:
                     row = await conn.fetchrow(
-                        "SELECT id, chu_de, khoan_ids, severity, volume, status, created_at FROM alerts WHERE id = $1", alert_id
+                        "SELECT id, chu_de, khoan_ids, severity, volume, status, signals, provenance_status, created_at FROM alerts WHERE id = $1", alert_id
                     )
                     if row:
                         return self._alert_from_row(dict(row))
             except Exception:
-                pass
+                logger.warning("Failed to get alert detail %s from Postgres", alert_id, exc_info=True)
 
         return None
 
@@ -279,8 +286,9 @@ class SocialAlertFacade:
                             json.dumps([]),
                             datetime.now(timezone.utc),
                         )
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.exception("Failed to insert suggestion for alert triage", extra={"alert_id": alert_id})
+                    raise BE2Error(f"Không thể tạo đề xuất đính chính cho cảnh báo: {exc}") from exc
 
         # Map the logical action to the alert_status enum {open, triaged, closed}.
         db_status = {
@@ -299,8 +307,9 @@ class SocialAlertFacade:
                         db_status,
                         alert_id,
                     )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.exception("Failed to update alert status in Postgres", extra={"alert_id": alert_id})
+                raise BE2Error(f"Không thể cập nhật trạng thái cảnh báo trong Postgres: {exc}") from exc
 
         # Update AlertMeta node in Neo4j if exists
         if self.driver and hasattr(self.driver, "session"):
@@ -313,7 +322,7 @@ class SocialAlertFacade:
                         user=user_id,
                     )
             except Exception:
-                pass
+                logger.warning("Failed to update AlertMeta status in Neo4j for alert %s", alert_id, exc_info=True)
 
         return {
             "alert_id": alert_id,
@@ -338,7 +347,7 @@ class SocialAlertFacade:
                     if "<title>" in text and "</title>" in text:
                         title = text.split("<title>")[1].split("</title>")[0].strip()
         except Exception:
-            pass
+            logger.warning("Failed to generate link preview for %s", url, exc_info=True)
 
         return {
             "url": url,

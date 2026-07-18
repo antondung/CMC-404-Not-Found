@@ -51,7 +51,7 @@ async def triage_alert(
 ) -> dict[str, Any]:
     facade = SocialAlertFacade(pool=pool, neo4j_driver=driver)
     alert = await facade.get_alert_detail(id)
-    if not alert and id not in {"alert-meta-01", "alert-fake-001", "a-1"}:
+    if not alert:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Cảnh báo {id} không tồn tại")
 
     res = await facade.triage_alert(

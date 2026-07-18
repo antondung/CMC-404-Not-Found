@@ -241,7 +241,7 @@ class QAService:
             return sorted(best_items, key=lambda c: c.score, reverse=True)[:8]
         return sorted(candidates, key=lambda c: c.score, reverse=True)[:8]
 
-    async def _direct_lookup(self, question: str, audience: str) -> list[CandidateKhoan]:
+    async def _direct_lookup(self, question: str, audience: str, as_of: str | None = None) -> list[CandidateKhoan]:
         """Fetch Khoản referenced EXPLICITLY by id/số hiệu in the question, straight from Neo4j.
 
         Vector search matches by meaning, so typing a raw id ("nội dung X::D1.K2") returns semantic
@@ -257,32 +257,41 @@ class QAService:
         if not khoan_ids and not so_hieus:
             return []
         pub = "AND coalesce(k.visibility, 'public') = 'public'" if audience == "citizen" else ""
+        temporal = "" if not as_of else """
+            AND (v.ngay_hieu_luc IS NULL OR toString(v.ngay_hieu_luc) <= $as_of)
+            AND NOT EXISTS {
+                MATCH (moi:VanBanPhapLuat)-[:THAY_THE]->(v)
+                WHERE moi.ngay_hieu_luc IS NOT NULL AND toString(moi.ngay_hieu_luc) <= $as_of
+            }
+        """
         out: list[CandidateKhoan] = []
         try:
             async with self.driver.session() as session:
                 if khoan_ids:
-                    q = f"MATCH (k:Khoan) WHERE k.khoan_id IN $ids {pub} RETURN k.khoan_id AS kid, k.noi_dung AS nd"
-                    res = await session.run(q, ids=khoan_ids)
+                    q = f"MATCH (v:VanBanPhapLuat)-[:CO_DIEU]->(:Dieu)-[:CO_KHOAN]->(k:Khoan) WHERE k.khoan_id IN $ids {pub} {temporal} RETURN k.khoan_id AS kid, k.noi_dung AS nd"
+                    res = await session.run(q, ids=khoan_ids, as_of=as_of)
                     async for r in res:
                         out.append(CandidateKhoan(khoan_id=str(r["kid"] or ""), noi_dung=str(r["nd"] or ""), score=1.0))
                 if so_hieus:
                     q2 = (
                         "MATCH (v:VanBanPhapLuat)-[:CO_DIEU]->(:Dieu)-[:CO_KHOAN]->(k:Khoan) "
-                        f"WHERE v.so_hieu IN $sh {pub} "
+                        f"WHERE v.so_hieu IN $sh {pub} {temporal} "
                         "RETURN k.khoan_id AS kid, k.noi_dung AS nd LIMIT 40"
                     )
-                    res2 = await session.run(q2, sh=so_hieus)
+                    res2 = await session.run(q2, sh=so_hieus, as_of=as_of)
                     async for r in res2:
                         out.append(CandidateKhoan(khoan_id=str(r["kid"] or ""), noi_dung=str(r["nd"] or ""), score=0.95))
         except Exception:
             return [c for c in out if c.khoan_id and c.noi_dung]
         return [c for c in out if c.khoan_id and c.noi_dung]
 
-    async def retrieve_candidates(self, question: str, audience: str = "citizen") -> list[CandidateKhoan]:
+    async def retrieve_candidates(
+        self, question: str, audience: str = "citizen", as_of: str | None = None
+    ) -> list[CandidateKhoan]:
         """Retrieve candidate Khoan: explicit id/số-hiệu lookup first, then Qdrant vector, then graph."""
         # 0. Direct lookup for explicit legal references (id / số hiệu) — highest priority.
         # When the user explicitly names a provision, return ONLY those (no vector noise).
-        candidates: list[CandidateKhoan] = await self._direct_lookup(question, audience)
+        candidates: list[CandidateKhoan] = await self._direct_lookup(question, audience, as_of)
         if candidates:
             return [c for c in candidates if c.khoan_id and c.noi_dung]
         # Explicit reference but nothing digitized for it → return empty (honest "no data") instead
@@ -295,7 +304,9 @@ class QAService:
             try:
                 # Embed the question, then search the real Qdrant collection by vector
                 vectors = await self.embedder.embed_texts([question])
-                hits = await self.qdrant.search("khoan", vectors[0], limit=5)
+                # Retrieve a wider pool because temporal graph validation below may discard
+                # semantically strong but no-longer-effective provisions.
+                hits = await self.qdrant.search("khoan", vectors[0], limit=16)
                 for hit in hits:
                     p = hit.get("payload", {})
                     if audience == "citizen" and p.get("visibility", "public") != "public":
@@ -312,7 +323,15 @@ class QAService:
             except Exception:
                 pass
 
-        if self.driver and hasattr(self.driver, "session"):
+        # Qdrant is the primary retrieval index. Avoid a costly full-text graph scan when vector
+        # retrieval already produced enough usable evidence; Neo4j remains the canonical source
+        # for temporal and citation validation below.
+        usable_vector_candidates = [
+            c for c in candidates if c.khoan_id and c.noi_dung and self._retrieval_text_ok(c.noi_dung)
+        ]
+        needs_graph_fallback = len(usable_vector_candidates) < 4
+
+        if needs_graph_fallback and self.driver and hasattr(self.driver, "session"):
             try:
                 # Broad graph keyword search: look across provision text, article titles and document
                 # metadata. This lets vague questions find provisions like "Điều 3. Mức hỗ trợ phục vụ"
@@ -320,6 +339,11 @@ class QAService:
                 query = """
                 MATCH (v:VanBanPhapLuat)-[:CO_DIEU]->(d:Dieu)-[:CO_KHOAN]->(k:Khoan)
                 WHERE ($audience <> 'citizen' OR coalesce(k.visibility, 'public') = 'public')
+                                    AND ($as_of IS NULL OR v.ngay_hieu_luc IS NULL OR toString(v.ngay_hieu_luc) <= $as_of)
+                                    AND ($as_of IS NULL OR NOT EXISTS {
+                                        MATCH (moi:VanBanPhapLuat)-[:THAY_THE]->(v)
+                                        WHERE moi.ngay_hieu_luc IS NOT NULL AND toString(moi.ngay_hieu_luc) <= $as_of
+                                    })
                   AND any(kw IN $keywords WHERE
                     toLower(coalesce(k.noi_dung, '')) CONTAINS toLower(kw)
                     OR toLower(coalesce(d.tieu_de, '')) CONTAINS toLower(kw)
@@ -351,6 +375,7 @@ class QAService:
                         keywords=self._keyword_queries(question),
                         required_keywords=self._required_keyword_queries(question),
                         audience=audience,
+                        as_of=as_of,
                     )
                     async for record in res:
                         kid = str(record["kid"] or "")
@@ -465,13 +490,18 @@ class QAService:
         score = round(supported / len(claims), 3)
         return {"score": score, "contradiction": contradiction, "unsupported": unsupported}
 
-    async def _graph_paths_for_citations(self, citations: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    async def _graph_paths_for_citations(self, citations: list[dict[str, Any]], enabled: bool = True) -> tuple[str, str | None, list[dict[str, Any]]]:
         """Return real Neo4j paths from cited Khoản to Điều and Văn bản. Never uses LLM-provided paths."""
-        if not (self.driver and hasattr(self.driver, "session")):
-            return []
+        if not enabled:
+            return "disabled", "Graph paths feature is disabled for this request", []
+
         ids = [str(c.get("khoan_id")) for c in citations if c.get("khoan_id")]
         if not ids:
-            return []
+            return "not_requested", "No valid citation IDs provided", []
+
+        if not (self.driver and hasattr(self.driver, "session")):
+            return "unavailable", "Neo4j driver is not available", []
+
         query = """
         UNWIND $ids AS kid
         MATCH (vb:VanBanPhapLuat)-[:CO_DIEU]->(d:Dieu)-[:CO_KHOAN]->(k:Khoan {khoan_id: kid})
@@ -501,9 +531,15 @@ class QAService:
                             {"source": dieu_id, "target": khoan_id, "type": "CO_KHOAN"},
                         ],
                     })
-        except Exception:
-            return []
-        return paths
+            if not paths:
+                return "not_found", "No matching graph paths found in Neo4j", []
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning("Neo4j error fetching graph paths", exc_info=True)
+            return "unavailable", "neo4j_error", []
+
+        # Basic deduplication of paths can be done here if needed
+        return "available", None, paths
 
     async def _extractive_answer(
         self, candidates: list[CandidateKhoan], audience: str, reason: str
@@ -537,6 +573,8 @@ class QAService:
             "citations": validated_citations,
             "confidence": "medium",
             "graph_paths": [],
+            "graph_paths_status": "disabled",
+            "graph_paths_reason": "Fallback mode active",
             "audience": audience,
             "degraded": True,
             "refuse_reason": [reason],
@@ -555,6 +593,8 @@ class QAService:
                 "citations": [],
                 "confidence": "low",
                 "graph_paths": [],
+                "graph_paths_status": "not_requested",
+                "graph_paths_reason": "No valid citations to trace",
                 "audience": audience,
                 "as_of": as_of,
                 "notices": notices,
@@ -589,6 +629,8 @@ class QAService:
                 "citations": [],
                 "confidence": "low",
                 "graph_paths": [],
+                "graph_paths_status": "not_requested",
+                "graph_paths_reason": "No valid citations to trace",
                 "audience": audience,
                 "as_of": as_of,
                 "notices": notices,
@@ -602,6 +644,8 @@ class QAService:
                 "citations": [],
                 "confidence": "low",
                 "graph_paths": [],
+                "graph_paths_status": "not_requested",
+                "graph_paths_reason": "No valid citations to trace",
                 "audience": audience,
                 "as_of": as_of,
                 "notices": notices,
@@ -621,7 +665,7 @@ class QAService:
         as_of_val = (as_of or date.today().isoformat()).strip()
 
         # 1. Retrieve candidates
-        candidates = await self.retrieve_candidates(question, audience=audience)
+        candidates = await self.retrieve_candidates(question, audience=audience, as_of=as_of_val)
         had_candidates_before_time_filter = bool(candidates)
         # 1b. Idea 01 — keep only provisions in force at `as_of`; collect change notices.
         candidates, notices = await self._time_travel(candidates, as_of_val)
@@ -632,6 +676,8 @@ class QAService:
                     "citations": [],
                     "confidence": "low",
                     "graph_paths": [],
+                    "graph_paths_status": "not_requested",
+                    "graph_paths_reason": "No valid citations to trace",
                     "audience": audience,
                     "as_of": as_of_val,
                     "notices": notices,
@@ -655,10 +701,14 @@ class QAService:
                 "citations": [],
                 "confidence": "low",
                 "graph_paths": [],
+                "graph_paths_status": "disabled",
+                "graph_paths_reason": "AI service unavailable",
                 "audience": audience,
                 "refuse_reason": ["BE2 LLMRouter service unavailable."],
             }
 
+        context_limit = 4 if audience == "citizen" else 6
+        candidates = candidates[:context_limit]
         retrieved_context = "\n".join(f"[{c.khoan_id}] {c.noi_dung}" for c in candidates)
         prompt = (
             "retrieved_context:\n"
@@ -677,7 +727,9 @@ class QAService:
                 task="qa",
                 prompt=prompt,
                 schema={"required": ["answer", "citations"]},
-                complexity="high",
+                # QA already uses retrieved, canonical context and strict post-validation. The
+                # low-latency route is sufficient for both portals and avoids a slower large model.
+                complexity="low",
             )
         except Exception as e:
             fallback = await self._extractive_answer(candidates, audience, f"LLMRouter error: {str(e)}")
@@ -688,6 +740,8 @@ class QAService:
                 "citations": [],
                 "confidence": "low",
                 "graph_paths": [],
+                "graph_paths_status": "disabled",
+                "graph_paths_reason": "AI service error",
                 "audience": audience,
                 "refuse_reason": [f"LLMRouter error: {str(e)}"],
             }
@@ -699,6 +753,8 @@ class QAService:
                 "citations": [],
                 "confidence": "low",
                 "graph_paths": [],
+                "graph_paths_status": "disabled",
+                "graph_paths_reason": "LLM failed schema validation",
                 "audience": audience,
                 "refuse_reason": ["LLM output failed schema validation (needs_review)."],
             }
@@ -716,11 +772,15 @@ class QAService:
                 "citations": [],
                 "confidence": "low",
                 "graph_paths": [],
+                "graph_paths_status": "not_requested",
+                "graph_paths_reason": "No valid citations after verification",
                 "audience": audience,
                 "refuse_reason": errors or ["All citations failed exact-match verification."],
             }
 
         # 5. Idea 03 — entailment faithfulness: the citation must SUPPORT the answer, not just exist.
+        # Keep entailment validation for both portals: a verbatim citation can still contradict
+        # the generated conclusion, which must fail closed even on the latency-sensitive citizen UI.
         faith = await self._verify_faithfulness(raw_answer, validated_citations, candidates)
         if faith["contradiction"]:
             # Verbatim citation that contradicts the answer = subtle hallucination. Refuse.
@@ -729,6 +789,8 @@ class QAService:
                 "citations": [],
                 "confidence": "low",
                 "graph_paths": [],
+                "graph_paths_status": "not_requested",
+                "graph_paths_reason": "Refused due to contradiction",
                 "audience": audience,
                 "citation_faithfulness": faith["score"],
                 "refuse_reason": ["Citation contradicts the answer (NLI mâu thuẫn)."],
@@ -740,13 +802,16 @@ class QAService:
         elif faith["score"] < 1.0 and confidence == "high":
             confidence = "medium"
 
-        graph_paths = await self._graph_paths_for_citations(validated_citations) if (graph_paths_enabled or audience == "admin") else []
+        is_enabled = graph_paths_enabled or audience == "admin"
+        gp_status, gp_reason, graph_paths = await self._graph_paths_for_citations(validated_citations, enabled=is_enabled)
 
         return {
             "answer": raw_answer,
             "citations": validated_citations,
             "confidence": confidence,
             "graph_paths": graph_paths,
+            "graph_paths_status": gp_status,
+            "graph_paths_reason": gp_reason,
             "audience": audience,
             "citation_faithfulness": faith["score"],
             "as_of": as_of_val,

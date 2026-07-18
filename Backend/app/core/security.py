@@ -4,7 +4,9 @@ import base64
 import hmac
 import hashlib
 import json
+import logging
 import os
+import secrets
 import time
 from enum import StrEnum
 from typing import Any, Callable
@@ -12,14 +14,102 @@ from pydantic import BaseModel, Field
 from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from app.exceptions import SecurityConfigError
+
+logger = logging.getLogger(__name__)
+
 security_bearer = HTTPBearer(auto_error=False)
 
-# Stateless session token signed with HMAC-SHA256. Real users authenticate via the Postgres
-# `users` table (see app/api/auth.py); we then hand out one of these so RBAC-protected /admin
-# calls carry their real role without a per-request DB lookup. NOT a full JWT — no external deps.
-_AUTH_SECRET = os.getenv("AUTH_TOKEN_SECRET", "dev-lexsocial-secret-change-me")
+# ---------------------------------------------------------------------------
+# Security Settings — centralised, validated at import time
+# ---------------------------------------------------------------------------
+
+_SECRET_DENYLIST = {
+    "dev-lexsocial-secret-change-me",
+    "secret",
+    "changeme",
+    "password",
+    "test",
+    "development",
+}
+
+_SECRET_WEAK_PATTERNS = [
+    "change-me", "changeme", "example", "default", "your-secret", "replace-me",
+]
+
+_PRODUCTION_ENVS = {"production", "staging"}
+_DEV_ENVS = {"development", "local", "test"}
+
+
+class SecuritySettings:
+    """Immutable security configuration resolved once at import time."""
+
+    __slots__ = ("auth_token_secret", "enable_dev_tokens", "app_env", "token_ttl_s")
+
+    def __init__(self) -> None:
+        self.app_env: str = os.getenv("APP_ENV", "development").lower().strip()
+        self.enable_dev_tokens: bool = os.getenv("ENABLE_DEV_TOKENS", "false").lower() in {"1", "true", "yes"}
+        self.token_ttl_s: int = int(os.getenv("AUTH_TOKEN_TTL_S", "43200"))
+
+        raw_secret = os.getenv("AUTH_TOKEN_SECRET")
+
+        if self.app_env in _PRODUCTION_ENVS:
+            # ── Production / Staging: strict validation ──
+            if not raw_secret:
+                raise SecurityConfigError(
+                    "AUTH_TOKEN_SECRET must be set in production/staging. "
+                    "Application startup aborted."
+                )
+            if len(raw_secret) < 32:
+                raise SecurityConfigError(
+                    f"AUTH_TOKEN_SECRET is too short ({len(raw_secret)} chars). "
+                    "Minimum 32 characters required for production."
+                )
+            if raw_secret.lower() in _SECRET_DENYLIST:
+                raise SecurityConfigError(
+                    "AUTH_TOKEN_SECRET matches a known weak/default value. "
+                    "Please generate a strong random secret."
+                )
+            for pattern in _SECRET_WEAK_PATTERNS:
+                if pattern in raw_secret.lower():
+                    raise SecurityConfigError(
+                        f"AUTH_TOKEN_SECRET contains weak pattern '{pattern}'. "
+                        "Please generate a strong random secret."
+                    )
+            if self.enable_dev_tokens:
+                raise SecurityConfigError(
+                    "ENABLE_DEV_TOKENS must be false in production/staging. "
+                    "Dev shortcut tokens are forbidden outside local/test."
+                )
+            self.auth_token_secret = raw_secret
+        else:
+            # ── Development / Test / Local ──
+            if raw_secret:
+                self.auth_token_secret = raw_secret
+            else:
+                # Auto-generate a per-process ephemeral secret so dev/test can boot
+                # without explicit config. Never use a hardcoded constant.
+                self.auth_token_secret = secrets.token_urlsafe(48)
+                logger.warning(
+                    "AUTH_TOKEN_SECRET not set — generated ephemeral secret for this process. "
+                    "Tokens will NOT survive restarts. Set AUTH_TOKEN_SECRET in .env for persistence.",
+                    extra={"app_env": self.app_env},
+                )
+
+    def __repr__(self) -> str:
+        # Never leak the secret in logs/repr
+        return (
+            f"SecuritySettings(app_env={self.app_env!r}, "
+            f"enable_dev_tokens={self.enable_dev_tokens}, "
+            f"token_ttl_s={self.token_ttl_s}, "
+            f"auth_token_secret=<REDACTED {len(self.auth_token_secret)} chars>)"
+        )
+
+
+# Singleton — validated once at import time.  Tests override via monkeypatch.
+_SETTINGS = SecuritySettings()
+
 _TOKEN_PREFIX = "lx1"
-_TOKEN_TTL_S = int(os.getenv("AUTH_TOKEN_TTL_S", "43200"))  # 12h default
 
 
 def _b64url_encode(raw: bytes) -> str:
@@ -32,9 +122,9 @@ def _b64url_decode(text: str) -> bytes:
 
 def issue_token(user_id: str, email: str | None, role: str, ttl_s: int | None = None) -> str:
     """Mint a signed session token encoding the user's id/email/role and an expiry."""
-    payload = {"uid": user_id, "eml": email, "rol": role, "exp": int(time.time()) + (ttl_s or _TOKEN_TTL_S)}
+    payload = {"uid": user_id, "eml": email, "rol": role, "exp": int(time.time()) + (ttl_s or _SETTINGS.token_ttl_s)}
     payload_b64 = _b64url_encode(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
-    sig = hmac.new(_AUTH_SECRET.encode("utf-8"), payload_b64.encode("ascii"), hashlib.sha256).hexdigest()
+    sig = hmac.new(_SETTINGS.auth_token_secret.encode("utf-8"), payload_b64.encode("ascii"), hashlib.sha256).hexdigest()
     return f"{_TOKEN_PREFIX}.{payload_b64}.{sig}"
 
 
@@ -44,7 +134,7 @@ def _verify_signed_token(token: str) -> "UserToken | None":
         prefix, payload_b64, sig = token.split(".")
         if prefix != _TOKEN_PREFIX:
             return None
-        expected = hmac.new(_AUTH_SECRET.encode("utf-8"), payload_b64.encode("ascii"), hashlib.sha256).hexdigest()
+        expected = hmac.new(_SETTINGS.auth_token_secret.encode("utf-8"), payload_b64.encode("ascii"), hashlib.sha256).hexdigest()
         if not hmac.compare_digest(expected, sig):
             return None
         payload = json.loads(_b64url_decode(payload_b64))
@@ -52,7 +142,7 @@ def _verify_signed_token(token: str) -> "UserToken | None":
             return None
         role = str(payload.get("rol") or Role.CITIZEN.value)
         return UserToken(user_id=str(payload.get("uid") or "user"), email=payload.get("eml"), roles=[role])
-    except Exception:  # noqa: BLE001 - any malformed token is simply rejected
+    except Exception:  # noqa: BLE001 — Boundary: any malformed token is simply rejected
         return None
 
 
@@ -85,6 +175,36 @@ class UserToken(BaseModel):
         return not self.is_admin() and any(role in {Role.CITIZEN, Role.ANONYMOUS} for role in self.roles)
 
 
+# ---------------------------------------------------------------------------
+# Dev shortcut tokens — gated behind ENABLE_DEV_TOKENS
+# ---------------------------------------------------------------------------
+
+_DEV_TOKEN_MAP: dict[str, UserToken] = {
+    "test-admin-phap-che": UserToken(user_id="user-phap-che-1", email="phapche@admin.gov.vn", roles=[Role.ADMIN_PHAP_CHE.value]),
+    "test-admin-truyen-thong": UserToken(user_id="user-truyen-thong-1", email="truyenthong@admin.gov.vn", roles=[Role.ADMIN_TRUYEN_THONG.value]),
+    "test-admin-ops": UserToken(user_id="user-ops-1", email="ops@admin.gov.vn", roles=[Role.ADMIN_OPS.value]),
+    "test-admin-multi": UserToken(
+        user_id="user-multi-1",
+        email="multi@admin.gov.vn",
+        roles=[Role.ADMIN_PHAP_CHE.value, Role.ADMIN_TRUYEN_THONG.value, Role.ADMIN_OPS.value],
+    ),
+    "test-citizen": UserToken(user_id="user-citizen-1", email="citizen@gmail.com", roles=[Role.CITIZEN.value]),
+}
+
+
+def _try_dev_token(token_str: str) -> UserToken | None:
+    """Return a dev-shortcut UserToken if feature is enabled and the token matches exactly."""
+    if not _SETTINGS.enable_dev_tokens:
+        return None
+    user = _DEV_TOKEN_MAP.get(token_str)
+    if user is not None:
+        logger.warning(
+            "Dev shortcut token authenticated",
+            extra={"authentication_method": "dev_token", "role": user.roles[0], "app_env": _SETTINGS.app_env},
+        )
+    return user
+
+
 def decode_or_mock_token(token_str: str | None) -> UserToken:
     """Decode JWT or support local/test bearer tokens for deterministic evaluation."""
     if not token_str:
@@ -94,24 +214,10 @@ def decode_or_mock_token(token_str: str | None) -> UserToken:
     if t.startswith("Bearer "):
         t = t[7:].strip()
 
-    # Deterministic test/dev shortcuts. EXACT match only — substring matching ("admin_ops" in t)
-    # is a privilege-escalation hole (any string containing the marker would grant admin), so a
-    # role must be granted only for the precise dev token, never for an arbitrary token that
-    # merely happens to contain the marker.
-    if t == "test-admin-phap-che":
-        return UserToken(user_id="user-phap-che-1", email="phapche@admin.gov.vn", roles=[Role.ADMIN_PHAP_CHE.value])
-    if t == "test-admin-truyen-thong":
-        return UserToken(user_id="user-truyen-thong-1", email="truyenthong@admin.gov.vn", roles=[Role.ADMIN_TRUYEN_THONG.value])
-    if t == "test-admin-ops":
-        return UserToken(user_id="user-ops-1", email="ops@admin.gov.vn", roles=[Role.ADMIN_OPS.value])
-    if t == "test-admin-multi":
-        return UserToken(
-            user_id="user-multi-1",
-            email="multi@admin.gov.vn",
-            roles=[Role.ADMIN_PHAP_CHE.value, Role.ADMIN_TRUYEN_THONG.value, Role.ADMIN_OPS.value],
-        )
-    if t == "test-citizen":
-        return UserToken(user_id="user-citizen-1", email="citizen@gmail.com", roles=[Role.CITIZEN.value])
+    # Dev shortcut tokens — only when explicitly enabled outside production.
+    dev_user = _try_dev_token(t)
+    if dev_user is not None:
+        return dev_user
 
     # Real signed session token (issued by /auth/login after verifying the Postgres users table).
     if t.startswith(_TOKEN_PREFIX + "."):

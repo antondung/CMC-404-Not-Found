@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import pytest
 import httpx
 from pydantic import BaseModel
 
+import be2_service
 from app.config import BE2Config
 from app.exceptions import ValidationError
 from app.adapters.postgres_content import PostgresContentRepository
@@ -15,6 +17,8 @@ from app.intelligence.rerank import Reranker
 from app.pipelines.content.validators import validate_citations
 from app.pipelines.social.collectors import FacebookGraphCollector, ForumFeedCollector, SocialDailyMonitor, YouTubeDataCollector
 from app.pipelines.social.entity_link import EntityLinker
+from app.pipelines.social.alert_signal import AlertSignalService
+from app.pipelines.social.claim_check import ClaimChecker
 from app.pipelines.social.ingest import normalize_social_payload
 from app.schemas import BriefDraft, CandidateKhoan, Citation, NliLabel, Status, SuggestDraft, TopicResult, LinkPreview, LinkCandidate
 from app.workers.arq_settings import BE2_WORKER_FUNCTIONS, cron_jobs, redis_settings
@@ -178,6 +182,41 @@ async def test_openai_compatible_embedding_uses_injected_http_not_ollama():
 
 
 @pytest.mark.asyncio
+async def test_be2_llm_uses_one_total_deadline_and_falls_back(monkeypatch):
+    calls = []
+
+    async def slow_backend(system, user, timeout_s):
+        calls.append(timeout_s)
+        await asyncio.sleep(timeout_s + 0.05)
+        return "late"
+
+    monkeypatch.setattr(be2_service, "BACKEND", "auto")
+    monkeypatch.setattr(be2_service, "_ollama_chat", slow_backend)
+    monkeypatch.setattr(be2_service, "_openai_chat", slow_backend)
+    result = await be2_service._llm_generate("system", "user", 0.1)
+
+    assert result is None
+    assert calls
+    assert sum(calls) <= 0.12
+
+@pytest.mark.asyncio
+async def test_be2_complete_reserves_time_for_extractive_fallback(monkeypatch):
+    captured = {}
+
+    async def fake_handle(task, prompt, timeout_s):
+        captured["timeout_s"] = timeout_s
+        return {"answer": "fallback", "citations": [], "confidence": "low"}
+
+    monkeypatch.setattr(be2_service, "LLM_TIMEOUT", 60.0)
+    monkeypatch.setattr(be2_service, "_handle", fake_handle)
+    response = await be2_service.complete(
+        be2_service.CompleteRequest(task="qa", prompt="Câu hỏi: test", timeout_s=20.0)
+    )
+
+    assert captured["timeout_s"] == 18.0
+    assert response["output"]["answer"] == "fallback"
+
+@pytest.mark.asyncio
 async def test_nli_closed_labels_low_confidence_safe():
     class Model:
         def predict(self, **kwargs):
@@ -195,6 +234,51 @@ def test_citation_substring_validation():
         validate_citations([Citation(khoan_id="k1", quote="không có")], source)
     with pytest.raises(ValidationError):
         validate_citations([Citation(khoan_id="k2", quote="kê khai")], source)
+
+@pytest.mark.asyncio
+async def test_claim_checker_rejects_ungrounded_claims():
+    checker = ClaimChecker(
+        LLMRouter(BE2Config(), FakeLLM([{"output": {"claims": [
+            {"text": "Thuế được miễn", "evidence_span": "Nội dung do mô hình tự tạo"},
+            {"text": "phải kê khai đúng hạn", "evidence_span": "Doanh nghiệp phải kê khai đúng hạn"},
+        ]}}]))
+    )
+    claims = await checker.extract_claims("Doanh nghiệp phải kê khai đúng hạn theo quy định.")
+    assert [claim.text for claim in claims] == ["phải kê khai đúng hạn"]
+
+@pytest.mark.asyncio
+async def test_alert_requires_complete_source_provenance():
+    class AlertRepo:
+        def __init__(self):
+            self.saved = []
+
+        async def find_recent_alert(self, key, cooldown_s):
+            return None
+
+        async def save_alert(self, alert):
+            self.saved.append(alert)
+            return "alert-real-1"
+
+    repo = AlertRepo()
+    service = AlertSignalService(repo, BE2Config(alert_volume_threshold=1, nli_confidence_threshold=0.7))
+    incomplete = await service.maybe_create_alert(signals=[{"label": "mau_thuan", "score": 0.95, "chu_de": "thuế", "khoan_id": "k1"}])
+    assert incomplete is None
+    signal = {
+        "bai_dang_id": "youtube:comment-1",
+        "ykien_id": "ykien-1",
+        "claim_text": "Doanh nghiệp không cần kê khai thuế.",
+        "evidence_span": "Doanh nghiệp không cần kê khai thuế.",
+        "post_content": "Ý kiến: Doanh nghiệp không cần kê khai thuế.",
+        "post_url": "https://youtube.com/watch?v=1&lc=comment-1",
+        "chu_de": "thuế",
+        "khoan_id": "k1",
+        "label": "mau_thuan",
+        "score": 0.95,
+    }
+    alert = await service.maybe_create_alert(signals=[signal])
+    assert alert is not None
+    assert alert["provenance_status"] == "complete"
+    assert repo.saved[0]["signals"] == [signal]
 
 
 @pytest.mark.asyncio

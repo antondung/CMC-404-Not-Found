@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
@@ -13,7 +14,7 @@ router = APIRouter(tags=["Citizen QA"])
 
 class CitizenQARequest(BaseModel):
     question: str = Field(..., min_length=2, description="Câu hỏi pháp lý đời thường")
-    as_of: str | None = Field(
+    as_of: date | None = Field(
         default=None,
         description="Thời điểm áp dụng luật (YYYY-MM-DD). Mặc định: hôm nay. Dùng cho hành vi xảy ra trong quá khứ.",
     )
@@ -32,6 +33,6 @@ async def ask_citizen_qa(
         question=request.question,
         audience="citizen",
         graph_paths_enabled=False,
-        as_of=request.as_of,
+        as_of=request.as_of.isoformat() if request.as_of else None,
     )
     return success_response(data=res, request_id=get_request_id())

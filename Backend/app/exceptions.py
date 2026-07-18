@@ -35,3 +35,105 @@ class ContractMissingError(BE2Error):
 
 class ExternalServiceError(TransientServiceError):
     code = "external_service_error"
+
+
+# ---------------------------------------------------------------------------
+# Security
+# ---------------------------------------------------------------------------
+
+class SecurityConfigError(PermanentServiceError):
+    """Raised at startup when security configuration is invalid or unsafe."""
+    code = "security_config_error"
+
+
+# ---------------------------------------------------------------------------
+# Brief / Content persistence
+# ---------------------------------------------------------------------------
+
+class BriefPersistenceError(TransientServiceError):
+    """Raised when a Brief INSERT/UPDATE/DELETE fails at the DB layer."""
+    code = "brief_persistence_error"
+
+
+class BriefConflictError(BriefPersistenceError):
+    """Raised on integrity-constraint violation (duplicate, FK, etc.)."""
+    code = "brief_conflict"
+    retryable = False
+
+
+# ---------------------------------------------------------------------------
+# Suggestion persistence
+# ---------------------------------------------------------------------------
+
+class SuggestionPersistenceError(TransientServiceError):
+    """Raised when a Suggestion INSERT/UPDATE fails at the DB layer."""
+    code = "suggestion_persistence_error"
+
+
+# ---------------------------------------------------------------------------
+# Publish gate
+# ---------------------------------------------------------------------------
+
+class PublishGateError(PermanentServiceError):
+    """Raised when the publish-gate DB transaction fails."""
+    code = "publish_gate_error"
+
+
+# ---------------------------------------------------------------------------
+# Job queue (ARQ / Redis)
+# ---------------------------------------------------------------------------
+
+class QueueError(BE2Error):
+    """Base for all job-queue errors."""
+    code = "queue_error"
+
+
+class QueueUnavailableError(QueueError):
+    """Redis / ARQ pool is unreachable."""
+    code = "queue_unavailable"
+    retryable = True
+
+
+class JobEnqueueError(QueueError):
+    """enqueue_job() call failed for a reason other than connectivity."""
+    code = "job_enqueue_error"
+
+
+class JobAlreadyExistsError(QueueError):
+    """Duplicate _job_id — the job is already queued."""
+    code = "job_already_exists"
+    retryable = False
+
+
+# ---------------------------------------------------------------------------
+# Parser fallback (LLM-assisted legal parsing)
+# ---------------------------------------------------------------------------
+
+class ParserFallbackError(BE2Error):
+    """Generic parser-fallback failure."""
+    code = "parser_fallback_error"
+
+
+class ParserFallbackUnavailableError(ParserFallbackError):
+    """LLM router is unreachable or the fallback feature is disabled."""
+    code = "parser_fallback_unavailable"
+    retryable = True
+
+
+class ParserOutputValidationError(ParserFallbackError):
+    """LLM returned output that does not match the expected schema."""
+    code = "parser_output_validation_error"
+
+
+class ParserLowConfidenceError(ParserFallbackError):
+    """Parsed result has confidence below the configured threshold."""
+    code = "parser_low_confidence"
+
+
+# ---------------------------------------------------------------------------
+# Graph paths
+# ---------------------------------------------------------------------------
+
+class GraphPathsUnavailableError(TransientServiceError):
+    """Neo4j is unreachable when resolving citation graph paths."""
+    code = "graph_paths_unavailable"

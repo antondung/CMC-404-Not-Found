@@ -20,6 +20,17 @@ interface RawAlert {
   status?: string;
   created_at?: string;
   evidence?: { van_ban?: string; dieu?: string; quote?: string };
+  provenance_status?: string;
+  signals?: AlertSignal[];
+}
+
+interface AlertSignal {
+  claim_text?: string;
+  evidence_span?: string;
+  post_url?: string;
+  label?: RiskLabel;
+  score?: number;
+  legal_evidence?: { van_ban?: string; dieu?: string; quote?: string };
 }
 
 interface AlertsResponse {
@@ -30,35 +41,39 @@ interface AlertsResponse {
 interface AlertView {
   id: string;
   chuDe: string;
-  claim: string;
+  claim?: string;
   postUrl?: string;
   volume: number;
-  label: RiskLabel;
-  confidence: 'high' | 'medium' | 'low';
+  label?: RiskLabel;
+  confidence?: 'high' | 'medium' | 'low';
   status: string;
   createdAt: string;
   evidence?: { van_ban: string; dieu: string; quote: string };
+  provenanceComplete: boolean;
 }
 
-function toLabel(raw: RawAlert): RiskLabel {
+function toLabel(raw: RawAlert, signal?: AlertSignal): RiskLabel | undefined {
+  if (signal?.label === 'khop' || signal?.label === 'mau_thuan' || signal?.label === 'khong_ro') return signal.label;
   if (raw.label === 'khop' || raw.label === 'mau_thuan' || raw.label === 'khong_ro') return raw.label;
-  if (raw.severity === 'high') return 'mau_thuan';
-  return 'khong_ro';
+  return undefined;
 }
 
 function normalize(raw: RawAlert): AlertView {
-  const ev = raw.evidence;
+  const signal = raw.signals?.[0];
+  const ev = signal?.legal_evidence ?? raw.evidence;
+  const score = signal?.score;
   return {
     id: raw.alert_id ?? raw.id ?? 'unknown',
     chuDe: raw.chu_de ?? raw.chuDe ?? 'Chủ đề chưa phân loại',
-    claim: raw.claim ?? raw.noi_dung ?? '(Không có nội dung lan truyền)',
-    postUrl: raw.post_url ?? raw.postUrl,
+    claim: signal?.claim_text ?? raw.claim ?? raw.noi_dung,
+    postUrl: signal?.post_url ?? raw.post_url ?? raw.postUrl,
     volume: raw.volume ?? 0,
-    label: toLabel(raw),
-    confidence: raw.confidence ?? 'medium',
+    label: toLabel(raw, signal),
+    confidence: raw.confidence ?? (score == null ? undefined : score >= 0.85 ? 'high' : score >= 0.7 ? 'medium' : 'low'),
     status: raw.status ?? 'open',
     createdAt: raw.created_at ?? '',
     evidence: ev && (ev.van_ban || ev.quote) ? { van_ban: ev.van_ban ?? '', dieu: ev.dieu ?? '', quote: ev.quote ?? '' } : undefined,
+    provenanceComplete: raw.provenance_status === 'complete' && Boolean(signal),
   };
 }
 
@@ -119,7 +134,7 @@ export default function AlertsPage() {
   };
 
   const filtered = useMemo(
-    () => alerts.filter((a) => !search || a.chuDe.toLowerCase().includes(search.toLowerCase()) || a.claim.toLowerCase().includes(search.toLowerCase())),
+    () => alerts.filter((a) => !search || a.chuDe.toLowerCase().includes(search.toLowerCase()) || (a.claim ?? '').toLowerCase().includes(search.toLowerCase())),
     [alerts, search],
   );
 
@@ -196,7 +211,9 @@ export default function AlertsPage() {
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Nội dung lan truyền MXH</span>
                   </div>
                   <div className="bg-slate-50 rounded-xl p-5 border border-slate-200/60 mb-4 relative">
-                    <p className="text-[15px] font-medium text-slate-800 leading-relaxed relative z-10 italic">{alert.claim}</p>
+                    <p className="text-[15px] font-medium text-slate-800 leading-relaxed relative z-10 italic">
+                      {alert.claim ?? 'Không có dữ liệu nguồn được liên kết.'}
+                    </p>
                   </div>
                   {alert.postUrl && (
                     <LinkPreviewPanel url={alert.postUrl} />
@@ -209,12 +226,16 @@ export default function AlertsPage() {
                       <Robot size={18} className="text-brand" weight="fill" />
                       <span className="text-xs font-bold uppercase tracking-wider text-slate-500">AI Đối chiếu Pháp luật</span>
                     </div>
-                    <RiskBadge label={alert.label} confidence={alert.confidence} />
+                    {alert.label && alert.confidence ? (
+                      <RiskBadge label={alert.label} confidence={alert.confidence} />
+                    ) : (
+                      <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md">Chưa có kết quả NLI</span>
+                    )}
                   </div>
                   {alert.evidence ? (
                     <CitationCard van_ban={alert.evidence.van_ban} dieu={alert.evidence.dieu} quote={alert.evidence.quote} />
                   ) : (
-                    <div className="text-sm text-slate-400 italic bg-slate-50 rounded-xl p-5 border border-slate-100">Chưa có căn cứ pháp lý đối chiếu.</div>
+                    <div className="text-sm text-slate-400 italic bg-slate-50 rounded-xl p-5 border border-slate-100">Chưa tìm thấy căn cứ pháp lý đã xác thực.</div>
                   )}
                 </div>
               </div>

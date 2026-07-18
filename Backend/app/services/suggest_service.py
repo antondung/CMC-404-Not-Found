@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from typing import Any
 from datetime import datetime, timezone
+
+from app.exceptions import SuggestionPersistenceError
+
+logger = logging.getLogger(__name__)
 
 
 class SuggestService:
@@ -19,7 +24,7 @@ class SuggestService:
             if isinstance(val, str):
                 try:
                     return json.loads(val)
-                except Exception:
+                except json.JSONDecodeError:
                     return val
             return val
 
@@ -35,6 +40,8 @@ class SuggestService:
             "created_at": created_at.isoformat() if hasattr(created_at, "isoformat") else created_at,
         }
 
+    # ── Read operations: best-effort — log on failure, return empty ──
+
     async def list_suggestions(self, status: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
         """List suggestions directly from Postgres table suggestions."""
         items: list[dict[str, Any]] = []
@@ -49,7 +56,8 @@ class SuggestService:
                             continue
                         items.append(data)
             except Exception:
-                pass
+                # Nhóm 3 — best-effort read
+                logger.warning("Failed to list suggestions from Postgres", exc_info=True, extra={"operation": "list_suggestions"})
         return items
 
     async def get_suggestion(self, suggest_id: str) -> dict[str, Any] | None:
@@ -64,8 +72,11 @@ class SuggestService:
                     if row:
                         return self._row_to_suggestion(dict(row))
             except Exception:
-                pass
+                # Nhóm 3 — best-effort read
+                logger.warning("Failed to get suggestion %s", suggest_id, exc_info=True, extra={"operation": "get_suggestion", "suggest_id": suggest_id})
         return None
+
+    # ── Write operations: MUST propagate errors — no false success ──
 
     async def generate_suggestion(self, payload: dict[str, Any], user_id: str) -> dict[str, Any]:
         """Generate a new suggestion draft and insert into real Postgres (schema 003)."""
@@ -74,6 +85,7 @@ class SuggestService:
         noi_dung = payload.get("noi_dung_dinh_chinh") or "Nội dung đính chính chuẩn hóa dựa trên trích dẫn pháp lý chính thức."
         draft_text = f"{tieu_de}\n\n{noi_dung}".strip()
         khoan_ids = [payload["khoan_doi_chieu_id"]] if payload.get("khoan_doi_chieu_id") else []
+        created_at = datetime.now(timezone.utc)
 
         if self.pool and hasattr(self.pool, "acquire"):
             try:
@@ -88,10 +100,17 @@ class SuggestService:
                         draft_text,
                         json.dumps([]),
                         json.dumps(khoan_ids),
-                        datetime.now(timezone.utc),
+                        created_at,
                     )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.exception(
+                    "Failed to INSERT suggestion into Postgres",
+                    extra={"operation": "generate_suggestion", "suggest_id": suggest_id},
+                )
+                raise SuggestionPersistenceError(
+                    "Không thể tạo đề xuất đính chính. Vui lòng thử lại.",
+                    details={"suggest_id": suggest_id},
+                ) from exc
 
         return {
             "id": suggest_id,
@@ -101,7 +120,7 @@ class SuggestService:
             "claim_labels": [],
             "status": "draft",
             "created_by": None,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": created_at.isoformat(),
         }
 
     async def update_suggestion(self, suggest_id: str, updates: dict[str, Any]) -> dict[str, Any] | None:
@@ -133,7 +152,14 @@ class SuggestService:
                         suggest["status"],
                         suggest_id,
                     )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.exception(
+                    "Failed to UPDATE suggestion in Postgres",
+                    extra={"operation": "update_suggestion", "suggest_id": suggest_id},
+                )
+                raise SuggestionPersistenceError(
+                    "Không thể cập nhật đề xuất đính chính.",
+                    details={"suggest_id": suggest_id},
+                ) from exc
 
         return suggest

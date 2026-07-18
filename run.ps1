@@ -45,6 +45,7 @@ $BackendDir = Join-Path $Root 'Backend'
 $FrontendDir= Join-Path $Root 'Frontend'
 $DataEnv    = Join-Path $Root 'Data/.env'
 $VenvPy     = Join-Path $BackendDir '.venv/Scripts/python.exe'
+$WorkspaceVenvPy = Join-Path (Split-Path $Root -Parent) '.venv/Scripts/python.exe'
 
 # ---- Flag resolution -------------------------------------------------
 # No flags at all => a complete run of the entire system in one command.
@@ -98,12 +99,14 @@ function Resolve-Python {
     # Pick an interpreter that can actually import uvicorn: prefer the project venv, else fall back
     # to the global `python` on PATH. Returns $null if neither works (tells the user to -Install).
     $ErrorActionPreference = 'SilentlyContinue'
-    if (Test-Path $VenvPy) {
-        try { & $VenvPy -c "import uvicorn" *>$null } catch {}
-        if ($LASTEXITCODE -eq 0) { return $VenvPy }
+    foreach ($candidate in @($VenvPy, $WorkspaceVenvPy)) {
+        if (Test-Path $candidate) {
+            try { & $candidate -c "import uvicorn, asyncpg" *>$null } catch {}
+            if ($LASTEXITCODE -eq 0) { return $candidate }
+        }
     }
     if (Get-Command python -ErrorAction SilentlyContinue) {
-        try { & python -c "import uvicorn" *>$null } catch {}
+        try { & python -c "import uvicorn, asyncpg" *>$null } catch {}
         if ($LASTEXITCODE -eq 0) { return 'python' }
     }
     return $null

@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from typing import Any
 from datetime import datetime, timezone
 from app.core.security import Role, UserToken
+from app.exceptions import PublishGateError
 from app.services.citation_validator import CitationValidator
+
+logger = logging.getLogger(__name__)
 
 
 class PublishGateService:
@@ -22,7 +26,11 @@ class PublishGateService:
         actor: UserToken,
         brief_data: dict[str, Any],
     ) -> tuple[bool, dict[str, Any], list[str]]:
-        """Verify actor roles, check citation accuracy against Neo4j, update status and record audit trail."""
+        """Verify actor roles, check citation accuracy against Neo4j, update status and record audit trail.
+
+        Raises PublishGateError if the DB transaction fails — publish is a critical
+        business operation and MUST NOT return success when the DB write fails.
+        """
         errors: list[str] = []
 
         # 1. Check actor roles
@@ -48,6 +56,7 @@ class PublishGateService:
             return False, {}, errors
 
         # 4. Perform Publish Transition & Audit Log record
+        # Nhóm 4 — MUST propagate: publish + audit log is a critical business operation.
         now_str = datetime.now(timezone.utc).isoformat()
         audit_id = f"audit-{uuid.uuid4().hex[:8]}"
 
@@ -74,8 +83,15 @@ class PublishGateService:
                         json.dumps({"citations_count": len(validated_citations), "status": "published"}),
                         datetime.now(timezone.utc),
                     )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.exception(
+                    "Publish gate DB transaction failed",
+                    extra={"operation": "publish_brief", "brief_id": brief_id, "actor": actor.user_id},
+                )
+                raise PublishGateError(
+                    "Không thể xuất bản bản tóm tắt do lỗi hệ thống cơ sở dữ liệu.",
+                    details={"brief_id": brief_id},
+                ) from exc
 
         updated_brief = dict(brief_data)
         updated_brief["status"] = "published"

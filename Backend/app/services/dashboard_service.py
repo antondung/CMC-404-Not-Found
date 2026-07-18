@@ -3,6 +3,10 @@ from __future__ import annotations
 import json
 from typing import Any
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class DashboardService:
     """Service synthesizing real-time operational metrics for Admin Command Center."""
@@ -44,7 +48,7 @@ class DashboardService:
                         failed_jobs = sum(1 for x in jrows if x["status"] == "failed")
                         needs_review = sum(1 for x in jrows if x["status"] == "needs_review")
             except Exception:
-                pass
+                logger.warning("Failed to fetch Postgres dashboard metrics", exc_info=True)
 
         if self.driver and hasattr(self.driver, "session"):
             try:
@@ -59,7 +63,7 @@ class DashboardService:
                     if rec_post and rec_post["cnt"] > 0:
                         social_posts_count = int(rec_post["cnt"])
             except Exception:
-                pass
+                logger.warning("Failed to fetch Neo4j dashboard metrics", exc_info=True)
 
         return {
             "alerts": {

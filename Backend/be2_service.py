@@ -80,19 +80,36 @@ LLM_MAX_TOKENS = int(os.getenv("BE2_LLM_MAX_TOKENS") or "512")
 LLM_REPEAT_PENALTY = float(os.getenv("BE2_LLM_REPEAT_PENALTY") or "1.3")
 
 _SYSTEM_PROMPT = (
-    "Bạn là trợ lý pháp lý tiếng Việt của LexSocial AI. CHỈ được dựa vào các điều khoản pháp luật được cung cấp "
-    "trong phần Ngữ cảnh để trả lời. Tuyệt đối không bịa đặt, không thêm thông tin ngoài Ngữ cảnh.\n"
-    "Mỗi dòng Ngữ cảnh bắt đầu bằng mã khoản dạng [<số hiệu văn bản>::D<điều>.K<khoản>]. "
-    "Ví dụ [168/2024/ND-CP::D6.K1] nghĩa là Nghị định 168/2024/NĐ-CP, Điều 6, Khoản 1. "
-    "Khi dẫn chiếu, PHẢI dùng đúng số Điều và số Khoản trong mã; không được tự bịa ra số Điều khác, "
-    "không gọi nhầm 'Nghị định' thành 'Nghị quyết'.\n"
-    "Chỉ viện dẫn điều khoản thật sự trả lời đúng chủ đề câu hỏi; không liệt kê lan man các điều khoản "
-    "chỉ vì trùng từ chung (ví dụ 'mức phạt' khi câu hỏi về 'nồng độ cồn', hoặc 'model' khi câu hỏi "
-    "về danh tính AI).\n"
-    "Nếu câu hỏi hỏi danh tính trợ lý/AI/model hoặc không phải câu hỏi pháp luật: nói rõ ngoài phạm vi "
-    "tra cứu pháp lý và KHÔNG liệt kê căn cứ pháp lý.\n"
-    "Nếu Ngữ cảnh không đủ căn cứ hoặc không quy định về chủ đề câu hỏi, hãy nói rõ là chưa đủ căn cứ "
-    "và KHÔNG liệt kê căn cứ pháp lý."
+    "Bạn là trợ lý pháp lý Việt Nam của LexSocial AI. Trả lời bằng tiếng Việt, rõ ràng, trung lập, "
+    "bám pháp luật Việt Nam hiện hành (Hình sự, Hành chính, Dân sự, Thuế, Lao động…).\n"
+    "\n"
+    "## Khi có Ngữ cảnh (các dòng [số_hiệu::D…K…])\n"
+    "- Chỉ được GẮN mã Điều/Khoản/số hiệu và trích dẫn nguyên văn từ Ngữ cảnh.\n"
+    "- Không bịa số Điều/Khoản/Nghị định; không nhầm 'Nghị định' với 'Nghị quyết'.\n"
+    "- Chỉ dùng điều khoản đúng chủ đề câu hỏi; bỏ điều khoản chỉ trùng từ chung "
+    "(vd. 'thuế'/'100 triệu' khi hỏi thuế thu nhập cá nhân nhưng ngữ cảnh là thuế nhập khẩu).\n"
+    "\n"
+    "## Khi Ngữ cảnh trống hoặc lệch chủ đề\n"
+    "- VẪN phải trả lời theo nguyên tắc pháp luật Việt Nam (không được chỉ nói 'chưa đủ căn cứ' rồi dừng).\n"
+    "- Phân loại đúng lĩnh vực: hình sự / hành chính / thuế / dân sự / lao động…\n"
+    "- Ví dụ: chơi/đánh bạc trái phép → trước hết là hành vi bị cấm, có thể bị xử lý hành chính hoặc "
+    "truy cứu trách nhiệm hình sự (tội đánh bạc), mức độ có thể đến phạt tù tùy tính chất, quy mô; "
+    "câu hỏi về 'nộp thuế TNCN từ tiền cờ bạc' là thứ yếu so với rủi ro hình sự/hành chính.\n"
+    "- Không bịa số Điều/Khoản/mức tiền/thời hạn cụ thể nếu không có trong Ngữ cảnh; "
+    "nói 'theo quy định hiện hành của Bộ luật Hình sự / Luật Quản lý thuế…' ở mức nguyên tắc.\n"
+    "- Ghi rõ: phần này chưa gắn được điều khoản đã số hóa trong hệ thống; cần đối chiếu văn bản gốc; "
+    "không thay thế tư vấn luật sư.\n"
+    "\n"
+    "## Câu hỏi ngoài phạm vi\n"
+    "- Danh tính AI/model, chào hỏi xã giao: trả lời ngắn, không gắn căn cứ pháp lý.\n"
+)
+
+
+_NO_CONTEXT_SYSTEM = (
+    "Bạn là trợ lý pháp lý Việt Nam của LexSocial AI. Không có điều khoản đã số hóa kèm theo. "
+    "Hãy trả lời theo đúng nguyên tắc pháp luật Việt Nam: phân loại lĩnh vực, nêu hệ quả pháp lý chính, "
+    "cảnh báo rủi ro. Không bịa số Điều/Khoản/mức tiền cụ thể. Không kết thúc bằng câu 'chưa đủ căn cứ' "
+    "mà bỏ trống nội dung pháp lý. Luôn nhắc cần đối chiếu văn bản gốc / luật sư khi cần."
 )
 
 
@@ -295,7 +312,7 @@ def _anchor_phrases(question: str) -> list[str]:
     anchors: list[str] = []
     checks = [
         (("thue thu nhap ca nhan", "thu nhap ca nhan", "tncn"), ["thue thu nhap ca nhan", "thu nhap ca nhan", "tncn"]),
-        (("co bac", "ca cuoc", "casino", "lo de"), ["co bac", "ca cuoc", "casino", "tro choi co thuong"]),
+        (("co bac", "ca cuoc", "casino", "lo de", "danh bac"), ["co bac", "danh bac", "ca cuoc", "casino", "tro choi co thuong"]),
         (("nong do con", "cong"), ["nong do con", "vi pham nong do con"]),
         (("hoa don dien tu",), ["hoa don dien tu"]),
         (("hoan thue",), ["hoan thue"]),
@@ -505,28 +522,27 @@ async def _handle_qa(prompt: str, timeout_s: float, model: str | None = None) ->
     if not top:
         user_msg = (
             f"Câu hỏi: {question}\n\n"
-            "Không có điều khoản pháp luật đã số hóa phù hợp với chủ đề câu hỏi trong Ngữ cảnh. "
-            "Không được đoán mức tiền, điều, khoản, số luật/nghị định hoặc cơ quan có thẩm quyền nếu câu hỏi thiếu căn cứ. "
-            "Hãy trả lời theo đúng cấu trúc sau bằng tiếng Việt, ngắn gọn, dễ hiểu:\n"
-            "1) Trạng thái xác thực: nói rõ câu trả lời chưa có căn cứ pháp lý được hệ thống xác thực.\n"
-            "2) Có thể nói ở mức tham khảo: chỉ nêu nguyên tắc chung, không nêu con số cụ thể nếu không có căn cứ.\n"
-            "3) Cần bổ sung để trả lời chính xác: liệt kê thông tin cần có như loại chính sách, địa phương, thời điểm áp dụng, đối tượng hưởng, số hiệu văn bản nếu biết.\n"
-            "4) Cách tra cứu/nạp dữ liệu: đề nghị nạp hoặc chỉ rõ văn bản pháp luật liên quan.\n"
-            "Bắt buộc nói rõ: câu trả lời này chưa có căn cứ pháp lý được hệ thống xác thực, "
-            "không thay thế tư vấn pháp lý chính thức. Không bịa số điều, khoản, văn bản. "
-            "Không liệt kê mục 'Nội dung có căn cứ' và không đưa căn cứ pháp lý."
+            "Không có điều khoản đã số hóa phù hợp trong Ngữ cảnh. "
+            "Hãy trả lời theo pháp luật Việt Nam ở mức nguyên tắc (không bịa số Điều/Khoản/mức tiền cụ thể).\n"
+            "Bố cục bắt buộc:\n"
+            "1) **Kết luận ngắn:** trả lời trực tiếp 1–2 câu (vd. đánh bạc trái phép có thể bị xử lý hình sự/hành chính, "
+            "kể cả phạt tù tùy trường hợp — không chỉ nói về thuế).\n"
+            "2) **Phân tích pháp lý:** tách rõ (a) trách nhiệm hình sự/hành chính về hành vi, "
+            "(b) nghĩa vụ thuế/dân sự nếu có liên quan; nêu đúng trọng tâm câu hỏi.\n"
+            "3) **Giới hạn:** chưa gắn được điều khoản đã số hóa trong hệ thống; cần đối chiếu Bộ luật Hình sự / "
+            "văn bản hành chính / Luật Quản lý thuế… bản chính thức; không thay thế tư vấn luật sư.\n"
+            "Không khuyến khích vi phạm pháp luật. Không liệt kê mục 'Nội dung có căn cứ' với mã khoản giả."
         )
-        llm_answer = await _llm_generate(
-            "Bạn là trợ lý thông tin pháp lý tiếng Việt. Khi không có ngữ cảnh pháp lý được xác thực, "
-            "không được suy đoán điều/khoản/số văn bản/mức tiền. Ưu tiên hỏi lại thông tin còn thiếu và giải thích vì sao chưa thể kết luận.",
-            user_msg,
-            timeout_s,
-            model=model,
-        )
+        llm_answer = await _llm_generate(_NO_CONTEXT_SYSTEM, user_msg, timeout_s, model=model)
         if llm_answer:
             return {"answer": llm_answer, "citations": [], "confidence": "low"}
         return {
-            "answer": "Chưa có căn cứ pháp lý được hệ thống xác thực để trả lời. Bạn vui lòng cung cấp câu hỏi cụ thể hơn hoặc nạp văn bản pháp luật liên quan.",
+            "answer": (
+                "Theo pháp luật Việt Nam, hành vi đánh bạc/cờ bạc trái phép có thể bị xử lý hành chính hoặc "
+                "truy cứu trách nhiệm hình sự (có thể đến mức phạt tù tùy tính chất, quy mô). "
+                "Hệ thống chưa gắn được điều khoản đã số hóa cho câu hỏi này — hãy đối chiếu Bộ luật Hình sự "
+                "và văn bản hướng dẫn hiện hành, hoặc hỏi luật sư."
+            ),
             "citations": [],
             "confidence": "low",
         }
@@ -534,17 +550,17 @@ async def _handle_qa(prompt: str, timeout_s: float, model: str | None = None) ->
     user_msg = (
         f"Ngữ cảnh (các điều khoản pháp luật liên quan):\n{_context_block(top)}\n\n"
         f"Câu hỏi: {question}\n\n"
-        "Trả lời MỘT LẦN, không tách thành nhiều câu trả lời theo từng văn bản. "
-        "Chỉ dựa vào Ngữ cảnh; không dùng kiến thức ngoài, không tự thêm văn bản sửa đổi/bổ sung nếu Ngữ cảnh không nêu. "
+        "Trả lời MỘT LẦN, bám pháp luật Việt Nam.\n"
+        "- Nếu Ngữ cảnh đúng chủ đề: chỉ dựa vào Ngữ cảnh khi nêu số Điều/Khoản/số hiệu.\n"
+        "- Nếu Ngữ cảnh lệch chủ đề: BỎ qua ngữ cảnh lệch; trả lời theo nguyên tắc pháp luật Việt Nam "
+        "(không viện dẫn mã khoản lệch); ghi rõ chưa có điều khoản đã số hóa đúng chủ đề.\n"
         "Bố cục bắt buộc:\n"
-        "1) **Kết luận ngắn:** trả lời trực tiếp câu hỏi trong 1-2 câu.\n"
-        "2) **Nội dung có căn cứ:** chỉ gạch đầu dòng các ý THẬT SỰ trả lời đúng chủ đề; "
-        "mỗi ý kèm số văn bản, Điều, Khoản lấy từ mã khoản. Tối đa 1-3 ý; không liệt kê lan man. "
-        "Nếu Ngữ cảnh không quy định về chủ đề câu hỏi: bỏ mục này hoặc ghi rõ không có căn cứ phù hợp.\n"
-        "3) **Thiếu gì/giới hạn:** nếu Ngữ cảnh chưa đủ hoặc không đúng chủ đề, nói rõ thiếu căn cứ nào.\n"
-        "Nếu câu hỏi hỏi về hồ sơ/thủ tục, chỉ liệt kê giấy tờ/bước thủ tục thật sự xuất hiện trong Ngữ cảnh. "
-        "Nếu hỏi về mức tiền, thời hạn, điều kiện, xử phạt, thẩm quyền, chỉ trích đúng dữ kiện có trong Ngữ cảnh. "
-        "Không hỏi lại nếu Ngữ cảnh đủ; không kết luận chắc chắn khi Ngữ cảnh chỉ có một phần."
+        "1) **Kết luận ngắn:** trả lời trực tiếp câu hỏi trong 1–2 câu (đúng lĩnh vực: hình sự/hành chính/thuế…).\n"
+        "2) **Nội dung có căn cứ:** chỉ các ý đúng chủ đề; mỗi ý kèm số văn bản/Điều/Khoản từ mã khoản trong Ngữ cảnh. "
+        "Tối đa 1–3 ý. Nếu không có căn cứ đúng chủ đề trong Ngữ cảnh: bỏ mục này, chuyển sang phân tích nguyên tắc.\n"
+        "3) **Thiếu gì/giới hạn:** nêu thiếu điều khoản nào hoặc cần đối chiếu thêm.\n"
+        "Với câu hỏi về cờ bạc/đánh bạc: ưu tiên trách nhiệm hình sự/hành chính trước nghĩa vụ thuế. "
+        "Không hỏi lại nếu đã đủ để kết luận nguyên tắc; không kết luận mức tiền/thời hạn cụ thể nếu Ngữ cảnh không nêu."
     )
     llm_answer = await _llm_generate(_SYSTEM_PROMPT, user_msg, timeout_s, model=model)
 

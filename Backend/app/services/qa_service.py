@@ -40,7 +40,10 @@ _AMBIGUOUS_TOPIC_STOP = frozenset({
 
 _ANCHOR_TOPIC_CHECKS: list[tuple[tuple[str, ...], list[str]]] = [
     (("thue thu nhap ca nhan", "thu nhap ca nhan", "tncn"), ["thue thu nhap ca nhan", "thu nhap ca nhan", "tncn"]),
-    (("co bac", "ca cuoc", "casino", "lo de"), ["co bac", "ca cuoc", "casino", "tro choi co thuong"]),
+    (
+        ("co bac", "ca cuoc", "casino", "lo de", "danh bac"),
+        ["co bac", "danh bac", "ca cuoc", "casino", "tro choi co thuong", "danh bac trai phep"],
+    ),
     (("nong do con",), ["nong do con", "vi pham nong do con"]),
     (("hoa don dien tu",), ["hoa don dien tu"]),
     (("hoan thue",), ["hoan thue"]),
@@ -194,7 +197,10 @@ class QAService:
             ("thue thu nhap ca nhan", "thuế thu nhập cá nhân"),
             ("thu nhap ca nhan", "thu nhập cá nhân"),
             ("co bac", "cờ bạc"),
+            ("danh bac", "đánh bạc"),
             ("tncn", "TNCN"),
+            ("hinh su", "hình sự"),
+            ("xu ly hinh su", "xử lý hình sự"),
         ]
         for needle, phrase in phrase_map:
             if needle in norm and phrase not in phrases:
@@ -939,13 +945,14 @@ class QAService:
         prompt = (
             "retrieved_context:\n\n"
             f"Câu hỏi: {question}\n"
-            "Không có điều khoản pháp luật đã số hóa phù hợp. "
-            "Không được đoán mức tiền, điều, khoản, số luật/nghị định hoặc cơ quan có thẩm quyền. "
-            "Nếu câu hỏi hỏi về mức tiền, thời hạn, điều kiện hưởng, xử phạt hoặc nghĩa vụ cụ thể mà không có căn cứ, "
-            "phải nói rõ chưa thể kết luận số cụ thể. "
-            "Hãy trả lời theo cấu trúc: Trạng thái xác thực; Có thể nói ở mức tham khảo; Cần bổ sung để trả lời chính xác; Cách tra cứu/nạp dữ liệu. "
-            "Bắt buộc nêu rõ câu trả lời chưa có căn cứ pháp lý được hệ thống xác thực, "
-            "không thay thế tư vấn pháp lý chính thức. Không tạo citations."
+            "Không có điều khoản pháp luật đã số hóa phù hợp trong hệ thống.\n"
+            "Hãy trả lời theo đúng nguyên tắc pháp luật Việt Nam (không chỉ nói 'chưa đủ căn cứ' rồi dừng).\n"
+            "Bố cục: (1) Kết luận ngắn — trả lời trực tiếp; (2) Phân tích pháp lý theo lĩnh vực "
+            "(hình sự/hành chính/thuế/dân sự…); (3) Giới hạn — chưa gắn điều khoản đã số hóa, cần đối chiếu văn bản gốc.\n"
+            "Quy tắc: không bịa số Điều/Khoản/mức tiền/thời hạn cụ thể; không khuyến khích vi phạm.\n"
+            "Ví dụ định hướng: hỏi chơi cờ bạc / nộp thuế từ tiền bạc → trọng tâm là rủi ro xử lý hành chính hoặc "
+            "trách nhiệm hình sự (đánh bạc, có thể đến phạt tù tùy trường hợp); thuế TNCN chỉ là khía cạnh phụ nếu có.\n"
+            "Không tạo citations."
         )
         try:
             llm_out = await self.router.complete(
@@ -1056,18 +1063,16 @@ class QAService:
             "retrieved_context:\n"
             f"{retrieved_context}\n\n"
             f"Câu hỏi: {question}\n"
-            "Chỉ trả lời dựa trên retrieved_context ở trên. Tuyệt đối không bịa. "
-            "Xác định chủ đề chính của câu hỏi rồi chỉ dùng điều khoản thật sự trả lời đúng chủ đề đó "
-            "(không viện dẫn chỉ vì trùng 'thuế', '100 triệu', 'cá nhân', 'model'). "
-            "Nếu ngữ cảnh là thuế nhập khẩu/hải quan trong khi câu hỏi về thuế thu nhập cá nhân hoặc cờ bạc: "
-            "đó là lệch chủ đề — nói rõ chưa đủ căn cứ đúng chủ đề, citations = []. "
-            "Nếu câu hỏi hỏi về danh tính trợ lý/AI/model hoặc không phải câu hỏi pháp luật: "
-            "nói rõ ngoài phạm vi tra cứu pháp lý, trả về citations = []. "
-            "Nếu retrieved_context không chứa quy định đúng chủ đề câu hỏi: nói rõ chưa đủ căn cứ / ngữ cảnh không quy định về chủ đề đó, "
-            "và trả về citations = [] (mảng rỗng). "
-            "Khi đủ căn cứ: chỉ trích 1-3 điều khoản chuẩn nhất, mỗi ý kèm số văn bản/Điều/Khoản từ khoan_id; "
-            "không liệt kê lan man các điều khoản phụ không cần thiết. "
-            "Trả về JSON gồm: answer (string), citations (mảng {khoan_id, quote} trích nguyên văn; rỗng nếu thiếu căn cứ), "
+            "Bạn là trợ lý pháp lý Việt Nam. Trả lời chuẩn mực pháp luật Việt Nam.\n"
+            "- Chỉ gắn số hiệu/Điều/Khoản khi lấy từ retrieved_context và đúng chủ đề.\n"
+            "- Không viện dẫn chỉ vì trùng từ 'thuế', '100 triệu', 'cá nhân', 'model'.\n"
+            "- Nếu ngữ cảnh lệch chủ đề (vd. thuế nhập khẩu khi hỏi TNCN/cờ bạc): bỏ ngữ cảnh lệch; "
+            "trả lời theo nguyên tắc pháp luật Việt Nam; citations = [].\n"
+            "- Với cờ bạc/đánh bạc: ưu tiên trách nhiệm hình sự/hành chính (có thể phạt tù tùy trường hợp) "
+            "trước nghĩa vụ thuế; không kết thúc bằng 'chưa đủ căn cứ' mà không nêu hệ quả pháp lý.\n"
+            "- Khi đủ căn cứ trong ngữ cảnh: 1–3 điều khoản chuẩn nhất.\n"
+            "- Không bịa số Điều/Khoản/mức tiền nếu ngữ cảnh không có.\n"
+            "Trả về JSON: answer (string), citations (mảng {khoan_id, quote} hoặc []), "
             "confidence (high|medium|low)."
         )
         try:

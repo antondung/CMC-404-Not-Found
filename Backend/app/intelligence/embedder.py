@@ -72,6 +72,22 @@ class Embedder:
                 headers=headers,
                 json={"model": self.config.embedding_model, "input": batch},
             )
+            if response.status_code >= 400:
+                detail = (response.text or "")[:400]
+                raise ExternalServiceError(
+                    "OpenAI-compatible embedding request failed",
+                    details={
+                        "provider": "openai",
+                        "url": url,
+                        "model": self.config.embedding_model,
+                        "status_code": response.status_code,
+                        "body": detail,
+                        "hint": (
+                            "BE2_EMBEDDING_MODEL must be an embedding model id "
+                            "(e.g. text-embedding-3-small), not a chat model."
+                        ),
+                    },
+                )
             response.raise_for_status()
             data = response.json()
             items = data.get("data", [])
@@ -83,10 +99,12 @@ class Embedder:
                     details={"expected": len(batch), "actual": len(raw)},
                 )
             return TypeAdapter(list[list[float]]).validate_python(raw)
+        except ExternalServiceError:
+            raise
         except (httpx.TimeoutException, httpx.HTTPError) as exc:
             raise ExternalServiceError(
                 "OpenAI-compatible embedding request failed",
-                details={"provider": "openai", "url": url},
+                details={"provider": "openai", "url": url, "model": self.config.embedding_model},
             ) from exc
         finally:
             if close:

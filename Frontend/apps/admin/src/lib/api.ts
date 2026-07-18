@@ -56,6 +56,10 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
   return parse<T>(await fetch(`${API_BASE}${path}`, { method: 'PATCH', headers: headers(true), body: JSON.stringify(body) }));
 }
 
+export async function apiDelete<T>(path: string): Promise<T> {
+  return parse<T>(await fetch(`${API_BASE}${path}`, { method: 'DELETE', headers: headers(false) }));
+}
+
 // Multipart upload (e.g. raw legal files). Do NOT set Content-Type — the browser sets the
 // multipart boundary automatically. Auth header is still attached.
 export async function apiUpload<T>(path: string, form: FormData): Promise<T> {

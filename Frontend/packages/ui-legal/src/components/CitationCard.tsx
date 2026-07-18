@@ -1,5 +1,5 @@
 import React from 'react';
-import { Scales, ArrowSquareOut } from '@phosphor-icons/react';
+import { Scales, ArrowSquareOut, FileText, Quotes, Hash, Article, BookOpen } from '@phosphor-icons/react';
 
 interface CitationCardProps {
   khoan_id?: string;
@@ -9,35 +9,104 @@ interface CitationCardProps {
   url?: string;
 }
 
-export const CitationCard: React.FC<CitationCardProps> = ({ van_ban, dieu, quote, url }) => {
+function documentKind(text: string): string {
+  const normalized = text.toLowerCase();
+  if (normalized.includes('nghị định') || normalized.includes('/nd-cp') || normalized.includes('/nđ-cp')) return 'Nghị định';
+  if (normalized.includes('luật') || normalized.includes('/qh')) return 'Luật';
+  if (normalized.includes('thông tư') || normalized.includes('/tt-')) return 'Thông tư';
+  if (normalized.includes('quyết định') || normalized.includes('/qd-') || normalized.includes('/qđ-')) return 'Quyết định';
+  return 'Văn bản';
+}
+
+function extractDocumentNumber(khoanId: string | undefined, vanBan: string): string {
+  const fromId = khoanId?.split('::')[0]?.trim();
+  if (fromId) return fromId;
+
+  const match = vanBan.match(/\b\d+\s*\/\s*\d{4}\s*\/\s*[A-ZĐĐa-zđ\-]+\b/u);
+  return match?.[0]?.replace(/\s+/g, '') ?? vanBan;
+}
+
+function extractArticle(khoanId: string | undefined, dieu: string): string {
+  const fromId = khoanId?.match(/::D(\d+)/i)?.[1];
+  if (fromId) return `Điều ${fromId}`;
+  const fromText = dieu.match(/Điều\s*\d+/i)?.[0];
+  return fromText ?? (dieu || 'Chưa rõ điều');
+}
+
+function extractClause(khoanId: string | undefined, quote: string): string {
+  const fromId = khoanId?.match(/\.K(\d+)/i)?.[1];
+  if (fromId) return `Khoản ${fromId}`;
+  const fromQuote = quote.match(/(?:^|\s)(\d+)\s*[.)]\s+/)?.[1];
+  return fromQuote ? `Khoản ${fromQuote}` : 'Chưa rõ khoản';
+}
+
+export const CitationCard: React.FC<CitationCardProps> = ({ khoan_id, van_ban, dieu, quote, url }) => {
+  const kind = documentKind(`${van_ban} ${khoan_id ?? ''}`);
+  const documentNumber = extractDocumentNumber(khoan_id, van_ban);
+  const article = extractArticle(khoan_id, dieu);
+  const clause = extractClause(khoan_id, quote);
+
   return (
-    <div className="group bg-white rounded-xl border border-slate-200/80 shadow-sm hover:shadow-lg hover:shadow-brand/5 hover:border-brand/30 transition-all duration-300 overflow-hidden relative">
-      <div className="absolute top-0 left-0 w-1 h-full bg-brand/20 group-hover:bg-brand transition-colors duration-300"></div>
-      
-      <div className="bg-slate-50/50 px-4 sm:px-5 py-3 border-b border-slate-100 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="w-6 h-6 rounded bg-brand/10 flex items-center justify-center text-brand shrink-0">
-            <Scales size={14} weight="fill" />
+    <div className="group relative overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-xl hover:shadow-emerald-900/5">
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-500" />
+
+      <div className="px-4 pt-5 sm:px-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
+              <Scales size={20} weight="fill" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-white">{kind}</span>
+                {khoan_id && (
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-bold text-slate-500">ID: {khoan_id}</span>
+                )}
+              </div>
+              <div className="mt-2 flex items-center gap-2 text-xs font-semibold text-slate-500">
+                <FileText size={14} weight="fill" className="shrink-0 text-slate-400" />
+                <span className="line-clamp-2">{van_ban}</span>
+              </div>
+            </div>
           </div>
-          <div className="flex flex-col">
-            <span className="text-xs sm:text-sm font-bold text-slate-800 leading-tight line-clamp-1">{dieu}</span>
-            <span className="text-[10px] text-slate-500 font-medium line-clamp-1">{van_ban}</span>
-          </div>
+          {url && (
+            <a href={url} target="_blank" rel="noopener noreferrer" className="rounded-xl border border-slate-200 bg-white p-2 text-slate-400 transition-colors hover:border-emerald-200 hover:text-emerald-600" title="Mở chi tiết văn bản">
+              <ArrowSquareOut size={17} weight="bold" />
+            </a>
+          )}
         </div>
-        {url && (
-          <a href={url} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-brand transition-colors p-1" title="Mở chi tiết văn bản">
-            <ArrowSquareOut size={16} weight="bold" />
-          </a>
-        )}
       </div>
-      
-      <div className="p-4 sm:px-5 sm:py-4">
-        <div className="relative">
-          <span className="absolute -left-2 -top-1 text-2xl text-slate-200 font-serif leading-none select-none">"</span>
-          <p className="text-[13px] sm:text-sm font-medium text-slate-600 leading-relaxed pl-2 relative z-10 italic">
+
+      <div className="grid gap-2 px-4 pt-4 sm:grid-cols-3 sm:px-5">
+        <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-3">
+          <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-blue-500">
+            <BookOpen size={13} weight="fill" /> Văn bản
+          </div>
+          <div className="mt-1 text-sm font-black text-blue-950">{documentNumber}</div>
+          <div className="mt-0.5 text-[11px] font-semibold text-blue-600">{kind}</div>
+        </div>
+        <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3">
+          <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-500">
+            <Article size={13} weight="fill" /> Điều
+          </div>
+          <div className="mt-1 text-sm font-black text-emerald-950">{article}</div>
+          <div className="mt-0.5 text-[11px] font-semibold text-emerald-600">Mục trong văn bản</div>
+        </div>
+        <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-3">
+          <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-amber-500">
+            <Hash size={13} weight="fill" /> Khoản
+          </div>
+          <div className="mt-1 text-sm font-black text-amber-950">{clause}</div>
+          <div className="mt-0.5 text-[11px] font-semibold text-amber-600">Vị trí trích dẫn</div>
+        </div>
+      </div>
+
+      <div className="p-4 sm:px-5 sm:py-5">
+        <div className="relative rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
+          <Quotes size={20} weight="fill" className="mb-2 text-emerald-500" />
+          <p className="relative z-10 text-[13px] font-semibold leading-7 text-slate-700 sm:text-sm">
             {quote}
           </p>
-          <span className="absolute -right-1 bottom-0 text-2xl text-slate-200 font-serif leading-none select-none">"</span>
         </div>
       </div>
     </div>

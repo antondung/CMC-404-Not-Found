@@ -9,6 +9,8 @@ import {
 interface GraphNode { id: string; type: string; label?: string; properties?: Record<string, unknown> }
 interface GraphEdge { source: string; target: string; type: string }
 interface NeighborhoodResponse { seed_id: string; depth: number; nodes: GraphNode[]; edges: GraphEdge[] }
+interface SeedSuggestion { id: string; type: string; label: string; degree: number }
+interface SeedResponse { items: SeedSuggestion[]; total: number }
 
 interface ClarityItem { khoan_id: string; noi_dung: string; mau_thuan: number; khong_ro: number; volume: number; clarity_risk: number }
 interface ClarityResponse { min_volume: number; items: ClarityItem[]; total: number }
@@ -38,7 +40,7 @@ const NODE_ICONS: Record<string, React.FC<any>> = {
   CheTai: HandCoins,
 };
 
-type FgNode = { id: string; name: string; type: string; val: number; x?: number; y?: number };
+type FgNode = { id: string; name: string; type: string; val: number; properties?: Record<string, unknown>; x?: number; y?: number };
 type FgLink = { source: string; target: string; label: string };
 
 export default function GraphPage() {
@@ -70,6 +72,7 @@ function ExploreTab() {
   const [depth, setDepth] = useState(1);
   const [graphData, setGraphData] = useState<{ nodes: FgNode[]; links: FgLink[] }>({ nodes: [], links: [] });
   const [selectedNode, setSelectedNode] = useState<FgNode | null>(null);
+  const [seeds, setSeeds] = useState<SeedSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dims, setDims] = useState({ width: 800, height: 600 });
@@ -82,7 +85,7 @@ function ExploreTab() {
     setError(null);
     apiGet<NeighborhoodResponse>(`/admin/graph/neighborhood?seed_id=${encodeURIComponent(seedId.trim())}&depth=${d}`)
       .then((res) => {
-        const nodes: FgNode[] = (res.nodes ?? []).map((n) => ({ id: n.id, name: n.label || n.id, type: n.type, val: 5 }));
+        const nodes: FgNode[] = (res.nodes ?? []).map((n) => ({ id: n.id, name: n.label || n.id, type: n.type, val: Math.max(4, Math.min(10, 4 + (n.properties ? Object.keys(n.properties).length / 3 : 0))), properties: n.properties }));
         const links: FgLink[] = (res.edges ?? []).map((e) => ({ source: e.source, target: e.target, label: e.type }));
         setGraphData({ nodes, links });
         if (nodes.length === 0) setError('Không tìm thấy nút nào cho seed này trong đồ thị.');
@@ -91,6 +94,19 @@ function ExploreTab() {
       .catch((err) => setError(err instanceof Error ? err.message : 'Lỗi tải đồ thị'))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    apiGet<SeedResponse>('/admin/graph/seeds?limit=12')
+      .then((res) => {
+        const list = res.items ?? [];
+        setSeeds(list);
+        if (!seed && list.length > 0) {
+          setSeed(list[0].id);
+          fetchGraph(list[0].id, depth);
+        }
+      })
+      .catch(() => setSeeds([]));
+  }, [depth, fetchGraph, seed]);
 
   useEffect(() => {
     const update = () => containerRef.current && setDims({ width: containerRef.current.clientWidth, height: containerRef.current.clientHeight });
@@ -152,6 +168,21 @@ function ExploreTab() {
 
       {error && <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3 text-sm font-medium">{error}</div>}
 
+      {seeds.length > 0 && (
+        <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+          {seeds.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => { setSeed(item.id); fetchGraph(item.id, depth); }}
+              className="shrink-0 px-3 py-2 rounded-xl bg-white border border-slate-200 hover:border-primary/40 hover:bg-primary/5 transition-colors text-left min-w-[220px]"
+            >
+              <div className="text-[11px] font-bold text-primary uppercase">{item.type} · {item.degree} cạnh</div>
+              <div className="text-sm font-semibold text-slate-800 truncate">{item.label}</div>
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="flex-1 flex gap-6 min-h-[560px]">
         <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative" ref={containerRef}>
           {graphData.nodes.length > 0 ? (
@@ -210,6 +241,19 @@ function ExploreTab() {
                     <div className="text-xs font-semibold text-slate-500 mb-1">Canonical ID</div>
                     <code className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-700 font-mono break-all">{selectedNode.id}</code>
                   </div>
+                  {selectedNode.properties && Object.keys(selectedNode.properties).length > 0 && (
+                    <div>
+                      <div className="text-xs font-semibold text-slate-500 mb-2">Thuộc tính</div>
+                      <div className="space-y-1.5 text-xs">
+                        {Object.entries(selectedNode.properties).slice(0, 10).map(([key, value]) => (
+                          <div key={key} className="grid grid-cols-[88px_1fr] gap-2">
+                            <span className="font-semibold text-slate-500 truncate">{key}</span>
+                            <span className="text-slate-700 break-words">{String(value).slice(0, 180)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div>
                     <div className="text-xs font-semibold text-slate-500 mb-2">Quan hệ (Edges)</div>
                     <div className="space-y-2 text-sm">

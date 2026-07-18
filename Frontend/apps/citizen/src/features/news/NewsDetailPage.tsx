@@ -6,11 +6,12 @@ import { apiGet } from '../../lib/api';
 interface BriefDetail {
   id: string;
   tieu_de: string;
-  noidung: string;
+  noidung?: string;
+  noi_dung?: string;
   media_type: string;
   status: string;
-  published_at: string;
-  citations: { id: string; text: string }[];
+  published_at?: string;
+  citations?: { id?: string; text?: string; quote?: string; summary?: string; source?: string; source_url?: string; topic?: string; published_text?: string }[];
 }
 
 export default function NewsDetailPage() {
@@ -53,6 +54,19 @@ export default function NewsDetailPage() {
 
   if (!news) return null;
 
+  const citations = Array.isArray(news.citations) ? news.citations : [];
+  const bodyText =
+    news.noidung ||
+    news.noi_dung ||
+    citations.find((cit) => cit.summary)?.summary ||
+    citations
+      .map((cit) => {
+        const lines = [cit.quote].filter(Boolean);
+        return lines.join('\n');
+      })
+      .join('\n\n') ||
+    'Bản tin đang chờ biên tập nội dung chi tiết. Vui lòng xem căn cứ pháp lý và đường dẫn nguồn bên dưới.';
+
   return (
     <div className="min-h-screen bg-[#f8fafc] font-sans pb-20">
       <header className="bg-white/80 backdrop-blur-xl border-b border-slate-200/80 sticky top-0 z-50">
@@ -87,13 +101,13 @@ export default function NewsDetailPage() {
             )}
           </div>
 
-          <h1 className="text-3xl sm:text-4xl font-black text-slate-900 leading-tight mb-8">
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 leading-tight mb-8">
             {news.tieu_de}
           </h1>
 
-          <div className="prose prose-slate prose-lg max-w-none text-slate-800 leading-relaxed font-serif mb-12">
-            {news.noidung.split('\n').map((paragraph, idx) => (
-              <p key={idx} className="mb-4 text-justify">{paragraph}</p>
+          <div className="prose prose-slate max-w-none text-slate-800 leading-relaxed font-sans mb-12">
+            {bodyText.split('\n').map((paragraph) => paragraph.trim()).filter(Boolean).map((paragraph, idx) => (
+              <p key={idx} className="mb-4 text-base sm:text-lg text-justify">{paragraph}</p>
             ))}
           </div>
 
@@ -103,20 +117,26 @@ export default function NewsDetailPage() {
               <ShieldCheck size={24} className="text-emerald-500" weight="fill" /> Căn cứ pháp lý
             </h3>
             
-            {news.citations.length > 0 ? (
+            {citations.length > 0 ? (
               <div className="space-y-3">
-                {news.citations.map(cit => (
-                  <Link 
-                    key={cit.id} 
-                    to={`/van-ban`} // Citizen doesn't have a direct KhoanViewer yet, navigate to VanBan search
+                {citations.map((cit, idx) => (
+                  <a 
+                    key={cit.id || cit.source_url || idx} 
+                    href={cit.source_url || '/citizen/van-ban'}
+                    target={cit.source_url ? '_blank' : undefined}
+                    rel={cit.source_url ? 'noreferrer' : undefined}
                     className="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-emerald-50 hover:border-emerald-200 border border-transparent transition-colors group"
                   >
                     <div>
-                      <p className="font-bold text-slate-800 group-hover:text-emerald-700">{cit.text}</p>
-                      <p className="text-xs text-slate-500 font-mono mt-1 opacity-70">ID: {cit.id}</p>
+                      <p className="font-bold text-slate-800 group-hover:text-emerald-700">{cit.text || cit.quote || cit.source || 'Nguồn tin pháp luật'}</p>
+                      {(cit.source_url || cit.id || cit.topic) && (
+                        <p className="text-xs text-slate-500 mt-1 opacity-80">
+                          {[cit.topic && `Chủ đề: ${cit.topic}`, cit.published_text && `Công bố: ${cit.published_text}`, cit.source_url && 'Mở bài gốc'].filter(Boolean).join(' · ')}
+                        </p>
+                      )}
                     </div>
                     <CaretRight size={20} className="text-slate-400 group-hover:text-emerald-500 transition-colors" />
-                  </Link>
+                  </a>
                 ))}
               </div>
             ) : (

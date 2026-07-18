@@ -14,6 +14,7 @@ interface Brief {
   created_at?: string;
 }
 interface ListResp { items: Brief[]; total: number }
+interface SyncNewsResp { created_count?: number; skipped?: number; items_count?: number }
 
 const MEDIA_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'article', label: 'Bài viết' },
@@ -82,6 +83,17 @@ export default function BriefsPage() {
     } finally { setSaving(false); }
   };
 
+  const syncNews = async () => {
+    setSaving(true); setError(null); setNotice(null);
+    try {
+      const data = await apiPost<SyncNewsResp>('/admin/briefs/sync-news', { limit_per_topic: 5 });
+      setNotice(`Đã cập nhật tin phapluat.gov.vn: thêm ${data.created_count ?? 0}, bỏ qua ${data.skipped ?? 0}.`);
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Lỗi cập nhật tin pháp luật');
+    } finally { setSaving(false); }
+  };
+
   const save = async () => {
     if (!active) return;
     setSaving(true); setError(null); setNotice(null);
@@ -130,9 +142,14 @@ export default function BriefsPage() {
           </h1>
           <p className="text-slate-500 text-sm mt-1">Duyệt và biên tập bản tóm tắt pháp lý do AI đề xuất trước khi ban hành ra Cổng Người dân.</p>
         </div>
-        <button onClick={generate} disabled={saving} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-primary text-white hover:bg-primary-dark shadow-sm transition-colors disabled:opacity-50">
-          <Plus size={16} weight="bold" /> Tạo bản tin
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={syncNews} disabled={saving} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm transition-colors disabled:opacity-50">
+            <ArrowClockwise size={16} weight="bold" /> Cập nhật tin pháp luật
+          </button>
+          <button onClick={generate} disabled={saving} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-primary text-white hover:bg-primary-dark shadow-sm transition-colors disabled:opacity-50">
+            <Plus size={16} weight="bold" /> Tạo bản tin
+          </button>
+        </div>
       </div>
 
       {error && (

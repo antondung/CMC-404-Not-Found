@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { UploadSimple, FileText, Spinner, CheckCircle, Clock, WarningCircle, ArrowClockwise, Paperclip, X } from '@phosphor-icons/react';
-import { apiGet, apiPost, apiUpload } from '../../lib/api';
+import { UploadSimple, FileText, Spinner, CheckCircle, Clock, WarningCircle, ArrowClockwise, Paperclip, X, Trash } from '@phosphor-icons/react';
+import { apiDelete, apiGet, apiPost, apiUpload } from '../../lib/api';
 
 interface IngestResponse {
   job_id: string;
@@ -37,6 +37,9 @@ interface JobsResponse {
   summary: { total_running: number; total_failed: number; total_needs_review: number; health: string };
 }
 
+interface VanBanItem { vb_id?: string; id?: string; so_hieu?: string; ten?: string; tieu_de?: string; source_filename?: string; ngay_ban_hanh?: string | null }
+interface VanBanResponse { items: VanBanItem[]; total: number }
+
 function statusBadge(status: string) {
   const map: Record<string, { cls: string; label: string; icon: React.ReactNode }> = {
     queued: { cls: 'bg-brand/10 text-brand', label: 'Trong hàng đợi', icon: <Clock size={14} /> },
@@ -67,6 +70,9 @@ export default function IngestPage() {
 
   const [jobs, setJobs] = useState<JobItem[]>([]);
   const [jobsLoading, setJobsLoading] = useState(true);
+  const [documents, setDocuments] = useState<VanBanItem[]>([]);
+  const [documentsLoading, setDocumentsLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const loadJobs = () => {
     setJobsLoading(true);
@@ -76,9 +82,36 @@ export default function IngestPage() {
       .finally(() => setJobsLoading(false));
   };
 
+  const loadDocuments = () => {
+    setDocumentsLoading(true);
+    apiGet<VanBanResponse>('/admin/legal/van-ban')
+      .then((data) => setDocuments(data.items ?? []))
+      .catch(() => setDocuments([]))
+      .finally(() => setDocumentsLoading(false));
+  };
+
   useEffect(() => {
     loadJobs();
+    loadDocuments();
   }, []);
+
+  const deleteDocument = async (doc: VanBanItem) => {
+    const id = doc.vb_id || doc.id || doc.so_hieu;
+    if (!id || deletingId) return;
+    const label = doc.so_hieu || doc.tieu_de || doc.ten || id;
+    if (!window.confirm(`Xóa văn bản "${label}" khỏi Neo4j/Qdrant? Hành động này không hoàn tác.`)) return;
+    setDeletingId(id);
+    setError(null);
+    try {
+      await apiDelete(`/admin/legal/van-ban/${encodeURIComponent(id)}`);
+      loadDocuments();
+      loadJobs();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Lỗi khi xóa văn bản');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,6 +149,7 @@ export default function IngestPage() {
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
       loadJobs();
+      loadDocuments();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Lỗi khi gửi văn bản');
     } finally {
@@ -240,6 +274,50 @@ export default function IngestPage() {
           </div>
         )}
       </form>
+
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-bold text-slate-900">Văn bản đã số hóa</h3>
+        <button onClick={loadDocuments} className="text-sm font-bold text-slate-500 hover:text-brand flex items-center gap-1.5 transition-colors">
+          <ArrowClockwise size={16} /> Làm mới
+        </button>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm divide-y divide-slate-100 mb-10">
+        {documentsLoading ? (
+          <div className="p-8 text-center text-slate-400 font-semibold flex items-center justify-center gap-2">
+            <Spinner size={18} className="animate-spin" /> Đang tải danh sách văn bản…
+          </div>
+        ) : documents.length === 0 ? (
+          <div className="p-8 text-center text-slate-400 font-semibold">Chưa có văn bản đã số hóa.</div>
+        ) : (
+          documents.map((doc) => {
+            const id = doc.vb_id || doc.id || doc.so_hieu || '';
+            const title = doc.tieu_de || doc.ten || doc.so_hieu || id;
+            return (
+              <div key={id} className="p-5 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4 min-w-0">
+                  <div className="w-10 h-10 rounded-lg bg-brand/10 text-brand flex items-center justify-center shrink-0">
+                    <FileText size={20} weight="fill" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-bold text-slate-800 text-sm truncate">{title}</div>
+                    <div className="text-xs text-slate-400 font-medium truncate">{doc.source_filename || doc.so_hieu || id}{doc.ngay_ban_hanh ? ` · ${doc.ngay_ban_hanh}` : ''}</div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => deleteDocument(doc)}
+                  disabled={deletingId === id}
+                  className="px-3 py-2 rounded-xl text-sm font-bold text-red-600 bg-red-50 hover:bg-red-100 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {deletingId === id ? <Spinner size={16} className="animate-spin" /> : <Trash size={16} weight="bold" />}
+                  Xóa
+                </button>
+              </div>
+            );
+          })
+        )}
+      </div>
 
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-bold text-slate-900">Job số hóa gần đây</h3>

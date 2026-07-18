@@ -16,7 +16,6 @@ Env:
 from __future__ import annotations
 
 import os
-import re
 import sys
 from pathlib import Path
 
@@ -46,17 +45,63 @@ def strip_cypher_comments(text: str) -> str:
     for line in text.splitlines():
         if line.lstrip().startswith("//"):
             continue
-        # drop trailing // comments (seed files are simple)
-        if "//" in line:
-            line = line.split("//", 1)[0]
-        lines.append(line)
+        # drop trailing // comments outside string literals
+        out: list[str] = []
+        in_str = False
+        i = 0
+        while i < len(line):
+            ch = line[i]
+            if ch == "'" and not in_str:
+                in_str = True
+                out.append(ch)
+            elif ch == "'" and in_str:
+                # Cypher escapes as ''
+                if i + 1 < len(line) and line[i + 1] == "'":
+                    out.append("''")
+                    i += 1
+                else:
+                    in_str = False
+                    out.append(ch)
+            elif not in_str and ch == "/" and i + 1 < len(line) and line[i + 1] == "/":
+                break
+            else:
+                out.append(ch)
+            i += 1
+        lines.append("".join(out))
     return "\n".join(lines)
 
 
 def cypher_statements(text: str) -> list[str]:
+    """Split on ';' that are not inside single-quoted string literals."""
     cleaned = strip_cypher_comments(text)
-    parts = re.split(r";\s*", cleaned)
-    return [p.strip() for p in parts if p.strip()]
+    stmts: list[str] = []
+    buf: list[str] = []
+    in_str = False
+    i = 0
+    while i < len(cleaned):
+        ch = cleaned[i]
+        if ch == "'" and not in_str:
+            in_str = True
+            buf.append(ch)
+        elif ch == "'" and in_str:
+            if i + 1 < len(cleaned) and cleaned[i + 1] == "'":
+                buf.append("''")
+                i += 1
+            else:
+                in_str = False
+                buf.append(ch)
+        elif ch == ";" and not in_str:
+            stmt = "".join(buf).strip()
+            if stmt:
+                stmts.append(stmt)
+            buf = []
+        else:
+            buf.append(ch)
+        i += 1
+    tail = "".join(buf).strip()
+    if tail:
+        stmts.append(tail)
+    return stmts
 
 
 def run_cypher_file(session, path: Path) -> None:

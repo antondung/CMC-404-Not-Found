@@ -3,10 +3,10 @@
 # Do NOT set Build Command to `npm ci && …` — Railpack already installs
 # deps; a second `npm ci` causes EBUSY on node_modules/.vite|.cache.
 #
-# In Railway dashboard (if overriding):
-#   Install:  (leave empty — uses this file)
-#   Build:    (leave empty — uses this file)
-#   Start:    (leave empty — uses this file)
+# Vite 8 / Rolldown needs Node >= 20.12 (styleText). Pin 22.
+
+[variables]
+NIXPACKS_NODE_VERSION = "22"
 
 [phases.install]
 # Vite/tsc live in web's devDependencies — must install them even when NODE_ENV=production

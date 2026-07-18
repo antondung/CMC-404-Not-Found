@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "description": "LexSocial AI — unified web (citizen + admin)",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "npm run dev -w web",
     "build": "npm run build -w web",

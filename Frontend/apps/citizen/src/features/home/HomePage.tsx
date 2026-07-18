@@ -41,10 +41,16 @@ function Header() {
 
 function HeroSection() {
   const navigate = useNavigate();
+  const [query, setQuery] = useState('');
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    navigate('/ask');
+    const q = query.trim();
+    if (!q) {
+      navigate('/ask');
+      return;
+    }
+    navigate(`/ask?q=${encodeURIComponent(q)}`);
   };
 
   return (
@@ -88,9 +94,12 @@ function HeroSection() {
             
             <input 
               type="text" 
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
               placeholder="Ví dụ: Quy định thai sản cho lao động nam 2026?"
               className="flex-1 bg-transparent border-none text-white placeholder:text-slate-500 text-lg sm:text-xl font-medium focus:outline-none py-5 px-2 w-full"
               autoComplete="off"
+              enterKeyHint="search"
             />
             
             {/* Enter Hint */}

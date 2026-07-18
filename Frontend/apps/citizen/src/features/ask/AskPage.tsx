@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { PaperPlaneRight, User, Robot, Scales, ShieldCheck, ArrowLeft, Trash, Lightbulb, WarningCircle, CalendarBlank, ArrowSquareOut } from '@phosphor-icons/react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CitationCard } from '../../../../../packages/ui-legal/src/components/CitationCard';
 import { GraphPathBreadcrumb } from '../../../../../packages/ui-legal/src/components/GraphPathBreadcrumb';
 import { AnswerMarkdown } from '../../../../../packages/ui-legal/src/components/AnswerMarkdown';
@@ -49,20 +49,30 @@ export interface Message {
   notices?: ChangeNotice[];
 }
 
+const WELCOME_MESSAGE: Message = {
+  id: 'welcome',
+  role: 'ai',
+  content:
+    'Chào bạn, tôi là Trợ lý Pháp lý ảo của Cổng Thông tin Pháp luật. Tôi có thể giúp bạn giải đáp các quy định pháp luật hiện hành dựa trên cơ sở dữ liệu chính thức. \n\nBạn cần hỏi về vấn đề gì?',
+};
+
 export default function AskPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [asOf, setAsOf] = useState(() => new Date().toISOString().slice(0, 10));
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'welcome',
-      role: 'ai',
-      content: 'Chào bạn, tôi là Trợ lý Pháp lý ảo của Cổng Thông tin Pháp luật. Tôi có thể giúp bạn giải đáp các quy định pháp luật hiện hành dựa trên cơ sở dữ liệu chính thức. \n\nBạn cần hỏi về vấn đề gì?',
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
   const [isTypingComplete, setIsTypingComplete] = useState<Record<string, boolean>>({});
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isLoadingRef = useRef(false);
+  const asOfRef = useRef(asOf);
+  const autoSentRef = useRef(false);
+
+  useEffect(() => {
+    asOfRef.current = asOf;
+  }, [asOf]);
 
   const scrollToBottom = () => {
     const mainEl = document.querySelector('main');
@@ -75,61 +85,81 @@ export default function AskPage() {
     scrollToBottom();
   }, [messages]);
 
-  const handleSend = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    const question = input.trim();
-    if (!question || isLoading) return;
+  const sendQuestion = useCallback(async (rawQuestion: string) => {
+    const question = rawQuestion.trim();
+    if (!question || isLoadingRef.current) return;
+
+    isLoadingRef.current = true;
+    setIsLoading(true);
+    setInput('');
 
     const userMsg: Message = { id: Date.now().toString(), role: 'user', content: question };
-    setMessages(prev => [...prev, userMsg]);
-    setInput('');
-    setIsLoading(true);
-
     const typingId = (Date.now() + 1).toString();
-    setMessages(prev => [...prev, { id: typingId, role: 'ai', content: '', isTyping: true }]);
+    setMessages((prev) => [...prev, userMsg, { id: typingId, role: 'ai', content: '', isTyping: true }]);
 
+    const asOfVal = asOfRef.current;
     try {
-      const data = await apiPost<QAResponse>('/citizen/qa/ask', { question, as_of: asOf });
-      setMessages(prev => prev.map(msg =>
-        msg.id === typingId
-          ? {
-              id: typingId,
-              role: 'ai',
-              content: data.answer,
-              citations: data.citations ?? [],
-              graphPaths: data.graph_paths ?? [],
-              confidence: data.confidence,
-              asOf: data.as_of ?? asOf,
-              notices: data.notices ?? [],
-            }
-          : msg
-      ));
-      setIsTypingComplete(prev => ({ ...prev, [typingId]: true }));
+      const data = await apiPost<QAResponse>('/citizen/qa/ask', { question, as_of: asOfVal });
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === typingId
+            ? {
+                id: typingId,
+                role: 'ai',
+                content: data.answer,
+                citations: data.citations ?? [],
+                graphPaths: data.graph_paths ?? [],
+                confidence: data.confidence,
+                asOf: data.as_of ?? asOfVal,
+                notices: data.notices ?? [],
+              }
+            : msg,
+        ),
+      );
+      setIsTypingComplete((prev) => ({ ...prev, [typingId]: true }));
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Lỗi không xác định';
-      setMessages(prev => prev.map(msg =>
-        msg.id === typingId
-          ? {
-              id: typingId,
-              role: 'ai',
-              content: `Xin lỗi, hiện chưa thể kết nối tới máy chủ trợ lý pháp lý (${message}). Vui lòng thử lại sau.`,
-              confidence: 'low',
-            }
-          : msg
-      ));
-      setIsTypingComplete(prev => ({ ...prev, [typingId]: true }));
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === typingId
+            ? {
+                id: typingId,
+                role: 'ai',
+                content: `Xin lỗi, hiện chưa thể kết nối tới máy chủ trợ lý pháp lý (${message}). Vui lòng thử lại sau.`,
+                confidence: 'low',
+              }
+            : msg,
+        ),
+      );
+      setIsTypingComplete((prev) => ({ ...prev, [typingId]: true }));
     } finally {
+      isLoadingRef.current = false;
       setIsLoading(false);
     }
+  }, []);
+
+  // Home → /ask?q=... : keep the question and auto-submit once.
+  useEffect(() => {
+    const q = searchParams.get('q')?.trim();
+    if (!q || autoSentRef.current) return;
+    autoSentRef.current = true;
+    navigate('/ask', { replace: true });
+    void sendQuestion(q);
+  }, [searchParams, navigate, sendQuestion]);
+
+  const handleSend = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    await sendQuestion(input);
   };
 
   const handleSuggestion = (suggestion: string) => {
-    setInput(suggestion);
-    // Let the user click send themselves or auto-send. We will auto-send here.
-    setTimeout(() => {
-      const form = document.getElementById('chat-form') as HTMLFormElement;
-      if (form) form.requestSubmit();
-    }, 50);
+    void sendQuestion(suggestion);
+  };
+
+  const clearChat = () => {
+    setMessages([WELCOME_MESSAGE]);
+    setIsTypingComplete({});
+    setInput('');
   };
 
   return (
@@ -152,7 +182,7 @@ export default function AskPage() {
             </div>
           </div>
           <button 
-            onClick={() => setMessages([messages[0]])}
+            onClick={clearChat}
             className="flex items-center gap-2 text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all font-bold text-sm px-4 py-2 rounded-full group"
           >
             <Trash size={16} weight="bold" className="group-hover:scale-110 transition-transform" /> <span className="hidden sm:inline">Xóa hội thoại</span>

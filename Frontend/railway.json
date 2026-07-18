@@ -1,4 +1,3 @@
-# Railway service config when Root Directory = Frontend
 {
   "$schema": "https://railway.app/railway.schema.json",
   "build": {

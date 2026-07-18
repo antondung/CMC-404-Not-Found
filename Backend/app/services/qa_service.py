@@ -223,24 +223,59 @@ class QAService:
         return [c for _, c in scored]
 
     @classmethod
+    def _answer_has_legal_refs(cls, answer: str) -> bool:
+        """True when the answer already cites a số hiệu / mã khoản (partial coverage, not empty)."""
+        text = answer or ""
+        return bool(cls._KHOAN_ID_RE.search(text) or cls._SO_HIEU_RE.search(text))
+
+    @classmethod
     def _answer_says_insufficient(cls, answer: str) -> bool:
-        """True when the model admits the retrieved context does not answer the question."""
+        """True only when the model says context does NOT cover the question topic.
+
+        Do NOT treat partial-coverage caveats as insufficient, e.g.
+        "Chưa đủ căn cứ xác định toàn bộ nội dung văn bản, chỉ có trích đoạn Điều 4."
+        Those answers still have usable citations.
+        """
         norm = cls._strip_accents(answer or "")
-        markers = (
-            "chua du can cu",
-            "thieu can cu",
-            "khong du can cu",
+        if not norm:
+            return False
+
+        # Hard off-topic / no-grounds admissions.
+        hard = (
             "khong quy dinh ve",
             "khong co quy dinh ve",
+            "ngu canh khong quy dinh",
+            "ngu canh duoc cung cap khong quy dinh",
             "ngu canh khong",
-            "ngu canh duoc cung cap khong",
-            "khong lien quan",
-            "chua co can cu",
+            "khong lien quan den",
             "khong tim thay dieu khoan",
+            "chua co can cu phap ly",
             "khong du de tra loi",
-            "thieu quy dinh",
+            "khong co dieu khoan",
         )
-        return any(m in norm for m in markers)
+        if any(m in norm for m in hard):
+            # Still keep citations if the answer itself cites specific provisions
+            # (model mixed a caveat with real refs) — only wipe when no refs.
+            return not cls._answer_has_legal_refs(answer)
+
+        # Soft "chưa đủ căn cứ" only counts when there are no cited provisions
+        # and it is not a "toàn bộ / chỉ có trích đoạn" partial-coverage note.
+        soft = ("chua du can cu", "thieu can cu", "khong du can cu", "thieu quy dinh")
+        if any(m in norm for m in soft):
+            if cls._answer_has_legal_refs(answer):
+                return False
+            partial = (
+                "toan bo",
+                "trich doan",
+                "chi co",
+                "mot phan",
+                "chua du toan bo",
+                "chua du danh muc",
+            )
+            if any(p in norm for p in partial):
+                return False
+            return True
+        return False
 
     @classmethod
     def _narrow_citations(
@@ -256,6 +291,18 @@ class QAService:
             return []
         if cls._answer_says_insufficient(answer):
             return []
+
+        # Document-id questions: keep clauses from the asked văn bản (overview answers).
+        so_hieus = [cls._strip_accents(s) for s in cls._SO_HIEU_RE.findall(question or "")]
+        if so_hieus or cls._KHOAN_ID_RE.search(question or ""):
+            matched = []
+            for cit in citations:
+                kid = cls._strip_accents(str(cit.get("khoan_id") or ""))
+                if any(s and s in kid for s in so_hieus) or (cls._KHOAN_ID_RE.search(question or "") and kid):
+                    matched.append(cit)
+            if matched:
+                return matched[: max(max_n, 5)]
+            return citations[: max(max_n, 5)]
 
         answer_norm = cls._strip_accents(answer or "")
         ranked: list[tuple[float, dict[str, Any]]] = []
@@ -927,8 +974,12 @@ class QAService:
         raw_answer = str(llm_out.get("answer", "") or "")
         raw_citations = llm_out.get("citations", [])
 
-        # 3. If the model admits context does not answer the topic → keep the honest answer, no citations.
-        if self._answer_says_insufficient(raw_answer):
+        # 3. Only wipe citations when the model says context is off-topic AND cites nothing.
+        # Partial notes like "chưa đủ toàn bộ nội dung, chỉ có Điều 4" must keep citations
+        # (admin was incorrectly marking those as unverified).
+        if self._answer_says_insufficient(raw_answer) and not (
+            self._answer_has_legal_refs(raw_answer) or raw_citations
+        ):
             return {
                 "answer": raw_answer,
                 "citations": [],
@@ -947,7 +998,22 @@ class QAService:
         is_valid, validated_citations, errors = await self.validator.validate_quotes(
             raw_citations, preloaded_sources=candidates
         )
-        validated_citations = self._narrow_citations(raw_answer, validated_citations or [], question, max_n=3)
+        # Prefer LLM citations; if empty but we have retrieved candidates that the answer references, seed them.
+        if not validated_citations and candidates and self._answer_has_legal_refs(raw_answer):
+            seeded = [
+                {"khoan_id": c.khoan_id, "quote": c.noi_dung}
+                for c in candidates
+                if c.khoan_id and self._strip_accents(c.khoan_id) in self._strip_accents(raw_answer)
+            ]
+            if seeded:
+                is_valid, validated_citations, errors = await self.validator.validate_quotes(
+                    seeded, preloaded_sources=candidates
+                )
+
+        doc_q = bool(self._SO_HIEU_RE.search(question) or self._KHOAN_ID_RE.search(question))
+        validated_citations = self._narrow_citations(
+            raw_answer, validated_citations or [], question, max_n=5 if doc_q else 3
+        )
 
         # 5. Fail-Closed Strategy (exact-match + topic-relevant citation verification)
         if not is_valid or not validated_citations:

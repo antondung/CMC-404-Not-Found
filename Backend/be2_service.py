@@ -296,29 +296,58 @@ def _topic_relevance(question: str, text: str) -> float:
     return hits / max(len(tokens), 1)
 
 
+_SO_HIEU_RE = re.compile(r"\d{1,4}/\d{4}/[A-Za-zĐĐđ\-]+")
+_KHOAN_ID_RE = re.compile(r"\d{1,4}/\d{4}/[A-Za-zĐĐđ\-]+::D\d+(?:\.K\d+)?", re.IGNORECASE)
+
+
+def _answer_has_legal_refs(answer: str) -> bool:
+    text = answer or ""
+    return bool(_KHOAN_ID_RE.search(text) or _SO_HIEU_RE.search(text))
+
+
 def _answer_says_insufficient(answer: str) -> bool:
+    """True only for off-topic / no-grounds answers — not partial-coverage caveats."""
     norm = _strip_accents(answer or "")
-    markers = (
-        "chua du can cu",
-        "thieu can cu",
-        "khong du can cu",
+    if not norm:
+        return False
+    hard = (
         "khong quy dinh ve",
         "khong co quy dinh ve",
+        "ngu canh khong quy dinh",
+        "ngu canh duoc cung cap khong quy dinh",
         "ngu canh khong",
-        "ngu canh duoc cung cap khong",
-        "khong lien quan",
-        "chua co can cu",
+        "khong lien quan den",
         "khong tim thay dieu khoan",
+        "chua co can cu phap ly",
         "khong du de tra loi",
-        "thieu quy dinh",
+        "khong co dieu khoan",
     )
-    return any(m in norm for m in markers)
+    if any(m in norm for m in hard):
+        return not _answer_has_legal_refs(answer)
+    soft = ("chua du can cu", "thieu can cu", "khong du can cu", "thieu quy dinh")
+    if any(m in norm for m in soft):
+        if _answer_has_legal_refs(answer):
+            return False
+        partial = ("toan bo", "trich doan", "chi co", "mot phan", "chua du toan bo", "chua du danh muc")
+        if any(p in norm for p in partial):
+            return False
+        return True
+    return False
 
 
 def _select_context(ctx: list[tuple[str, str]], question: str) -> list[tuple[str, str]]:
     """Keep topic-relevant clauses from one coherent document; drop off-topic noise."""
     if not ctx:
         return []
+
+    # Document-id / mã khoản questions: keep all clauses from that văn bản (no topic gate).
+    if _SO_HIEU_RE.search(question or "") or _KHOAN_ID_RE.search(question or ""):
+        so = [ _strip_accents(s) for s in _SO_HIEU_RE.findall(question or "") ]
+        if so:
+            matched = [(k, t) for k, t in ctx if any(s and s in _strip_accents(k) for s in so)]
+            if matched:
+                return matched[:6]
+        return ctx[:6]
 
     # Hard gate: if the question has distinctive topic terms, keep only clauses that match them.
     terms = _question_terms(question)

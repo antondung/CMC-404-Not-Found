@@ -68,6 +68,35 @@ class QdrantVectorClient:
         await self.validate_collection(collection, len(first_vector))
         await self.client.upsert(collection_name=collection, points=points)
 
+    async def list_payload_values(self, collection: str, key: str = "khoan_id") -> set[str]:
+        """Scroll all points and collect a payload field (for resume / skip-existing)."""
+        out: set[str] = set()
+        if not hasattr(self.client, "scroll"):
+            return out
+        offset: Any = None
+        while True:
+            result = await self.client.scroll(
+                collection_name=collection,
+                limit=256,
+                offset=offset,
+                with_payload=[key],
+                with_vectors=False,
+            )
+            # qdrant-client returns (points, next_offset)
+            if isinstance(result, tuple):
+                points, offset = result
+            else:
+                points, offset = result, None
+            for point in points or []:
+                payload = getattr(point, "payload", None) or {}
+                if isinstance(payload, dict):
+                    val = payload.get(key)
+                    if val:
+                        out.add(str(val))
+            if offset is None:
+                break
+        return out
+
     async def delete_by_payload(self, collection: str, key: str, value: str) -> None:
         if not key or not value:
             return

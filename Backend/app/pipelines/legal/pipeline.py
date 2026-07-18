@@ -6,7 +6,10 @@ Keeping it in one place guarantees the sync and async paths stay identical.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
+import time
 import uuid
 from typing import Any
 
@@ -88,6 +91,9 @@ async def reindex_khoan_from_neo4j(
     embedder: Any,
     van_ban_id: str | None = None,
     batch_size: int = 8,
+    log_every: int | None = None,
+    concurrency: int | None = None,
+    skip_existing: bool = True,
 ) -> dict[str, Any]:
     """Backfill/repair Qdrant from Neo4j: embed every Khoản and upsert its vector.
 
@@ -96,12 +102,27 @@ async def reindex_khoan_from_neo4j(
     point ids are uuid5(khoan_id), so re-running overwrites rather than duplicates.
 
     Pass ``van_ban_id`` to reindex a single document, or leave None to reindex everything.
+    ``skip_existing`` (default True): chỉ embed Khoản chưa có trong Qdrant (resume).
+    ``log_every`` / env ``REINDEX_LOG_EVERY`` (default 10) controls progress spam.
+    ``concurrency`` / env ``REINDEX_CONCURRENCY`` (default 4) = parallel embed+upsert batches.
     Returns {status, total, indexed, van_ban_id}.
     """
     if not (driver and hasattr(driver, "session")):
         return {"status": "error", "message": "neo4j_unavailable", "total": 0, "indexed": 0}
     if not (qdrant and embedder):
         return {"status": "error", "message": "qdrant_or_embedder_unavailable", "total": 0, "indexed": 0}
+
+    if log_every is None:
+        try:
+            log_every = max(1, int(os.getenv("REINDEX_LOG_EVERY", "10")))
+        except ValueError:
+            log_every = 10
+    if concurrency is None:
+        try:
+            concurrency = max(1, int(os.getenv("REINDEX_CONCURRENCY", "4")))
+        except ValueError:
+            concurrency = 4
+    concurrency = max(1, min(int(concurrency), 32))
 
     where = "WHERE v.vb_id = $vb_id" if van_ban_id else ""
     query = f"""
@@ -111,97 +132,207 @@ async def reindex_khoan_from_neo4j(
            d.so AS dieu_so, coalesce(k.visibility, v.visibility, 'public') AS visibility,
            v.so_hieu AS so_hieu
     """
+    print("reindex: dang tai danh sach Khoan tu Neo4j...", flush=True)
     rows: list[dict[str, Any]] = []
     async with driver.session() as session:
         res = await session.run(query, vb_id=van_ban_id) if van_ban_id else await session.run(query)
         async for record in res:
             rows.append(dict(record))
+            if len(rows) % 5000 == 0:
+                print(f"reindex: da doc {len(rows)} rows tu Neo4j...", flush=True)
 
-    entries = [r for r in rows if (r.get("noi_dung") or "").strip()]
+    entries = [r for r in rows if (r.get("noi_dung") or "").strip() and r.get("khoan_id")]
     total = len(rows)
-    indexed = 0
-    last_error: str | None = None
-    for start in range(0, len(entries), batch_size):
-        batch = entries[start : start + batch_size]
-        try:
-            vectors = await embedder.embed_texts([r["noi_dung"].strip() for r in batch])
-        except Exception as exc:  # noqa: BLE001
-            last_error = f"embed: {exc}"
-            details = getattr(exc, "details", None)
-            if details:
-                last_error = f"embed: {exc} | {details}"
-            logger.warning("reindex: embedding batch failed: %s", last_error)
-            msg = str(exc).lower()
-            # Hard-stop on billing / auth / dim mismatch — retrying 130k rows is pointless.
-            if any(
-                k in msg
-                for k in (
-                    "tokens limit",
-                    "credit",
-                    "402",
-                    "401",
-                    "no credentials",
-                    "invalid api key",
-                    "insufficient",
-                    "dimension mismatch",
-                )
-            ):
-                return {
-                    "status": "error",
-                    "van_ban_id": van_ban_id,
-                    "total": total,
-                    "indexed": indexed,
-                    "message": (
-                        f"Dừng reindex sớm vì lỗi embedding/Qdrant: {exc}. "
-                        f"Đã index {indexed}/{total}."
-                    ),
-                }
-            continue
-        points = []
-        for r, vector in zip(batch, vectors):
-            text = r["noi_dung"].strip()
-            points.append(
-                {
-                    "id": str(uuid.uuid5(_KHOAN_POINT_NAMESPACE, r["khoan_id"])),
-                    "vector": vector,
-                    "payload": {
-                        "khoan_id": r["khoan_id"],
-                        "van_ban_id": r.get("van_ban_id"),
-                        "dieu": r.get("dieu_so", ""),
-                        "noi_dung": text,
-                        "text_preview": text[:200],
-                        "visibility": r.get("visibility", "public"),
-                        "so_hieu": r.get("so_hieu", ""),
-                    },
-                }
-            )
-        try:
-            await qdrant.upsert("khoan", points)
-            indexed += len(points)
-        except Exception as exc:  # noqa: BLE001
-            last_error = f"qdrant: {exc}"
-            logger.warning("reindex: qdrant upsert failed: %s", exc)
-            if "dimension mismatch" in str(exc).lower():
-                return {
-                    "status": "error",
-                    "van_ban_id": van_ban_id,
-                    "total": total,
-                    "indexed": indexed,
-                    "message": (
-                        f"Dừng sớm — Qdrant dim không khớp embedding: {exc}. "
-                        f"Chạy lại với --recreate-khoan và BE2_EMBEDDING_DIMENSION đúng. "
-                        f"Đã index {indexed}/{total}."
-                    ),
-                }
+    usable = len(entries)
+    skipped_existing = 0
+    if skip_existing and hasattr(qdrant, "list_payload_values"):
+        print("reindex: dang quet Qdrant de bo qua Khoan da index...", flush=True)
+        existing = await qdrant.list_payload_values("khoan", "khoan_id")
+        before = len(entries)
+        entries = [r for r in entries if str(r["khoan_id"]) not in existing]
+        skipped_existing = before - len(entries)
+        print(
+            f"reindex: Qdrant da co {len(existing)} khoan_id — skip {skipped_existing}, "
+            f"con lai {len(entries)} can embed",
+            flush=True,
+        )
+    elif skip_existing:
+        print("reindex: WARN skip_existing bat nhung Qdrant client khong co list_payload_values", flush=True)
 
-    msg = f"Đã reindex {indexed}/{total} Khoản từ Neo4j vào Qdrant."
-    if indexed < total and last_error:
-        msg += f" (lỗi gần nhất: {last_error})"
+    todo = len(entries)
+    print(
+        f"reindex: Neo4j xong — total={total} usable={usable} todo={todo} "
+        f"skip_existing={skipped_existing} batch_size={batch_size} "
+        f"concurrency={concurrency} log_every={log_every}",
+        flush=True,
+    )
+    if todo == 0:
+        msg = f"Khong con Khoan nao can embed (skip_existing={skipped_existing}/{usable})."
+        print(f"reindex: DONE — {msg}", flush=True)
+        return {
+            "status": "success",
+            "van_ban_id": van_ban_id,
+            "total": total,
+            "usable": usable,
+            "todo": 0,
+            "skipped_existing": skipped_existing,
+            "indexed": 0,
+            "message": msg,
+        }
+
+    indexed = 0
+    failed_batches = 0
+    last_error: str | None = None
+    fatal_error: str | None = None
+    t0 = time.perf_counter()
+    last_log_at = 0
+    lock = asyncio.Lock()
+    sem = asyncio.Semaphore(concurrency)
+
+    def _progress_unlocked(force: bool = False, last_id: str = "") -> None:
+        nonlocal last_log_at
+        if not force and indexed - last_log_at < log_every and indexed < todo:
+            return
+        last_log_at = indexed
+        elapsed = max(time.perf_counter() - t0, 1e-6)
+        rate = indexed / elapsed
+        pct = (100.0 * indexed / todo) if todo else 100.0
+        remain = max(todo - indexed, 0)
+        eta_s = int(remain / rate) if rate > 0 else 0
+        eta_m, eta_sec = divmod(eta_s, 60)
+        eta_h, eta_m = divmod(eta_m, 60)
+        eta = f"{eta_h}h{eta_m:02d}m" if eta_h else f"{eta_m}m{eta_sec:02d}s"
+        line = (
+            f"reindex: {indexed}/{todo} ({pct:5.1f}%) | "
+            f"{rate:.1f} khoan/s | ETA {eta} | fail_batches={failed_batches} | c={concurrency}"
+            f" | skipped_existing={skipped_existing}"
+        )
+        if last_id:
+            line += f" | last={last_id}"
+        print(line, flush=True)
+        logger.info(line)
+
+    def _is_fatal(msg: str) -> bool:
+        return any(
+            k in msg
+            for k in (
+                "tokens limit",
+                "credit",
+                "402",
+                "401",
+                "no credentials",
+                "invalid api key",
+                "insufficient",
+                "dimension mismatch",
+            )
+        )
+
+    async def _process_batch(start: int, batch: list[dict[str, Any]]) -> None:
+        nonlocal indexed, failed_batches, last_error, fatal_error
+        if fatal_error:
+            return
+        async with sem:
+            if fatal_error:
+                return
+            try:
+                vectors = await embedder.embed_texts([r["noi_dung"].strip() for r in batch])
+            except Exception as exc:  # noqa: BLE001
+                err = f"embed: {exc}"
+                details = getattr(exc, "details", None)
+                if details:
+                    err = f"embed: {exc} | {details}"
+                async with lock:
+                    failed_batches += 1
+                    last_error = err
+                    if _is_fatal(str(exc).lower()):
+                        fatal_error = err
+                print(f"reindex: EMBED FAIL batch@{start}: {err}", flush=True)
+                return
+
+            points = []
+            for r, vector in zip(batch, vectors):
+                text = r["noi_dung"].strip()
+                points.append(
+                    {
+                        "id": str(uuid.uuid5(_KHOAN_POINT_NAMESPACE, r["khoan_id"])),
+                        "vector": vector,
+                        "payload": {
+                            "khoan_id": r["khoan_id"],
+                            "van_ban_id": r.get("van_ban_id"),
+                            "dieu": r.get("dieu_so", ""),
+                            "noi_dung": text,
+                            "text_preview": text[:200],
+                            "visibility": r.get("visibility", "public"),
+                            "so_hieu": r.get("so_hieu", ""),
+                        },
+                    }
+                )
+            try:
+                await qdrant.upsert("khoan", points)
+                async with lock:
+                    indexed += len(points)
+                    _progress_unlocked(last_id=str(batch[-1].get("khoan_id") or ""))
+            except Exception as exc:  # noqa: BLE001
+                err = f"qdrant: {exc}"
+                async with lock:
+                    failed_batches += 1
+                    last_error = err
+                    if "dimension mismatch" in str(exc).lower():
+                        fatal_error = err
+                print(f"reindex: QDRANT FAIL batch@{start}: {exc}", flush=True)
+
+    batches = [
+        (start, entries[start : start + batch_size])
+        for start in range(0, len(entries), batch_size)
+    ]
+    # Schedule in waves so we don't create 20k Task objects at once.
+    wave = max(concurrency * 8, 32)
+    for wave_start in range(0, len(batches), wave):
+        if fatal_error:
+            break
+        chunk = batches[wave_start : wave_start + wave]
+        await asyncio.gather(*[_process_batch(s, b) for s, b in chunk])
+
+    _progress_unlocked(force=True)
+    elapsed = time.perf_counter() - t0
+    if fatal_error:
+        msg = (
+            f"Dung reindex som: {fatal_error}. "
+            f"Da index {indexed}/{todo} (skipped_existing={skipped_existing})."
+        )
+        print(f"reindex: STOP — {msg}", flush=True)
+        return {
+            "status": "error",
+            "van_ban_id": van_ban_id,
+            "total": total,
+            "usable": usable,
+            "todo": todo,
+            "skipped_existing": skipped_existing,
+            "indexed": indexed,
+            "failed_batches": failed_batches,
+            "elapsed_s": round(elapsed, 1),
+            "last_error": fatal_error,
+            "message": msg,
+        }
+
+    msg = (
+        f"Da reindex {indexed}/{todo} todo "
+        f"(usable={usable}, skipped_existing={skipped_existing}, neo4j_rows={total}) "
+        f"trong {elapsed:.0f}s — fail_batches={failed_batches} concurrency={concurrency}."
+    )
+    if indexed < todo and last_error:
+        msg += f" (loi gan nhat: {last_error})"
+    print(f"reindex: DONE — {msg}", flush=True)
     return {
-        "status": "success" if indexed > 0 else "error",
+        "status": "success" if indexed > 0 or skipped_existing > 0 else "error",
         "van_ban_id": van_ban_id,
         "total": total,
+        "usable": usable,
+        "todo": todo,
+        "skipped_existing": skipped_existing,
         "indexed": indexed,
+        "failed_batches": failed_batches,
+        "elapsed_s": round(elapsed, 1),
         "last_error": last_error,
         "message": msg,
     }

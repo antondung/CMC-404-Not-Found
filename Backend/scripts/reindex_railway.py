@@ -235,6 +235,9 @@ async def main_async(
     batch_size: int,
     dry_run: bool,
     recreate_khoan: bool,
+    log_every: int = 10,
+    concurrency: int = 4,
+    skip_existing: bool = True,
 ) -> int:
     from app.api.deps import get_embedder, get_neo4j_driver, get_qdrant_client
     from app.config import get_config
@@ -249,7 +252,10 @@ async def main_async(
     print(f"  Model     {os.environ.get('BE2_EMBEDDING_MODEL')} dim={os.environ.get('BE2_EMBEDDING_DIMENSION')}")
     print(f"  filter    {van_ban_id or '(all)'}")
     print(f"  batch     {batch_size}")
+    print(f"  concur    {concurrency}")
+    print(f"  skip_ex   {skip_existing}")
     print(f"  recreate  {recreate_khoan}")
+    print(f"  log_every {log_every}")
 
     driver = await get_neo4j_driver()
     resolved = await _resolve_van_ban_id(driver, van_ban_id)
@@ -299,9 +305,15 @@ async def main_async(
         embedder,
         van_ban_id=resolved,
         batch_size=batch_size,
+        log_every=log_every,
+        concurrency=concurrency,
+        skip_existing=skip_existing and not recreate_khoan,
     )
     print(result)
-    ok = result.get("status") == "success" and int(result.get("indexed") or 0) > 0
+    ok = (
+        result.get("status") == "success"
+        and (int(result.get("indexed") or 0) > 0 or int(result.get("skipped_existing") or 0) > 0)
+    )
     if ok:
         print(
             "\nNhớ set trên Railway (API + Worker): "
@@ -314,20 +326,45 @@ async def main_async(
 def main() -> int:
     ap = argparse.ArgumentParser(description="Reindex Railway Qdrant from Neo4j via public proxies.")
     ap.add_argument("--van-ban-id", default=None, help="Chỉ 1 văn bản (vb_id hoặc so_hieu)")
-    ap.add_argument("--batch-size", type=int, default=1, help="Số Khoản / lần gọi embed (default 1)")
+    ap.add_argument("--batch-size", type=int, default=32, help="Số Khoản / request embed (GPU local: 16–64)")
+    ap.add_argument(
+        "--concurrency",
+        type=int,
+        default=4,
+        help="Số batch embed song song (GPU local: 4–8; Ollama set OLLAMA_NUM_PARALLEL)",
+    )
     ap.add_argument("--dry-run", action="store_true", help="Chỉ đếm Khoản, không ghi Qdrant")
     ap.add_argument(
         "--recreate-khoan",
         action="store_true",
         help="XÓA collection khoan rồi tạo lại đúng dim embedding (bắt buộc khi đổi 1536↔3072)",
     )
+    ap.add_argument(
+        "--force",
+        action="store_true",
+        help="Embed lại tất cả (không skip Khoản đã có trong Qdrant)",
+    )
     ap.add_argument("--yes", action="store_true", help="Bỏ qua xác nhận")
+    ap.add_argument(
+        "--log-every",
+        type=int,
+        default=10,
+        help="In progress mỗi N Khoản đã index (default 10; spam hơn thì 1)",
+    )
     args = ap.parse_args()
 
-    if args.batch_size < 1 or args.batch_size > 64:
-        raise SystemExit("--batch-size must be 1..64")
+    if args.batch_size < 1 or args.batch_size > 128:
+        raise SystemExit("--batch-size must be 1..128")
+    if args.concurrency < 1 or args.concurrency > 32:
+        raise SystemExit("--concurrency must be 1..32")
+    if args.log_every < 1:
+        raise SystemExit("--log-every must be >= 1")
 
     _apply_railway_env()
+    os.environ["REINDEX_LOG_EVERY"] = str(args.log_every)
+    os.environ["REINDEX_CONCURRENCY"] = str(args.concurrency)
+    # Match embedder internal chunking to CLI batch for fewer round-trips.
+    os.environ["BE2_EMBEDDING_BATCH_SIZE"] = str(args.batch_size)
 
     if not args.dry_run and not args.yes:
         scope = args.van_ban_id or "ALL"
@@ -346,6 +383,9 @@ def main() -> int:
                 batch_size=args.batch_size,
                 dry_run=args.dry_run,
                 recreate_khoan=args.recreate_khoan,
+                log_every=args.log_every,
+                concurrency=args.concurrency,
+                skip_existing=not args.force,
             )
         )
     except KeyboardInterrupt:

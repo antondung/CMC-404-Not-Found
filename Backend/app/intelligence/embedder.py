@@ -70,6 +70,7 @@ class Embedder:
         # ``model`` is ignored (kept for call-site compatibility with older tests).
         self._model = model
         self._http = http_client
+        self._owned_http: httpx.AsyncClient | None = None
         self._dimension: int | None = self.config.embedding_dimension
         provider = (self.config.embedding_provider or "openai").lower()
         if provider != "openai":
@@ -78,6 +79,23 @@ class Embedder:
                 "Set BE2_EMBEDDING_PROVIDER=openai and BE2_EMBEDDING_BASE_URL to a /v1 endpoint.",
                 details={"provider": provider},
             )
+
+    def _http_client(self) -> httpx.AsyncClient:
+        """Reuse one client (connection pool) — critical when reindex runs concurrent batches."""
+        if self._http is not None:
+            return self._http
+        if self._owned_http is None:
+            timeout = httpx.Timeout(self.config.embedding_timeout_s, connect=15.0)
+            self._owned_http = httpx.AsyncClient(
+                timeout=timeout,
+                limits=httpx.Limits(max_connections=64, max_keepalive_connections=32),
+            )
+        return self._owned_http
+
+    async def aclose(self) -> None:
+        if self._owned_http is not None:
+            await self._owned_http.aclose()
+            self._owned_http = None
 
     async def embed_texts(self, texts: list[str]) -> list[list[float]]:
         if not texts:
@@ -120,8 +138,7 @@ class Embedder:
             raise
 
     async def _embed_openai_once(self, batch: list[str]) -> list[list[float]]:
-        client = self._http or httpx.AsyncClient(timeout=self.config.embedding_timeout_s)
-        close = self._http is None
+        client = self._http_client()
         headers = {"Content-Type": "application/json"}
         if self.config.embedding_api_key:
             headers["Authorization"] = f"Bearer {self.config.embedding_api_key}"
@@ -194,9 +211,6 @@ class Embedder:
                 "OpenAI-compatible embedding request failed",
                 details={"provider": "openai", "url": url, "model": self.config.embedding_model},
             ) from exc
-        finally:
-            if close:
-                await client.aclose()
 
     def _validate_vectors(self, vectors: list[list[float]], expected_count: int) -> None:
         if len(vectors) != expected_count:

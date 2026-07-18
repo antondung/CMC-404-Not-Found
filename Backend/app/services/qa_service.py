@@ -850,10 +850,14 @@ class QAService:
                 label = getattr(raw_label, "value", raw_label)
                 needs_review = bool(res.get("needs_review"))
                 if label == "mau_thuan":
-                    # Low-confidence contradiction still blocks (safer than treating as clear).
-                    saw_contra = True
-                    if not needs_review or float(res.get("score") or 0) >= 0.45:
+                    score = float(res.get("score") or 0)
+                    model = str(res.get("model") or "")
+                    # Hard-block only on decisive signals (numeric mismatch or confident model).
+                    # Soft/heuristic "near contradiction" → unsupported, not opaque refuse.
+                    if "numeric" in model or (not needs_review and score >= 0.7):
                         return "contradiction", claim
+                    if score >= 0.85:
+                        saw_contra = True
                 if label == "khop" and not needs_review:
                     saw_support = True
             if saw_contra and not saw_support:
@@ -1567,17 +1571,19 @@ class QAService:
                     raw_answer, validated_citations or [], question, max_n=5
                 )
         if not is_valid or not validated_citations:
-            if raw_citations:
-                return {
-                    "answer": "Không đủ căn cứ hoặc trích dẫn pháp lý không khớp nguyên văn để trả lời an toàn câu hỏi này.",
-                    "citations": [],
-                    "confidence": "low",
-                    "graph_paths": [],
-                    "graph_paths_status": "not_requested",
-                    "graph_paths_reason": "No valid citations after verification",
-                    "audience": audience,
-                    "refuse_reason": errors or ["All citations failed exact-match or topic-relevance verification."],
-                }
+            # Prefer corpus-grounded summary / unverified answer over opaque refuse.
+            if candidates and (doc_q or overview_q):
+                return self._grounded_doc_answer(
+                    question=question,
+                    candidates=candidates,
+                    audience=audience,
+                    as_of=as_of_val,
+                    notices=notices,
+                    reason=(
+                        "LLM citations failed verification; used grounded doc summary. "
+                        + "; ".join(errors[:3])
+                    ).strip(),
+                )
             if raw_answer.strip():
                 return {
                     "answer": raw_answer,
@@ -1600,12 +1606,23 @@ class QAService:
                 "graph_paths_status": "not_requested",
                 "graph_paths_reason": "No valid citations after verification",
                 "audience": audience,
+                "refused": True,
                 "refuse_reason": errors or ["All citations failed exact-match or topic-relevance verification."],
             }
 
         # 6. Entailment check (local heuristic — cheap; catches contradicting answers).
         faith = await self._verify_faithfulness(raw_answer, validated_citations, candidates)
         if faith["contradiction"]:
+            # Document overview: show retrieved clauses instead of a blank refuse wall.
+            if candidates and (doc_q or overview_q):
+                return self._grounded_doc_answer(
+                    question=question,
+                    candidates=candidates,
+                    audience=audience,
+                    as_of=as_of_val,
+                    notices=notices,
+                    reason="LLM answer contradicted citations (NLI); used grounded doc summary.",
+                )
             return {
                 "answer": "Câu trả lời mâu thuẫn với chính căn cứ pháp lý được trích dẫn, nên đã bị hệ thống từ chối để bảo đảm an toàn.",
                 "citations": [],
@@ -1615,6 +1632,7 @@ class QAService:
                 "graph_paths_reason": "Refused due to contradiction",
                 "audience": audience,
                 "citation_faithfulness": faith["score"],
+                "refused": True,
                 "refuse_reason": ["Citation contradicts the answer (NLI mâu thuẫn)."],
             }
 

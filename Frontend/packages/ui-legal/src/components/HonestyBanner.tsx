@@ -3,6 +3,7 @@ import { WarningCircle, ShieldCheck } from '@phosphor-icons/react';
 type HonestyBannerProps = {
   unverified?: boolean;
   degraded?: boolean;
+  refused?: boolean;
   confidence?: 'high' | 'medium' | 'low';
   citationCount?: number;
   className?: string;
@@ -14,11 +15,28 @@ type HonestyBannerProps = {
 export function HonestyBanner({
   unverified,
   degraded,
+  refused,
   confidence,
   citationCount = 0,
   className = '',
 }: HonestyBannerProps) {
-  const showUnverified = Boolean(unverified) || (citationCount === 0 && confidence === 'low');
+  // Safety refuse ≠ "principle guidance" — show a distinct message.
+  if (refused) {
+    return (
+      <div
+        className={`mt-3 flex gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-rose-950 ${className}`.trim()}
+        role="status"
+      >
+        <WarningCircle size={18} weight="fill" className="mt-0.5 shrink-0 text-rose-600" aria-hidden />
+        <p className="text-xs font-semibold leading-relaxed sm:text-sm">
+          Hệ thống đã từ chối câu trả lời vì trích dẫn không khớp hoặc mâu thuẫn với căn cứ đã kiểm chứng.
+          Hãy hỏi lại với số hiệu văn bản cụ thể hoặc thu hẹp câu hỏi.
+        </p>
+      </div>
+    );
+  }
+
+  const showUnverified = Boolean(unverified);
   if (!showUnverified && confidence !== 'low' && !degraded) {
     return null;
   }
@@ -48,6 +66,16 @@ export function HonestyBanner({
         <p className="text-xs font-semibold leading-relaxed sm:text-sm">
           Chế độ dự phòng: câu trả lời có thể thiếu một phần kiểm chứng tự động.
         </p>
+      </div>
+    );
+  }
+
+  if (confidence === 'low' && citationCount === 0) {
+    return (
+      <div
+        className={`mt-3 inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-600 ${className}`.trim()}
+      >
+        <ShieldCheck size={14} weight="bold" aria-hidden /> Độ tin cậy: thấp
       </div>
     );
   }

@@ -34,6 +34,7 @@ interface QAResponse {
   notices?: ChangeNotice[];
   unverified?: boolean;
   degraded?: boolean;
+  refused?: boolean;
   cached?: boolean;
 }
 
@@ -65,6 +66,7 @@ export interface Message {
   notices?: ChangeNotice[];
   unverified?: boolean;
   degraded?: boolean;
+  refused?: boolean;
   progressHint?: string;
 }
 
@@ -167,8 +169,9 @@ export default function AskPage() {
                 confidence: data.confidence,
                 asOf: data.as_of ?? asOfVal,
                 notices: data.notices ?? [],
-                unverified: Boolean(data.unverified) || (!(data.citations?.length) && data.confidence === 'low'),
+                unverified: Boolean(data.unverified),
                 degraded: Boolean(data.degraded),
+                refused: Boolean(data.refused),
               }
             : msg,
         ),
@@ -315,6 +318,7 @@ export default function AskPage() {
                         <HonestyBanner
                           unverified={msg.unverified}
                           degraded={msg.degraded}
+                          refused={msg.refused}
                           confidence={msg.confidence}
                           citationCount={msg.citations?.length ?? 0}
                         />

@@ -33,6 +33,7 @@ type PanelMsg = {
   confidence?: 'high' | 'medium' | 'low';
   unverified?: boolean;
   degraded?: boolean;
+  refused?: boolean;
   progressHint?: string;
 };
 
@@ -118,8 +119,9 @@ export function CitizenChatBubble() {
                 content: answer,
                 citations,
                 confidence: data.confidence,
-                unverified: Boolean(data.unverified) || (!citations.length && data.confidence === 'low'),
+                unverified: Boolean(data.unverified),
                 degraded: Boolean(data.degraded),
+                refused: Boolean(data.refused),
               }
             : msg,
         ),
@@ -213,6 +215,7 @@ export function CitizenChatBubble() {
                       <HonestyBanner
                         unverified={msg.unverified}
                         degraded={msg.degraded}
+                        refused={msg.refused}
                         confidence={msg.confidence}
                         citationCount={msg.citations?.length ?? 0}
                       />

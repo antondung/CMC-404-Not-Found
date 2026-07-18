@@ -22,8 +22,13 @@ LABEL_MAP = {
     "khong_ro": NliLabel.KHONG_RO,
 }
 
+# Only money/% amounts — NOT bare digits (Điều 5, năm 2020, số hiệu…).
 _AMOUNT_RE = re.compile(
-    r"(?<!\d)(\d{1,3}(?:[.,]\d{3})+|\d+)(?:\s*(?:triệu|trieu|tỷ|ty|nghìn|nghin|%|đồng|dong))?",
+    r"(?<!\d)("
+    r"\d{1,3}(?:[.,]\d{3})+(?:\s*(?:triệu|trieu|tỷ|ty|nghìn|nghin|%|đồng|dong))?"
+    r"|"
+    r"\d+\s*(?:triệu|trieu|tỷ|ty|nghìn|nghin|%|đồng|dong)"
+    r")",
     re.IGNORECASE,
 )
 
@@ -205,12 +210,16 @@ def _tokens(text: str) -> list[str]:
 
 
 def _has_negation(text: str) -> bool:
+    """True when the claim *denies* the premise — not legal prohibitions like «không được»."""
     lowered = text.lower()
     return any(
         marker in lowered
         for marker in (
-            "khong dung", "không đúng", "khong phai", "không phải",
-            "trai voi", "trái với", "khong duoc", "không được",
+            "khong dung", "không đúng",
+            "khong phai", "không phải",
+            "trai voi", "trái với",
+            "mau thuan", "mâu thuẫn",
+            "sai voi", "sai với",
         )
     )
 

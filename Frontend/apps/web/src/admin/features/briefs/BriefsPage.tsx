@@ -185,32 +185,39 @@ export default function BriefsPage() {
     if (!q) return;
     setSearching(true); setError(null); setKhoanHits([]); setPickedDoc(null);
     try {
-      // Prefer exact so_hieu / vb_id lookup; fall back to filtering the recent list.
-      try {
-        const detail = await apiGet<VanBanHit & { tree?: KhoanHit[] }>(
-          `/admin/legal/van-ban/${encodeURIComponent(q)}`,
-        );
-        setDocHits([{
-          vb_id: detail.vb_id ?? detail.id ?? q,
-          so_hieu: detail.so_hieu ?? q,
-          ten: detail.ten,
-        }]);
-        const tree = Array.isArray(detail.tree) ? detail.tree : [];
-        if (tree.length) {
-          setKhoanHits(tree.slice(0, 40));
-          setPickedDoc(detail.so_hieu ?? detail.vb_id ?? q);
+      // Always list+filter first (stable). Exact lookup is optional and never blocks the UI.
+      const list = await apiGet<{ items: VanBanHit[] } | VanBanHit[]>('/admin/legal/van-ban');
+      const items = Array.isArray(list) ? list : (list.items ?? []);
+      const ql = q.toLowerCase();
+      const filtered = items
+        .filter((d) =>
+          [d.so_hieu, d.ten, d.vb_id, d.id].some((x) => String(x ?? '').toLowerCase().includes(ql)),
+        )
+        .slice(0, 20);
+      setDocHits(filtered);
+
+      // If query looks like a full so_hieu / vb_id, try loading khoản tree via query-param lookup.
+      if (q.includes('/') || filtered.length === 1) {
+        const key = filtered[0]?.vb_id || filtered[0]?.id || q;
+        try {
+          const detail = await apiGet<VanBanHit & { tree?: KhoanHit[]; so_hieu?: string }>(
+            `/admin/legal/van-ban/lookup?q=${encodeURIComponent(key)}`,
+          );
+          if (!filtered.length) {
+            setDocHits([{
+              vb_id: detail.vb_id ?? detail.id ?? key,
+              so_hieu: detail.so_hieu ?? q,
+              ten: detail.ten,
+            }]);
+          }
+          const tree = Array.isArray(detail.tree) ? detail.tree : [];
+          if (tree.length) {
+            setKhoanHits(tree.slice(0, 40));
+            setPickedDoc(detail.so_hieu ?? filtered[0]?.so_hieu ?? q);
+          }
+        } catch {
+          // Lookup may 404 on older API — keep list results; user can still attach so_hieu.
         }
-      } catch {
-        const list = await apiGet<{ items: VanBanHit[] } | VanBanHit[]>('/admin/legal/van-ban');
-        const items = Array.isArray(list) ? list : (list.items ?? []);
-        const ql = q.toLowerCase();
-        setDocHits(
-          items
-            .filter((d) =>
-              [d.so_hieu, d.ten, d.vb_id, d.id].some((x) => String(x ?? '').toLowerCase().includes(ql)),
-            )
-            .slice(0, 12),
-        );
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Không tìm được văn bản');
@@ -220,18 +227,38 @@ export default function BriefsPage() {
     }
   };
 
+  const addDocCitation = (doc: VanBanHit) => {
+    const label = doc.so_hieu || doc.vb_id || doc.id;
+    if (!label) return;
+    if (editCitations.some((c) => (c.khoan_id ?? c.van_ban ?? c.id) === label)) {
+      setNotice(`Đã có căn cứ ${label}.`);
+      return;
+    }
+    setEditCitations((prev) => [
+      ...prev,
+      { khoan_id: label, van_ban: doc.so_hieu || label, quote: doc.ten || '', text: doc.ten || label },
+    ]);
+    setPickedDoc(doc.so_hieu || label);
+    setNotice(`Đã đính kèm ${label}. Bấm Lưu để ghi lại.`);
+  };
+
   const loadKhoans = async (doc: VanBanHit) => {
-    const key = doc.so_hieu || doc.vb_id || doc.id;
-    if (!key) return;
-    setSearching(true); setError(null);
+    // Attach document immediately (no extra request) — avoids 405 on so_hieu with "/".
+    addDocCitation(doc);
+
+    const key = doc.vb_id || doc.id;
+    // Only fetch khoản tree when we have a slash-free id; otherwise stay with so_hieu citation.
+    if (!key || String(key).includes('/')) return;
+
+    setSearching(true);
     try {
       const detail = await apiGet<{ tree?: KhoanHit[]; so_hieu?: string }>(
-        `/admin/legal/van-ban/${encodeURIComponent(key)}`,
+        `/admin/legal/van-ban/lookup?q=${encodeURIComponent(key)}`,
       );
-      setPickedDoc(detail.so_hieu ?? key);
+      setPickedDoc(detail.so_hieu ?? doc.so_hieu ?? key);
       setKhoanHits(Array.isArray(detail.tree) ? detail.tree.slice(0, 40) : []);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Không tải được khoản');
+    } catch {
+      // Soft-fail: document citation already added.
       setKhoanHits([]);
     } finally {
       setSearching(false);
@@ -440,8 +467,11 @@ export default function BriefsPage() {
                             onClick={() => void loadKhoans(d)}
                             className={`w-full text-left px-3 py-2 rounded-lg text-sm border ${pickedDoc === (d.so_hieu || key) ? 'border-primary/40 bg-primary/5' : 'border-slate-100 hover:bg-slate-50'}`}
                           >
-                            <span className="font-mono font-semibold text-slate-800">{d.so_hieu || key}</span>
-                            {d.ten && <span className="text-slate-500 ml-2 line-clamp-1">{d.ten}</span>}
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-mono font-semibold text-slate-800">{d.so_hieu || key}</span>
+                              <span className="text-xs font-bold text-primary shrink-0">+ Đính kèm</span>
+                            </div>
+                            {d.ten && <span className="text-slate-500 line-clamp-1 block mt-0.5">{d.ten}</span>}
                           </button>
                         );
                       })}

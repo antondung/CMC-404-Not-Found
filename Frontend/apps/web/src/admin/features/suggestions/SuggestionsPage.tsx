@@ -139,29 +139,35 @@ export default function SuggestionsPage() {
     setError(null);
     setKhoanHits([]);
     try {
-      try {
-        const detail = await apiGet<VanBanHit & { tree?: KhoanHit[] }>(
-          `/admin/legal/van-ban/${encodeURIComponent(q)}`,
-        );
-        setDocHits([{
-          vb_id: detail.vb_id ?? detail.id ?? q,
-          so_hieu: detail.so_hieu ?? q,
-          ten: detail.ten,
-        }]);
-        if (Array.isArray(detail.tree) && detail.tree.length) {
-          setKhoanHits(detail.tree.slice(0, 40));
+      const list = await apiGet<{ items: VanBanHit[] } | VanBanHit[]>('/admin/legal/van-ban');
+      const rows = Array.isArray(list) ? list : (list.items ?? []);
+      const ql = q.toLowerCase();
+      const filtered = rows
+        .filter((d) =>
+          [d.so_hieu, d.ten, d.vb_id, d.id].some((x) => String(x ?? '').toLowerCase().includes(ql)),
+        )
+        .slice(0, 20);
+      setDocHits(filtered);
+
+      if (q.includes('/') || filtered.length === 1) {
+        const key = filtered[0]?.vb_id || filtered[0]?.id || q;
+        try {
+          const detail = await apiGet<VanBanHit & { tree?: KhoanHit[] }>(
+            `/admin/legal/van-ban/lookup?q=${encodeURIComponent(key)}`,
+          );
+          if (!filtered.length) {
+            setDocHits([{
+              vb_id: detail.vb_id ?? detail.id ?? q,
+              so_hieu: detail.so_hieu ?? q,
+              ten: detail.ten,
+            }]);
+          }
+          if (Array.isArray(detail.tree) && detail.tree.length) {
+            setKhoanHits(detail.tree.slice(0, 40));
+          }
+        } catch {
+          // ignore — list results still usable
         }
-      } catch {
-        const list = await apiGet<{ items: VanBanHit[] } | VanBanHit[]>('/admin/legal/van-ban');
-        const rows = Array.isArray(list) ? list : (list.items ?? []);
-        const ql = q.toLowerCase();
-        setDocHits(
-          rows
-            .filter((d) =>
-              [d.so_hieu, d.ten, d.vb_id, d.id].some((x) => String(x ?? '').toLowerCase().includes(ql)),
-            )
-            .slice(0, 12),
-        );
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Không tìm được văn bản');
@@ -172,14 +178,23 @@ export default function SuggestionsPage() {
   };
 
   const loadKhoans = async (doc: VanBanHit) => {
-    const key = doc.so_hieu || doc.vb_id || doc.id;
-    if (!key) return;
+    const label = doc.so_hieu || doc.vb_id || doc.id;
+    if (label) {
+      setEditKhoan(label);
+      setNotice(`Đã chọn ${label}. Bấm Lưu để ghi lại.`);
+    }
+
+    const key = doc.vb_id || doc.id;
+    if (!key || String(key).includes('/')) return;
+
     setSearching(true);
     try {
-      const detail = await apiGet<{ tree?: KhoanHit[] }>(`/admin/legal/van-ban/${encodeURIComponent(key)}`);
+      const detail = await apiGet<{ tree?: KhoanHit[] }>(
+        `/admin/legal/van-ban/lookup?q=${encodeURIComponent(key)}`,
+      );
       setKhoanHits(Array.isArray(detail.tree) ? detail.tree.slice(0, 40) : []);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Không tải được khoản');
+    } catch {
+      setKhoanHits([]);
     } finally {
       setSearching(false);
     }
@@ -352,8 +367,11 @@ export default function SuggestionsPage() {
                             onClick={() => void loadKhoans(d)}
                             className="w-full text-left px-3 py-2 rounded-lg text-sm border border-slate-100 hover:bg-slate-50"
                           >
-                            <span className="font-mono font-semibold text-slate-800">{d.so_hieu || key}</span>
-                            {d.ten && <span className="text-slate-500 ml-2">{d.ten}</span>}
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-mono font-semibold text-slate-800">{d.so_hieu || key}</span>
+                              <span className="text-xs font-bold text-primary shrink-0">Chọn</span>
+                            </div>
+                            {d.ten && <span className="text-slate-500 line-clamp-1 block mt-0.5">{d.ten}</span>}
                           </button>
                         );
                       })}

@@ -107,7 +107,7 @@ export default function IngestPage() {
     setDetail(null);
     setDetailError(null);
     setDetailLoading(true);
-    apiGet<Record<string, unknown>>(`/admin/legal/van-ban/${encodeURIComponent(id)}`)
+    apiGet<Record<string, unknown>>(`/admin/legal/van-ban/lookup?q=${encodeURIComponent(id)}`)
       .then((data) => setDetail(data))
       .catch((err) => setDetailError(err instanceof Error ? err.message : 'Không tải được chi tiết văn bản'))
       .finally(() => setDetailLoading(false));

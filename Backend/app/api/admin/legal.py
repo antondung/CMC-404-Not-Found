@@ -141,28 +141,21 @@ async def list_van_ban(
     return success_response(data={"items": items, "total": len(items)}, request_id=get_request_id())
 
 
-@router.get("/legal/van-ban/{id}", summary="Chi tiết cây Điều-Khoản-Điểm của văn bản")
-async def get_van_ban(
-    id: str,
+@router.get("/legal/van-ban/lookup", summary="Tra cứu văn bản theo số hiệu / vb_id (hỗ trợ dấu /)")
+async def lookup_van_ban(
+    q: str,
     pool: Any = Depends(get_db_pool),
     driver: Any = Depends(get_neo4j_driver),
 ) -> dict[str, Any]:
+    """Query-param lookup avoids HTTP 405 when so_hieu contains slashes (path vs DELETE :path)."""
+    key = (q or "").strip()
+    if not key:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Thiếu tham số q")
     facade = LegalDiffFacade(pool=pool, neo4j_driver=driver)
-    item = await facade.get_van_ban_detail(id)
+    item = await facade.get_van_ban_detail(key)
     if not item:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Văn bản {id} không tồn tại")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Văn bản {key} không tồn tại")
     return success_response(data=item, request_id=get_request_id())
-
-@router.delete("/legal/van-ban/{id:path}", summary="Xóa văn bản đã số hóa")
-async def delete_van_ban(
-    id: str,
-    pool: Any = Depends(get_db_pool),
-    driver: Any = Depends(get_neo4j_driver),
-    qdrant: Any = Depends(get_qdrant_client),
-) -> dict[str, Any]:
-    facade = LegalDiffFacade(pool=pool, neo4j_driver=driver, qdrant=qdrant)
-    res = await facade.delete_van_ban(id)
-    return success_response(data=res, request_id=get_request_id())
 
 
 @router.get("/legal/van-ban/{id}/files", summary="Danh sách file đính kèm văn bản")
@@ -174,6 +167,31 @@ async def list_van_ban_files(
     facade = LegalDiffFacade(pool=pool, neo4j_driver=driver)
     files = await facade.list_files(id)
     return success_response(data={"files": files, "total": len(files)}, request_id=get_request_id())
+
+
+@router.get("/legal/van-ban/{id:path}", summary="Chi tiết cây Điều-Khoản-Điểm của văn bản")
+async def get_van_ban(
+    id: str,
+    pool: Any = Depends(get_db_pool),
+    driver: Any = Depends(get_neo4j_driver),
+) -> dict[str, Any]:
+    facade = LegalDiffFacade(pool=pool, neo4j_driver=driver)
+    item = await facade.get_van_ban_detail(id)
+    if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Văn bản {id} không tồn tại")
+    return success_response(data=item, request_id=get_request_id())
+
+
+@router.delete("/legal/van-ban/{id:path}", summary="Xóa văn bản đã số hóa")
+async def delete_van_ban(
+    id: str,
+    pool: Any = Depends(get_db_pool),
+    driver: Any = Depends(get_neo4j_driver),
+    qdrant: Any = Depends(get_qdrant_client),
+) -> dict[str, Any]:
+    facade = LegalDiffFacade(pool=pool, neo4j_driver=driver, qdrant=qdrant)
+    res = await facade.delete_van_ban(id)
+    return success_response(data=res, request_id=get_request_id())
 
 
 @router.get("/legal/files/{file_id}", summary="Chi tiết & URL tải file gốc")

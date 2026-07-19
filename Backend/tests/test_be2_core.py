@@ -71,12 +71,15 @@ class FakeResponse:
         return self.payload
 
 class FakeStatusResponse:
-    def __init__(self, status_code):
+    def __init__(self, status_code, payload=None):
         self.status_code = status_code
+        self.payload = payload or {}
         self.request = httpx.Request("GET", "https://www.googleapis.com/youtube/v3/search")
     def raise_for_status(self):
-        response = httpx.Response(self.status_code, request=self.request)
+        response = httpx.Response(self.status_code, json=self.payload, request=self.request)
         raise httpx.HTTPStatusError("status error", request=self.request, response=response)
+    def json(self):
+        return self.payload
 
 class FakeHttp:
     def __init__(self, payload=None, text=""):
@@ -153,7 +156,9 @@ class FakeYouTubeRotatingKeyHttp(FakeYouTubeHttp):
     async def get(self, url, params=None):
         self.calls.append((url, params))
         if params["key"] == "bad-key":
-            return FakeStatusResponse(429)
+            return FakeStatusResponse(429, {"error": {"errors": [{"reason": "quotaExceeded"}]}})
+        if params["key"] == "invalid-key":
+            return FakeStatusResponse(400, {"error": {"errors": [{"reason": "keyInvalid"}]}})
         return await super().get(url, params)
 
 
@@ -443,13 +448,26 @@ async def test_youtube_collector_uses_real_search_contract_and_topic_comment_lim
 
 @pytest.mark.asyncio
 async def test_youtube_collector_rotates_api_keys_on_quota_error():
-    cfg = BE2Config(youtube_api_keys=["bad-key", "good-key"], youtube_api_key="legacy-key", youtube_comments_per_topic=1)
+    cfg = BE2Config(youtube_api_keys=["bad-key", "good-key"], youtube_comments_per_topic=1)
     http = FakeYouTubeRotatingKeyHttp()
     posts = await YouTubeDataCollector(cfg, http).collect(["thuế"], limit_per_topic=1)
     keys_used = [call[1]["key"] for call in http.calls if "search" in call[0]]
     assert keys_used[:2] == ["bad-key", "good-key"]
     assert posts[0]["youtube_kind"] == "video"
     assert any(post.get("youtube_kind") == "comment" for post in posts)
+
+@pytest.mark.asyncio
+async def test_youtube_collector_rotates_api_keys_on_invalid_key():
+    cfg = BE2Config(
+        youtube_api_key="invalid-key",
+        youtube_api_keys=["good-key"],
+        youtube_comments_per_topic=1,
+    )
+    http = FakeYouTubeRotatingKeyHttp()
+    posts = await YouTubeDataCollector(cfg, http).collect(["thuế"], limit_per_topic=1)
+    keys_used = [call[1]["key"] for call in http.calls if "search" in call[0]]
+    assert keys_used[:2] == ["invalid-key", "good-key"]
+    assert posts[0]["external_id"] == "v1"
 
 @pytest.mark.asyncio
 async def test_youtube_collector_skips_locked_empty_and_off_topic_comments():

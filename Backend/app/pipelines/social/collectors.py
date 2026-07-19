@@ -90,6 +90,58 @@ def _youtube_error_reason(response: httpx.Response) -> str | None:
         return None
 
 
+def _normalize_youtube_reason(reason: str | None) -> str:
+    return (reason or "").strip().casefold().replace(" ", "").replace("_", "")
+
+
+# API-key / quota failures → try the next configured key.
+_YOUTUBE_KEY_FAILURE_TOKENS = (
+    "keyinvalid",
+    "keyexpired",
+    "apikeyinvalid",
+    "apinotactivated",
+    "accessnotconfigured",
+    "iprefererblocked",
+    "ipblocked",
+    "quotaexceeded",
+    "dailylimitexceeded",
+    "ratelimitexceeded",
+    "userratelimitexceeded",
+    "servinglimitexceeded",
+    "billingnotenabled",
+    "projectnotlinked",
+)
+
+
+def _youtube_is_key_failure(status_code: int, reason: str | None) -> bool:
+    """True when this key is exhausted/invalid and another key should be tried."""
+    if status_code in {401, 429}:
+        return True
+    if status_code not in {400, 403}:
+        return False
+    normalized = _normalize_youtube_reason(reason)
+    if not normalized:
+        # Bare 400/403 from Google on Data API is almost always key/quota.
+        return True
+    return any(token in normalized for token in _YOUTUBE_KEY_FAILURE_TOKENS)
+
+
+def _youtube_comment_is_soft_failure(status_code: int, reason: str | None) -> bool:
+    """Video-level comment errors (disabled/private) — skip video, keep the same key.
+
+    Unlike search, a bare 403 here usually means comments are disabled — do NOT rotate.
+    Only rotate when the reason clearly points at key/quota.
+    """
+    if status_code in {401, 429}:
+        return False
+    if status_code not in {400, 403, 404}:
+        return False
+    normalized = _normalize_youtube_reason(reason)
+    if any(token in normalized for token in _YOUTUBE_KEY_FAILURE_TOKENS):
+        return False
+    return True
+
+
 class FacebookGraphCollector:
     def __init__(self, config: BE2Config | None = None, http_client: httpx.AsyncClient | None = None) -> None:
         self.config = config or get_config()
@@ -143,9 +195,11 @@ class YouTubeDataCollector:
         self._http = http_client
 
     def _api_keys(self) -> list[str]:
-        raw_keys = [*self.config.youtube_api_keys]
+        # Prefer primary BE2_YOUTUBE_API_KEY, then backup list BE2_YOUTUBE_API_KEYS.
+        raw_keys: list[str] = []
         if self.config.youtube_api_key:
             raw_keys.append(self.config.youtube_api_key)
+        raw_keys.extend(self.config.youtube_api_keys)
         keys: list[str] = []
         for raw in raw_keys:
             for key in str(raw).replace(";", ",").replace("\n", ",").split(","):
@@ -167,29 +221,39 @@ class YouTubeDataCollector:
         try:
             last_status_code: int | None = None
             last_reason: str | None = None
-            for api_key in api_keys:
+            failures: list[dict[str, Any]] = []
+            for index, api_key in enumerate(api_keys):
                 try:
                     return await self._collect_with_key(client, topics, limit, api_key)
                 except httpx.HTTPStatusError as exc:
                     status_code = exc.response.status_code
                     reason = _youtube_error_reason(exc.response)
-                    if status_code in {403, 429}:
+                    if _youtube_is_key_failure(status_code, reason):
                         last_status_code = status_code
                         last_reason = reason
+                        failures.append(
+                            {
+                                "key_index": index,
+                                "key_suffix": api_key[-4:] if len(api_key) >= 4 else "****",
+                                "status_code": status_code,
+                                "reason": reason,
+                            }
+                        )
                         continue
                     raise ExternalServiceError(
                         f"YouTube Data API lỗi HTTP {status_code}" + (f": {reason}" if reason else ""),
                         details={"provider": "youtube", "status_code": status_code, "reason": reason},
                     ) from None
             raise ExternalServiceError(
-                "YouTube Data API hết hạn mức hoặc bị chặn"
+                "YouTube Data API hết hạn mức hoặc key lỗi trên mọi key đã cấu hình"
                 + (f" ({last_reason})" if last_reason else "")
-                + ". Thử thêm BE2_YOUTUBE_API_KEYS hoặc đợi reset quota.",
+                + ". Thêm BE2_YOUTUBE_API_KEYS=key1,key2,... hoặc đợi reset quota.",
                 details={
                     "provider": "youtube",
                     "status_code": last_status_code,
                     "reason": last_reason,
                     "attempted_keys": len(api_keys),
+                    "failures": failures,
                 },
             ) from None
         except ExternalServiceError:
@@ -302,7 +366,8 @@ class YouTubeDataCollector:
                 response = await client.get(YOUTUBE_COMMENTS_URL, params=params)
                 response.raise_for_status()
             except httpx.HTTPStatusError as exc:
-                if exc.response.status_code in {400, 403, 404}:
+                reason = _youtube_error_reason(exc.response)
+                if _youtube_comment_is_soft_failure(exc.response.status_code, reason):
                     return []
                 raise
             payload = response.json()

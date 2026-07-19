@@ -5,7 +5,6 @@
     "dockerfilePath": "Dockerfile.be2"
   },
   "deploy": {
-    "startCommand": "uvicorn be2_service:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips '*'",
     "restartPolicyType": "ON_FAILURE"
   }
 }

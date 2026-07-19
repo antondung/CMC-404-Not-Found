@@ -225,6 +225,29 @@ class BriefService:
             item.update(updated_brief)
         return ok, item, errors
 
+    async def publish_all_briefs(self, actor: Any) -> dict[str, Any]:
+        """Ban hành mọi brief chưa published/archived (draft + review)."""
+        items = await self.list_briefs(limit=500)
+        candidates = [b for b in items if str(b.get("status") or "") in {"draft", "review"}]
+        published: list[dict[str, Any]] = []
+        failed: list[dict[str, Any]] = []
+        for brief in candidates:
+            bid = str(brief.get("id") or "")
+            if not bid:
+                continue
+            ok, data, errors = await self.publish_brief(bid, actor)
+            if ok:
+                published.append({"id": bid, "tieu_de": data.get("tieu_de")})
+            else:
+                failed.append({"id": bid, "tieu_de": brief.get("tieu_de"), "errors": errors})
+        return {
+            "published_count": len(published),
+            "failed_count": len(failed),
+            "skipped": len(items) - len(candidates),
+            "published": published,
+            "failed": failed,
+        }
+
     async def archive_brief(self, brief_id: str, actor: Any = None) -> dict[str, Any] | None:
         """Lưu trữ/ẩn brief."""
         item = await self.get_brief(brief_id)

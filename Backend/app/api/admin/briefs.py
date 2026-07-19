@@ -95,6 +95,17 @@ async def update_brief(
     return success_response(data=item, request_id=get_request_id())
 
 
+@router.post("/briefs/publish-all", summary="Ban hành tất cả bản nháp/chờ duyệt")
+async def publish_all_briefs(
+    pool: Any = Depends(get_db_pool),
+    driver: Any = Depends(get_neo4j_driver),
+    user: UserToken = Depends(require_roles(Role.ADMIN_TRUYEN_THONG, Role.ADMIN_OPS)),
+) -> dict[str, Any]:
+    service = BriefService(pool=pool, neo4j_driver=driver)
+    data = await service.publish_all_briefs(actor=user)
+    return success_response(data=data, request_id=get_request_id())
+
+
 @router.post("/briefs/{id}/publish", summary="Xuất bản Bài Tóm Tắt (Được bảo vệ bởi PublishGate)")
 async def publish_brief(
     id: str,

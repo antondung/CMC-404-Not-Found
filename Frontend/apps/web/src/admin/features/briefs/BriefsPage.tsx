@@ -17,6 +17,7 @@ interface Brief {
 }
 interface ListResp { items: Brief[]; total: number }
 interface SyncNewsResp { created_count?: number; skipped?: number; items_count?: number }
+interface PublishAllResp { published_count?: number; failed_count?: number; skipped?: number }
 interface VanBanHit {
   vb_id?: string;
   so_hieu?: string;
@@ -158,6 +159,29 @@ export default function BriefsPage() {
       setNotice('Đã ban hành ra Cổng Người dân.');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Không ban hành được — kiểm tra quyền admin_truyen_thong / admin_ops.');
+    } finally { setSaving(false); }
+  };
+
+  const publishAll = async () => {
+    const pending = briefs.filter((b) => b.status === 'draft' || b.status === 'review');
+    if (!pending.length) {
+      setNotice('Không có bản tin nào cần ban hành.');
+      return;
+    }
+    if (!window.confirm(`Ban hành ${pending.length} bản tin (draft/chờ duyệt) ra Cổng Người dân?`)) return;
+    setSaving(true); setError(null); setNotice(null);
+    try {
+      const data = await apiPost<PublishAllResp>('/admin/briefs/publish-all', {});
+      const ok = data.published_count ?? 0;
+      const fail = data.failed_count ?? 0;
+      if (fail > 0) {
+        setError(`Ban hành một phần: thành công ${ok}, thất bại ${fail}.`);
+      } else {
+        setNotice(`Đã ban hành ${ok} bản tin ra Cổng Người dân.`);
+      }
+      load(active?.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Không ban hành tất cả được — kiểm tra quyền admin_truyen_thong / admin_ops.');
     } finally { setSaving(false); }
   };
 
@@ -311,6 +335,13 @@ export default function BriefsPage() {
         <div className="flex items-center gap-2">
           <button onClick={syncNews} disabled={saving} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm transition-colors disabled:opacity-50">
             <ArrowClockwise size={16} weight="bold" /> Cập nhật tin pháp luật
+          </button>
+          <button
+            onClick={() => void publishAll()}
+            disabled={saving || !briefs.some((b) => b.status === 'draft' || b.status === 'review')}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm transition-colors disabled:opacity-50"
+          >
+            <UploadSimple size={16} weight="bold" /> Ban hành tất cả
           </button>
           <button onClick={generate} disabled={saving} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-primary text-white hover:bg-primary-dark shadow-sm transition-colors disabled:opacity-50">
             <Plus size={16} weight="bold" /> Tạo bản tin

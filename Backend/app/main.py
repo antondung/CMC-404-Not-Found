@@ -238,3 +238,32 @@ app.include_router(citizen_news.router, prefix="/citizen")
 
 # Auth router (no prefix -> POST /auth/login, GET /auth/me)
 app.include_router(auth_router.router)
+
+# Compat: expose BE2 intelligence routes on BE3.
+# Railway often points BE2_INTELLIGENCE_URL at the BE3 public host (e.g. 8002-*.up.railway.app
+# actually serving be3-gateway). Without /local + /large, QA returns 404 → 503 LLMRouter error.
+try:
+    from be2_service import CompleteRequest as _Be2CompleteRequest
+    from be2_service import complete as _be2_complete
+
+    app.add_api_route(
+        "/local",
+        _be2_complete,
+        methods=["POST"],
+        response_model=None,
+        tags=["BE2 Compat"],
+        summary="LLM gateway /local (compat — normally served by BE2)",
+    )
+    app.add_api_route(
+        "/large",
+        _be2_complete,
+        methods=["POST"],
+        response_model=None,
+        tags=["BE2 Compat"],
+        summary="LLM gateway /large (compat — normally served by BE2)",
+    )
+    # Keep type hint available for OpenAPI body parsing
+    _ = _Be2CompleteRequest
+    logger.info("Mounted BE2 compat routes POST /local and POST /large on BE3")
+except Exception as exc:  # noqa: BLE001
+    logger.warning("BE2 compat routes not mounted: %s", exc)

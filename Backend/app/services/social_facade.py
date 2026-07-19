@@ -115,6 +115,12 @@ class SocialAlertFacade:
                     ingested_items.append(post.model_dump())
                 except Exception as exc:  # noqa: BLE001
                     errors.append({"platform": payload.get("platform"), "external_id": payload.get("external_id"), "message": str(exc)})
+            # Ensure monitored ChuDe nodes exist even if a topic had zero collected posts.
+            try:
+                await self.neo_repo.ensure_monitored_topics(active_topics)
+                await self.neo_repo.ensure_topics_from_posts()
+            except Exception:  # noqa: BLE001
+                logger.warning("Failed to ensure ChuDe topics after crawl", exc_info=True)
 
         status = "success" if collected else ("partial" if errors else "failed")
         if collected and errors:
@@ -141,16 +147,40 @@ class SocialAlertFacade:
         }
 
     async def list_topics(self) -> list[dict[str, Any]]:
-        """List current legal topics monitored on social channels from Neo4j (source of truth)."""
+        """List legal topics monitored on social channels (Neo4j ChuDe).
+
+        Also backfills ChuDe from BaiDang.chu_de / source_topic so crawl data shows up
+        in bubble charts without waiting for the async topic-classifier worker.
+        """
+        from app.adapters.neo4j_social import topic_slug
+
         items: list[dict[str, Any]] = []
+        cfg = get_config()
+        if self.neo_repo and hasattr(self.neo_repo, "ensure_topics_from_posts"):
+            try:
+                await self.neo_repo.ensure_monitored_topics(cfg.social_monitor_topics or [])
+                await self.neo_repo.ensure_topics_from_posts()
+            except Exception:
+                logger.warning("Failed to backfill ChuDe topics", exc_info=True)
+
         if self.driver and hasattr(self.driver, "session"):
             try:
-                # Count related posts instead of relying on a missing `post_count` property.
+                # Prefer relationship counts; fall back to BaiDang.chu_de when edges are missing.
                 query = """
                 MATCH (t:ChuDe)
                 OPTIONAL MATCH (t)<-[:THAO_LUAN_VE]-(b:BaiDang)
-                WITH t, count(b) AS post_count
-                RETURN t {.*, post_count: post_count} AS topic
+                WITH t, count(b) AS linked
+                OPTIONAL MATCH (b2:BaiDang)
+                WHERE linked = 0
+                  AND toLower(trim(toString(coalesce(b2.chu_de, b2.source_topic, '')))) = t.slug
+                WITH t, linked, count(b2) AS prop_count
+                WITH t, CASE WHEN linked > 0 THEN linked ELSE prop_count END AS post_count
+                RETURN t {
+                  .*,
+                  post_count: post_count,
+                  so_bai: post_count,
+                  ten: coalesce(t.ten, t.name, t.slug)
+                } AS topic
                 ORDER BY post_count DESC, coalesce(t.ten, t.name, t.slug, '') ASC
                 LIMIT 100
                 """
@@ -161,12 +191,96 @@ class SocialAlertFacade:
                         data = dict(topic) if topic is not None else {}
                         data["post_count"] = int(data.get("post_count") or 0)
                         data["so_bai"] = data["post_count"]
+                        data["ten"] = data.get("ten") or data.get("name") or data.get("slug")
                         items.append(self._json_safe(data))
             except Exception:
                 logger.warning("Failed to list topics from Neo4j", exc_info=True)
 
-        # Topics live in Neo4j only — no Postgres `topics` table in schema.
+        # Seed configured monitor topics when Neo4j is empty / offline so the UI is not blank.
+        seen = {(str(it.get("slug") or "").casefold()) for it in items}
+        for name in cfg.social_monitor_topics or []:
+            slug = topic_slug(name)
+            if not slug or slug in seen:
+                continue
+            seen.add(slug)
+            items.append(
+                {
+                    "slug": slug,
+                    "ten": name.strip(),
+                    "name": name.strip(),
+                    "post_count": 0,
+                    "so_bai": 0,
+                    "monitored": True,
+                }
+            )
         return items
+
+    async def clarity_index_by_topic(self, min_volume: int = 1, limit: int = 50) -> dict[str, Any]:
+        """Topic-level legal clarity risk from social radar data.
+
+        Primary: share of DOI_CHIEU labels mau_thuan/khong_ro under each ChuDe.
+        Fallback: needs_review / ambiguous stance on BaiDang when no DOI_CHIEU yet.
+        """
+        bounded_min = max(1, min(min_volume, 1000))
+        bounded_limit = max(1, min(limit, 200))
+        items: list[dict[str, Any]] = []
+
+        if self.neo_repo and hasattr(self.neo_repo, "ensure_topics_from_posts"):
+            try:
+                await self.neo_repo.ensure_topics_from_posts()
+            except Exception:
+                logger.warning("clarity backfill topics failed", exc_info=True)
+
+        if self.driver and hasattr(self.driver, "session"):
+            try:
+                query = """
+                MATCH (c:ChuDe)
+                OPTIONAL MATCH (b:BaiDang)-[:THAO_LUAN_VE]->(c)
+                OPTIONAL MATCH (b)-[:CO_YKIEN]->(y:YKien)-[d:DOI_CHIEU]->(:Khoan)
+                WITH c,
+                     count(DISTINCT b) AS volume,
+                     count(d) AS doi_chieu,
+                     count(CASE WHEN d.label IN ['mau_thuan', 'khong_ro'] THEN 1 END) AS fuzzy,
+                     count(CASE WHEN d.label = 'mau_thuan' THEN 1 END) AS mau_thuan,
+                     count(CASE WHEN d.label = 'khong_ro' THEN 1 END) AS khong_ro,
+                     count(CASE WHEN coalesce(b.needs_review, false) = true THEN 1 END) AS needs_review
+                WHERE volume >= $min_volume
+                WITH c, volume, doi_chieu, fuzzy, mau_thuan, khong_ro, needs_review,
+                     CASE
+                       WHEN doi_chieu > 0 THEN toFloat(fuzzy) / doi_chieu
+                       WHEN volume > 0 THEN toFloat(needs_review) / volume
+                       ELSE 0.0
+                     END AS clarity_risk
+                RETURN coalesce(c.ten, c.name, c.slug) AS ten,
+                       c.slug AS slug,
+                       volume,
+                       doi_chieu,
+                       mau_thuan,
+                       khong_ro,
+                       needs_review,
+                       clarity_risk
+                ORDER BY clarity_risk * log(volume + 1) DESC
+                LIMIT $limit
+                """
+                async with self.driver.session() as session:
+                    res = await session.run(query, min_volume=bounded_min, limit=bounded_limit)
+                    async for r in res:
+                        items.append(
+                            {
+                                "slug": r.get("slug"),
+                                "ten": r.get("ten"),
+                                "volume": int(r.get("volume") or 0),
+                                "doi_chieu": int(r.get("doi_chieu") or 0),
+                                "mau_thuan": int(r.get("mau_thuan") or 0),
+                                "khong_ro": int(r.get("khong_ro") or 0),
+                                "needs_review": int(r.get("needs_review") or 0),
+                                "clarity_risk": round(float(r.get("clarity_risk") or 0.0), 3),
+                            }
+                        )
+            except Exception:
+                logger.warning("Failed to compute social clarity index", exc_info=True)
+
+        return {"min_volume": bounded_min, "items": items, "total": len(items)}
 
     async def list_posts(
         self,

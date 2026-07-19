@@ -2,9 +2,19 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
+import re
 from typing import Any
 from uuid import uuid5, NAMESPACE_URL
 from app.schemas import LinkCandidate, NliResult, SocialPost, TopicResult
+
+
+def topic_slug(name: str | None) -> str | None:
+    if not name:
+        return None
+    cleaned = re.sub(r"\s+", " ", str(name)).strip()
+    if not cleaned:
+        return None
+    return cleaned.casefold()
 
 
 class Neo4jSocialRepository:
@@ -16,6 +26,8 @@ class Neo4jSocialRepository:
 
     async def upsert_post(self, post: SocialPost) -> str:
         bai_dang_id = f"{post.platform}:{post.external_id}"
+        meta = post.source_metadata or {}
+        chu_de = topic_slug(meta.get("source_topic") or meta.get("chu_de"))
         query = """
         MERGE (b:BaiDang {platform: $platform, external_id: $external_id})
         SET b.noi_dung = $noi_dung,
@@ -23,6 +35,7 @@ class Neo4jSocialRepository:
             b.tac_gia = $tac_gia,
             b.url = $url,
             b.chu_de = $chu_de,
+            b.source_topic = $chu_de,
             b.source_query = $source_query,
             b.youtube_kind = $youtube_kind,
             b.comment_id = $comment_id,
@@ -35,13 +48,22 @@ class Neo4jSocialRepository:
             b.ngay_dang = datetime($thoi_gian),
             b.ingested_at = datetime($ingested_at),
             b.source_metadata_json = $source_metadata_json
+        WITH b
+        FOREACH (_ IN CASE WHEN $chu_de IS NULL THEN [] ELSE [1] END |
+            MERGE (c:ChuDe {slug: $chu_de})
+            SET c.ten = coalesce(c.ten, $chu_de_ten, $chu_de)
+            MERGE (b)-[r:THAO_LUAN_VE]->(c)
+            SET r.score = coalesce(r.score, 1.0),
+                r.model = coalesce(r.model, 'crawl_source_topic'),
+                r.status = coalesce(r.status, 'classified')
+        )
         RETURN b.platform + ':' + b.external_id AS bai_dang_id
         """
-        meta = post.source_metadata or {}
         comment_text = None
         if meta.get("youtube_kind") == "comment":
             parts = [part.strip() for part in post.noi_dung.split("\n\n", 1)]
             comment_text = parts[1] if len(parts) == 2 else post.noi_dung
+        chu_de_ten = str(meta.get("source_topic") or meta.get("chu_de") or chu_de or "").strip() or None
         params = {
             "platform": post.platform,
             "external_id": post.external_id,
@@ -49,7 +71,8 @@ class Neo4jSocialRepository:
             "tac_gia_hash": post.tac_gia_hash,
             "tac_gia": meta.get("comment_author_name") or meta.get("author_name") or meta.get("video_channel_title"),
             "url": post.url,
-            "chu_de": meta.get("source_topic"),
+            "chu_de": chu_de,
+            "chu_de_ten": chu_de_ten,
             "source_query": meta.get("source_query"),
             "youtube_kind": meta.get("youtube_kind"),
             "comment_id": meta.get("comment_id"),
@@ -67,6 +90,49 @@ class Neo4jSocialRepository:
             record = await result.single()
         return record["bai_dang_id"] if record else bai_dang_id
 
+    async def ensure_topics_from_posts(self) -> int:
+        """Backfill ChuDe + THAO_LUAN_VE for posts that only have chu_de / source_topic props."""
+        query = """
+        MATCH (b:BaiDang)
+        WHERE coalesce(b.chu_de, b.source_topic) IS NOT NULL
+          AND trim(toString(coalesce(b.chu_de, b.source_topic))) <> ''
+        WITH b, toLower(trim(toString(coalesce(b.chu_de, b.source_topic)))) AS slug
+        MERGE (c:ChuDe {slug: slug})
+        SET c.ten = coalesce(c.ten, trim(toString(coalesce(b.chu_de, b.source_topic))))
+        SET b.chu_de = slug
+        MERGE (b)-[r:THAO_LUAN_VE]->(c)
+        SET r.score = coalesce(r.score, 1.0),
+            r.model = coalesce(r.model, 'backfill_source_topic'),
+            r.status = coalesce(r.status, 'classified')
+        RETURN count(DISTINCT c) AS topics
+        """
+        async with self.driver.session() as session:
+            result = await session.run(query)
+            record = await result.single()
+        return int(record["topics"]) if record else 0
+
+    async def ensure_monitored_topics(self, topics: list[str]) -> int:
+        """Seed ChuDe nodes for configured monitor topics (even before crawl has posts)."""
+        created = 0
+        async with self.driver.session() as session:
+            for name in topics:
+                slug = topic_slug(name)
+                if not slug:
+                    continue
+                result = await session.run(
+                    """
+                    MERGE (c:ChuDe {slug: $slug})
+                    SET c.ten = coalesce(c.ten, $ten),
+                        c.monitored = true
+                    RETURN c.slug AS slug
+                    """,
+                    slug=slug,
+                    ten=name.strip(),
+                )
+                if await result.single():
+                    created += 1
+        return created
+
     async def get_post(self, bai_dang_id: str) -> SocialPost | None:
         platform, external_id = bai_dang_id.split(":", 1)
         query = "MATCH (b:BaiDang {platform: $platform, external_id: $external_id}) RETURN b"
@@ -82,6 +148,7 @@ class Neo4jSocialRepository:
         if not result.slug:
             return
         platform, external_id = result.bai_dang_id.split(":", 1)
+        slug = topic_slug(result.slug) or result.slug
         query = """
         MATCH (b:BaiDang {platform: $platform, external_id: $external_id})
         MERGE (c:ChuDe {slug: $slug})
@@ -91,7 +158,7 @@ class Neo4jSocialRepository:
         SET r.score = $score, r.model = $model, r.status = $status
         """
         async with self.driver.session() as session:
-            result_cursor = await session.run(query, platform=platform, external_id=external_id, slug=result.slug, score=result.score, model=result.model, status=result.status)
+            result_cursor = await session.run(query, platform=platform, external_id=external_id, slug=slug, score=result.score, model=result.model, status=result.status)
             await result_cursor.consume()
 
     async def get_topic(self, bai_dang_id: str) -> TopicResult | None:

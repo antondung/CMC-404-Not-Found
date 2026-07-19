@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
-import { Graph, Hash, Spinner, WarningCircle } from '@phosphor-icons/react';
+import { Gauge, Graph, Hash, Spinner, WarningCircle } from '@phosphor-icons/react';
 import { apiGet } from '../../../lib/api';
 
 interface Topic {
@@ -10,16 +10,30 @@ interface Topic {
   chu_de?: string;
   post_count?: number;
   so_bai?: number;
+  monitored?: boolean;
 }
 
 interface Post {
   bai_dang_id?: string;
   id?: string;
   chu_de?: string;
+  source_topic?: string;
   source_query?: string;
   video_title?: string;
   noi_dung?: string;
   content?: string;
+  needs_review?: boolean;
+}
+
+interface ClarityItem {
+  slug?: string;
+  ten?: string;
+  volume: number;
+  doi_chieu?: number;
+  mau_thuan?: number;
+  khong_ro?: number;
+  needs_review?: number;
+  clarity_risk: number;
 }
 
 interface ListResp<T> {
@@ -45,10 +59,11 @@ type FgNode = {
 
 type FgLink = { source: string; target: string; label: string };
 
-/** Keyword bubbles sized by post volume + force-graph linking topics ↔ issue clusters. */
+/** Keyword bubbles sized by post volume + force-graph + topic clarity risk. */
 export function SocialInsightsPanel() {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [clarity, setClarity] = useState<ClarityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dims, setDims] = useState({ width: 720, height: 420 });
@@ -60,11 +75,13 @@ export function SocialInsightsPanel() {
     Promise.all([
       apiGet<ListResp<Topic>>('/admin/social/topics'),
       apiGet<ListResp<Post>>('/admin/social/posts'),
+      apiGet<{ items: ClarityItem[] }>('/admin/social/clarity-index?min_volume=1').catch(() => ({ items: [] })),
     ])
-      .then(([t, p]) => {
+      .then(([t, p, c]) => {
         if (!alive) return;
         setTopics(t.items ?? []);
         setPosts(p.items ?? []);
+        setClarity(c.items ?? []);
         setError(null);
       })
       .catch((e) => {
@@ -91,17 +108,37 @@ export function SocialInsightsPanel() {
   }, [loading]);
 
   const ranked = useMemo(() => {
-    const rows = topics
+    const fromApi = topics
       .map((t) => ({
         key: topicKey(t),
         label: topicLabel(t),
         count: Number(t.post_count ?? t.so_bai ?? 0),
       }))
-      .filter((r) => r.label)
-      .sort((a, b) => b.count - a.count);
-    const max = Math.max(1, ...rows.map((r) => r.count));
-    return rows.map((r) => ({ ...r, score: r.count / max }));
-  }, [topics]);
+      .filter((r) => r.label);
+
+    // Client fallback: derive topics from posts when ChuDe list is empty / zero counts.
+    if (!fromApi.length || fromApi.every((r) => r.count === 0)) {
+      const counts = new Map<string, { label: string; count: number }>();
+      for (const p of posts) {
+        const raw = (p.chu_de || p.source_topic || '').trim();
+        if (!raw) continue;
+        const key = raw.toLowerCase();
+        const cur = counts.get(key) ?? { label: raw, count: 0 };
+        cur.count += 1;
+        counts.set(key, cur);
+      }
+      if (counts.size) {
+        const rows = [...counts.entries()].map(([key, v]) => ({ key, label: v.label, count: v.count }));
+        const max = Math.max(1, ...rows.map((r) => r.count));
+        return rows.sort((a, b) => b.count - a.count).map((r) => ({ ...r, score: r.count / max }));
+      }
+    }
+
+    const max = Math.max(1, ...fromApi.map((r) => r.count), 1);
+    return fromApi
+      .sort((a, b) => b.count - a.count)
+      .map((r) => ({ ...r, score: r.count / max }));
+  }, [topics, posts]);
 
   const graphData = useMemo(() => {
     const nodes: FgNode[] = [];
@@ -120,10 +157,9 @@ export function SocialInsightsPanel() {
       });
     }
 
-    // Issue clusters from source_query / video titles sharing a topic
     const issueMap = new Map<string, { label: string; topics: Set<string>; n: number }>();
     for (const p of posts) {
-      const topic = (p.chu_de || '').trim().toLowerCase();
+      const topic = (p.chu_de || p.source_topic || '').trim().toLowerCase();
       if (!topic) continue;
       const tid = `topic:${topic}`;
       if (!topicIds.has(tid)) continue;
@@ -155,7 +191,6 @@ export function SocialInsightsPanel() {
       }
     }
 
-    // Soft links between topics that co-occur via shared issues
     const co = new Map<string, number>();
     for (const issue of issueMap.values()) {
       const ts = [...issue.topics];
@@ -177,6 +212,9 @@ export function SocialInsightsPanel() {
     return { nodes, links };
   }, [ranked, posts]);
 
+  const riskColor = (r: number) => (r >= 0.66 ? 'bg-red-500' : r >= 0.33 ? 'bg-amber-500' : 'bg-emerald-500');
+  const riskText = (r: number) => (r >= 0.66 ? 'text-red-600' : r >= 0.33 ? 'text-amber-600' : 'text-emerald-600');
+
   if (loading) {
     return (
       <div className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-16 text-sm font-semibold text-slate-400">
@@ -197,23 +235,69 @@ export function SocialInsightsPanel() {
     return (
       <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm font-semibold text-slate-500">
         <WarningCircle size={28} className="mx-auto mb-2 text-slate-300" />
-        Chưa có chủ đề để vẽ bubble / đồ thị. Chạy crawl trước.
+        Chưa có chủ đề để vẽ bubble / đồ thị. Cấu hình{' '}
+        <code className="font-mono text-xs">BE2_SOCIAL_MONITOR_TOPICS</code> rồi bấm Crawl (không dùng dry-run).
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
+      <section className="overflow-hidden rounded-[1.75rem] border border-violet-200 bg-white shadow-sm">
+        <div className="flex items-center gap-2 border-b border-violet-100 bg-violet-50/60 px-5 py-4">
+          <Gauge size={18} className="text-violet-600" weight="fill" />
+          <h2 className="text-base font-black text-slate-900">Chỉ số mù mờ pháp lý (theo chủ đề)</h2>
+          <span className="ml-auto text-xs font-semibold text-violet-600/80">Từ radar MXH</span>
+        </div>
+        <div className="p-5">
+          <p className="mb-4 text-sm font-medium text-slate-500">
+            Tỷ lệ đối chiếu mâu thuẫn / không rõ (hoặc bài cần duyệt) theo từng chủ đề giám sát — tín hiệu truyền thông, không phải kết luận luật sai.
+          </p>
+          {clarity.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm font-semibold text-slate-400">
+              Chưa đủ dữ liệu đối chiếu. Sau khi crawl có bài gắn chủ đề, chỉ số sẽ xuất hiện tại đây.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {clarity.slice(0, 12).map((it) => (
+                <div key={it.slug ?? it.ten} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="mb-2 flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-bold text-slate-800">{it.ten ?? it.slug}</p>
+                      <p className="mt-0.5 text-xs font-semibold text-slate-400">
+                        {it.volume} bài · {it.doi_chieu ?? 0} đối chiếu · {it.needs_review ?? 0} cần duyệt
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <div className={`text-2xl font-black ${riskText(it.clarity_risk)}`}>
+                        {Math.round(it.clarity_risk * 100)}%
+                      </div>
+                      <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">rủi ro mù mờ</div>
+                    </div>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className={`h-full rounded-full ${riskColor(it.clarity_risk)}`}
+                      style={{ width: `${Math.max(2, it.clarity_risk * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
       <section className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-4">
           <Hash size={18} className="text-sky-600" weight="bold" />
           <h2 className="text-base font-black text-slate-900">Từ khóa nổi bật</h2>
-          <span className="ml-auto text-xs font-semibold text-slate-400">Bubble to theo số bài</span>
+          <span className="ml-auto text-xs font-semibold text-slate-400">Bubble theo số bài</span>
         </div>
         <div className="relative min-h-[220px] bg-gradient-to-b from-slate-50 to-white p-5">
           <div className="flex flex-wrap items-center justify-center gap-3 py-2">
             {ranked.slice(0, 18).map((t) => {
-              const size = 56 + t.score * 88;
+              const size = 56 + Math.max(0.15, t.score) * 88;
               return (
                 <div
                   key={t.key}

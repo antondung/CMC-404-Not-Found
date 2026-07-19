@@ -81,8 +81,19 @@ class RealLLMClient:
         }
         try:
             res = await self.client.post(url, json=payload, timeout=timeout_s)
+            if res.status_code == 404:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=(
+                        f"BE2 Intelligence API ({route}) trả 404 tại {url}. "
+                        "Kiểm tra BE2_INTELLIGENCE_URL: phải trỏ tới service BE2 (có POST /local,/large), "
+                        "không phải BE3. Hoặc redeploy BE3 (đã gắn /local,/large compat)."
+                    ),
+                )
             res.raise_for_status()
             return res.json()
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

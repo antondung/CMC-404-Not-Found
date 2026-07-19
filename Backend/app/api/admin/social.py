@@ -51,6 +51,18 @@ async def list_social_topics(
     return success_response(data={"items": items, "total": len(items)}, request_id=get_request_id())
 
 
+@router.get("/social/clarity-index", summary="Chỉ số mù mờ pháp lý theo chủ đề (từ radar MXH)")
+async def social_clarity_index(
+    min_volume: int = 1,
+    limit: int = 50,
+    pool: Any = Depends(get_db_pool),
+    driver: Any = Depends(get_neo4j_driver),
+) -> dict[str, Any]:
+    facade = SocialAlertFacade(pool=pool, neo4j_driver=driver)
+    data = await facade.clarity_index_by_topic(min_volume=min_volume, limit=limit)
+    return success_response(data=data, request_id=get_request_id())
+
+
 @router.get("/social/posts", summary="Danh sách bài đăng MXH đã thu thập")
 async def list_social_posts(
     topic: str | None = None,

@@ -20,6 +20,5 @@ COPY . .
 
 EXPOSE 8000
 
-# Shell form so $PORT expands. No Dockerfile HEALTHCHECK — let Railway use TCP on $PORT
-# (HTTP healthcheck often fails while the process is still importing heavy deps).
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'
+# Explicit sh -c so Railway $PORT always expands (JSON-exec form does NOT expand env).
+CMD ["sh", "-c", "exec python -m uvicorn railway_entry:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips=*"]

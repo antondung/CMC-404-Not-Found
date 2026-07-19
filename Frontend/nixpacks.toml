@@ -16,5 +16,5 @@ cmds = ["npm ci --include=dev"]
 cmds = ["npm run build"]
 
 [start]
-# $PORT is set by Railway; bind all interfaces for the proxy
-cmd = "npx serve -s apps/web/dist -l tcp://0.0.0.0:$PORT"
+cmd = "npx --yes serve -s apps/web/dist -l tcp://0.0.0.0:${PORT:-3000}"
+

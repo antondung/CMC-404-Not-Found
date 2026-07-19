@@ -12,6 +12,13 @@ from app.services.citation_validator import CitationValidator
 logger = logging.getLogger(__name__)
 
 
+def _as_uuid_or_none(value: Any) -> str | None:
+    try:
+        return str(uuid.UUID(str(value)))
+    except (ValueError, TypeError, AttributeError):
+        return None
+
+
 class PublishGateService:
     """Guardrail service (Module 9a/9b) verifying briefs before publishing to Citizen Portal."""
 
@@ -35,7 +42,9 @@ class PublishGateService:
 
         # 1. Check actor roles
         if not actor.has_any_role([Role.ADMIN_TRUYEN_THONG, Role.ADMIN_OPS]):
-            errors.append("Quyền hạn không đủ: Chỉ tài khoản có role admin_truyen_thong hoặc admin_ops mới được phép xuất bản Brief.")
+            errors.append(
+                "Quyền hạn không đủ: Chỉ tài khoản có role admin_truyen_thong hoặc admin_ops mới được phép xuất bản Brief."
+            )
             return False, {}, errors
 
         # 2. Check current status
@@ -52,47 +61,66 @@ class PublishGateService:
                 validated_citations = checked
 
         # 4. Perform Publish Transition & Audit Log record
-        # Nhóm 4 — MUST propagate: publish + audit log is a critical business operation.
-        now_str = datetime.now(timezone.utc).isoformat()
-        audit_id = f"audit-{uuid.uuid4().hex[:8]}"
+        # Schema (003_content_publish.sql):
+        #   briefs.published_by UUID REFERENCES users(id)  — nullable
+        #   audit_log(actor, action, resource_id, detail, at) — id is BIGSERIAL
+        now = datetime.now(timezone.utc)
+        now_str = now.isoformat()
+        actor_uuid = _as_uuid_or_none(actor.user_id)
+        audit_id: str | int | None = None
 
         if self.pool and hasattr(self.pool, "acquire"):
             try:
                 async with self.pool.acquire() as conn:
-                    # Update briefs table
-                    await conn.execute(
-                        "UPDATE briefs SET status = 'published', published_at = $1, published_by = $2 WHERE id = $3",
-                        datetime.now(timezone.utc),
-                        actor.user_id,
-                        brief_id,
-                    )
-                    # Insert audit log
                     await conn.execute(
                         """
-                        INSERT INTO audit_log (id, action, resource_id, actor_id, details_json, created_at)
-                        VALUES ($1, 'publish_brief', $2, $3, $4, $5)
-                        ON CONFLICT DO NOTHING
+                        UPDATE briefs
+                           SET status = 'published',
+                               published_at = $1,
+                               published_by = $2
+                         WHERE id = $3::uuid
                         """,
-                        audit_id,
+                        now,
+                        actor_uuid,
                         brief_id,
-                        actor.user_id,
-                        json.dumps({"citations_count": len(validated_citations), "status": "published"}),
-                        datetime.now(timezone.utc),
                     )
+                    row = await conn.fetchrow(
+                        """
+                        INSERT INTO audit_log (actor, action, resource_id, detail, at)
+                        VALUES ($1, 'publish_brief', $2, $3::jsonb, $4)
+                        RETURNING id
+                        """,
+                        actor_uuid,
+                        brief_id,
+                        json.dumps(
+                            {"citations_count": len(validated_citations), "status": "published"},
+                            ensure_ascii=False,
+                        ),
+                        now,
+                    )
+                    if row and row.get("id") is not None:
+                        audit_id = row["id"]
             except Exception as exc:
                 logger.exception(
                     "Publish gate DB transaction failed",
-                    extra={"operation": "publish_brief", "brief_id": brief_id, "actor": actor.user_id},
+                    extra={
+                        "operation": "publish_brief",
+                        "brief_id": brief_id,
+                        "actor": actor.user_id,
+                        "error": str(exc),
+                    },
                 )
                 raise PublishGateError(
                     "Không thể xuất bản bản tóm tắt do lỗi hệ thống cơ sở dữ liệu.",
-                    details={"brief_id": brief_id},
+                    details={"brief_id": brief_id, "error": str(exc)},
                 ) from exc
+        else:
+            audit_id = f"audit-{uuid.uuid4().hex[:8]}"
 
         updated_brief = dict(brief_data)
         updated_brief["status"] = "published"
         updated_brief["published_at"] = now_str
-        updated_brief["published_by"] = actor.user_id
+        updated_brief["published_by"] = actor_uuid or actor.user_id
         updated_brief["citations"] = validated_citations
         updated_brief["audit_id"] = audit_id
 

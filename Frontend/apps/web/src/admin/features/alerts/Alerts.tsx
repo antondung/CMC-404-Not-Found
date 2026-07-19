@@ -135,8 +135,8 @@ export default function AlertsPage() {
         processed?: number;
         alerts_created?: number;
         claims?: number;
-      }>('/admin/social/reprocess', {
-        limit: 100,
+          }>('/admin/social/reprocess', {
+        limit: 40,
         only_missing_doi_chieu: true,
         dry_run: false,
       });

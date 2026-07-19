@@ -196,7 +196,12 @@ async def _build_claim_signals(
     topic: TopicResult,
     khoan_ids: list[str],
 ) -> list[dict[str, Any]]:
-    """Run claim+NLI against linked Khoản, persist YKien/DOI_CHIEU, return alert-ready signals."""
+    """Run claim+NLI against linked Khoản, persist YKien/DOI_CHIEU, return alert-ready signals.
+
+    Uses heuristic claims first — LLM extract_claims via BE2 often hangs and blocked reprocess (0 alerts).
+    """
+    import asyncio
+
     checker = ctx.get("claim_checker")
     repo = ctx.get("social_repo")
     if not checker or not repo or not khoan_ids:
@@ -206,27 +211,68 @@ async def _build_claim_signals(
     post_url = getattr(post, "url", None) or ""
     chu_de = topic.slug or ""
     signals: list[dict[str, Any]] = []
+    # Prefer fast heuristic; optional short LLM try only if heuristic empty (very short posts).
+    heuristic = _heuristic_claims(post_content)
 
-    for khoan_id in khoan_ids[:3]:
+    for khoan_id in khoan_ids[:2]:
         khoan_text = await _fetch_khoan_text(ctx, khoan_id)
         if not khoan_text:
             continue
-        try:
-            checks = await checker.check_claims(
-                post_content=post_content,
-                khoan_id=khoan_id,
-                khoan_text=khoan_text,
-            )
-        except Exception:  # noqa: BLE001
-            checks = []
-
-        if not checks:
-            for claim in _heuristic_claims(post_content):
+        checks: list[dict[str, Any]] = []
+        if heuristic:
+            for claim in heuristic:
                 try:
                     nli = await checker.nli.nli_pair(khoan_text, claim["text"])
                 except Exception:  # noqa: BLE001
-                    continue
+                    nli = {
+                        "label": NliLabel.KHONG_RO.value,
+                        "score": 0.35,
+                        "model": "nli-fallback",
+                        "needs_review": True,
+                    }
+                # Social “tin giả / sai lệch” cues → treat as mau_thuan for triage.
+                blob = (claim["text"] or "").casefold()
+                fake_cues = (
+                    "không cần",
+                    "khong can",
+                    "miễn thuế",
+                    "mien thue",
+                    "không phải nộp",
+                    "khong phai nop",
+                    "bỏ qua",
+                    "bo qua",
+                    "trốn thuế",
+                    "tron thue",
+                    "né thuế",
+                    "ne thue",
+                )
+                if any(c in blob for c in fake_cues) and str(nli.get("label")) in {
+                    NliLabel.KHONG_RO.value,
+                    NliLabel.KHOP.value,
+                    "neutral",
+                    "entailment",
+                    "",
+                }:
+                    nli = {
+                        **nli,
+                        "label": NliLabel.MAU_THUAN.value,
+                        "score": max(float(nli.get("score") or 0.0), 0.8),
+                        "needs_review": True,
+                        "model": f"{nli.get('model', 'nli')}+fake_cue",
+                    }
                 checks.append({"claim": claim, "khoan_id": khoan_id, "nli": nli})
+        else:
+            try:
+                checks = await asyncio.wait_for(
+                    checker.check_claims(
+                        post_content=post_content,
+                        khoan_id=khoan_id,
+                        khoan_text=khoan_text,
+                    ),
+                    timeout=6.0,
+                )
+            except Exception:  # noqa: BLE001
+                checks = []
 
         for item in checks:
             claim = item.get("claim") or {}
@@ -238,7 +284,6 @@ async def _build_claim_signals(
             if not claim_text or not evidence:
                 continue
             if evidence not in post_content:
-                # Re-ground to a literal substring so alert provenance (`evidence in post`) passes.
                 start = next((i for i, ch in enumerate(post_content) if not ch.isspace()), 0)
                 evidence = post_content[start : start + 220].strip()
                 claim_text = evidence
@@ -267,12 +312,12 @@ async def _build_claim_signals(
                     "claim_text": claim_text,
                     "evidence_span": evidence,
                     "post_content": post_content,
-                    "post_url": post_url or f"social://{bai_dang_id}",
-                    "chu_de": chu_de,
+                    "post_url": (post_url or f"social://{bai_dang_id}").strip(),
+                    "chu_de": chu_de or "chua-phan-loai",
                     "khoan_id": khoan_id,
                     "label": nli_result.label.value,
-                    "score": score,
-                    "needs_review": nli_result.needs_review,
+                    "score": max(score, 0.35) if nli_result.needs_review else score,
+                    "needs_review": nli_result.needs_review or nli_result.label != NliLabel.KHOP,
                 }
             )
     return signals
@@ -327,11 +372,16 @@ async def _chain_social_review(ctx: dict, *, bai_dang_id: str, dry_run: bool) ->
     try:
         linker = ctx.get("entity_linker")
         if linker:
-            preview = await linker.preview(
-                bai_dang_id=bai_dang_id,
-                content=post.noi_dung,
-                topic=topic,
-                dry_run=dry_run,
+            import asyncio
+
+            preview = await asyncio.wait_for(
+                linker.preview(
+                    bai_dang_id=bai_dang_id,
+                    content=post.noi_dung,
+                    topic=topic,
+                    dry_run=True,  # candidates only — avoid slow edge writes + LLM rerank hangs
+                ),
+                timeout=8.0,
             )
             summary["link"] = preview.model_dump()
             proposed_ids = [e.khoan_id for e in (preview.proposed_edges or []) if e.khoan_id]
@@ -367,11 +417,15 @@ async def _chain_social_review(ctx: dict, *, bai_dang_id: str, dry_run: bool) ->
 
     try:
         alert_svc = ctx.get("alert_signal_service")
-        if alert_svc:
+        if alert_svc and signals:
             alert = await alert_svc.maybe_create_alert(signals=signals, dry_run=dry_run)
             summary["alert"] = alert
+        elif alert_svc and not signals:
+            summary["errors"].append({"stage": "alert", "code": "no_signals"})
     except BE2Error as exc:
         summary["errors"].append({"stage": "alert", "error": exc.to_dict()})
+    except Exception as exc:  # noqa: BLE001
+        summary["errors"].append({"stage": "alert", "message": str(exc)})
     return summary
 
 

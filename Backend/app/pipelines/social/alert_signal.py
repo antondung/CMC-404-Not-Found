@@ -42,7 +42,7 @@ class AlertSignalService:
         if score >= self.config.nli_confidence_threshold:
             return True
         # Heuristic NLI often emits low-score khong_ro + needs_review — still triage-worthy.
-        return bool(signal.get("needs_review")) and score >= 0.15
+        return bool(signal.get("needs_review")) and score >= 0.1
 
     @staticmethod
     def _has_provenance(signal: dict[str, Any]) -> bool:

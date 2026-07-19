@@ -29,14 +29,13 @@ class SocialAlertFacade:
         """Build worker-compatible ctx for claim/NLI/alert after admin crawl."""
         if not self.neo_repo:
             return None
-        from app.intelligence.embedder import Embedder
         from app.intelligence.llm_router import LLMRouter
         from app.intelligence.nli import NLIService
         from app.pipelines.social.alert_signal import AlertSignalService
         from app.pipelines.social.claim_check import ClaimChecker
-        from app.pipelines.social.entity_link import EntityLinker
-        from app.pipelines.social.topic_classify import TopicClassifier
 
+        # Skip Qdrant/LLM linker by default for admin reprocess — Neo4j khoan fallback is enough
+        # and avoids hanging on embed/OpenAI for every post.
         ctx: dict[str, Any] = {
             "config": cfg,
             "social_repo": self.neo_repo,
@@ -45,15 +44,6 @@ class SocialAlertFacade:
             "topic_classifier": None,
             "entity_linker": None,
         }
-        try:
-            from app.api.deps import get_qdrant_client
-
-            qdrant = await get_qdrant_client()
-            embedder = Embedder(cfg)
-            ctx["topic_classifier"] = TopicClassifier(qdrant, embedder, cfg)
-            ctx["entity_linker"] = EntityLinker(qdrant, self.neo_repo, embedder, None, cfg)
-        except Exception:  # noqa: BLE001
-            logger.warning("Review ctx without Qdrant/entity linker — Neo4j khoan fallback only", exc_info=True)
         try:
             from app.api.deps import RealLLMClient, normalize_service_url
             import os
@@ -67,6 +57,7 @@ class SocialAlertFacade:
                     )
                 ),
             )
+            # Keep router only for optional paths; claim path is heuristic-first.
             ctx["claim_checker"] = ClaimChecker(router, NLIService(cfg))
             ctx["llm_router"] = router
         except Exception:  # noqa: BLE001
@@ -238,7 +229,7 @@ class SocialAlertFacade:
     async def reprocess_existing_posts(
         self,
         *,
-        limit: int = 100,
+        limit: int = 40,
         only_missing_doi_chieu: bool = True,
         dry_run: bool = False,
     ) -> dict[str, Any]:
@@ -256,7 +247,7 @@ class SocialAlertFacade:
             }
 
         cfg = get_config()
-        bounded = max(1, min(int(limit), 500))
+        bounded = max(1, min(int(limit), 100))
         ids: list[str] = []
         try:
             if only_missing_doi_chieu:

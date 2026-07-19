@@ -38,7 +38,7 @@ class NLIService:
         self,
         config: BE2Config | None = None,
         model: Any | None = None,
-        model_name: str = "mdeberta-nli",
+        model_name: str = "heuristic-nli",
     ) -> None:
         self.config = config or get_config()
         self.model = model
@@ -47,6 +47,8 @@ class NLIService:
             self.model = _try_load_transformers_nli()
             if self.model is not None:
                 self.model_name = getattr(self.model, "model_name", "transformers-nli")
+            else:
+                self.model_name = "heuristic-nli"
 
     async def nli_pair(self, premise: str, hypothesis: str) -> dict:
         if not premise.strip() or not hypothesis.strip():

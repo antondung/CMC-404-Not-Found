@@ -32,15 +32,15 @@ _TAX_NEEDLES = topic.TAX_NEEDLES
 
 # Idea 01 — Time-Travel: which candidate Khoản are INVALID as of a given date, because either
 # (a) their văn bản is not yet effective at $as_of, or (b) they have been replaced (THAY_THE) by a
-# văn bản already effective at $as_of. Uses toString() so it works whether ngay_hieu_luc is stored
-# as an ISO string or a Neo4j Date.
+# văn bản already effective at $as_of. Compare with date() on both sides so Date/DateTime/ISO
+# strings all truncate to calendar day (string toString() compare breaks when time is stored).
 _TIME_TRAVEL_INVALID_CYPHER = """
 UNWIND $ids AS kid
 MATCH (vb:VanBanPhapLuat)-[:CO_DIEU]->(:Dieu)-[:CO_KHOAN]->(k:Khoan {khoan_id: kid})
-WHERE (vb.ngay_hieu_luc IS NOT NULL AND toString(vb.ngay_hieu_luc) > $as_of)
+WHERE (vb.ngay_hieu_luc IS NOT NULL AND date(vb.ngay_hieu_luc) > date($as_of))
    OR EXISTS {
         MATCH (moi:VanBanPhapLuat)-[:THAY_THE]->(vb)
-        WHERE moi.ngay_hieu_luc IS NOT NULL AND toString(moi.ngay_hieu_luc) <= $as_of
+        WHERE moi.ngay_hieu_luc IS NOT NULL AND date(moi.ngay_hieu_luc) <= date($as_of)
    }
 RETURN collect(DISTINCT kid) AS invalid_ids
 """
@@ -50,8 +50,8 @@ RETURN collect(DISTINCT kid) AS invalid_ids
 _TIME_TRAVEL_NOTICE_CYPHER = """
 UNWIND $ids AS kid
 MATCH (moi:VanBanPhapLuat)-[:THAY_THE]->(vb:VanBanPhapLuat)-[:CO_DIEU]->(:Dieu)-[:CO_KHOAN]->(k:Khoan {khoan_id: kid})
-WHERE moi.ngay_hieu_luc IS NOT NULL AND toString(moi.ngay_hieu_luc) > $as_of
-RETURN DISTINCT vb.so_hieu AS cu, moi.so_hieu AS moi, toString(moi.ngay_hieu_luc) AS tu_ngay
+WHERE moi.ngay_hieu_luc IS NOT NULL AND date(moi.ngay_hieu_luc) > date($as_of)
+RETURN DISTINCT vb.so_hieu AS cu, moi.so_hieu AS moi, toString(date(moi.ngay_hieu_luc)) AS tu_ngay
 """
 
 
@@ -560,10 +560,10 @@ class QAService:
             return []
         pub = "AND coalesce(k.visibility, 'public') = 'public'" if audience == "citizen" else ""
         temporal = "" if not as_of else """
-            AND (v.ngay_hieu_luc IS NULL OR toString(v.ngay_hieu_luc) <= $as_of)
+            AND (v.ngay_hieu_luc IS NULL OR date(v.ngay_hieu_luc) <= date($as_of))
             AND NOT EXISTS {
                 MATCH (moi:VanBanPhapLuat)-[:THAY_THE]->(v)
-                WHERE moi.ngay_hieu_luc IS NOT NULL AND toString(moi.ngay_hieu_luc) <= $as_of
+                WHERE moi.ngay_hieu_luc IS NOT NULL AND date(moi.ngay_hieu_luc) <= date($as_of)
             }
         """
         out: list[CandidateKhoan] = []
@@ -685,11 +685,11 @@ class QAService:
                 query = """
                 MATCH (v:VanBanPhapLuat)-[:CO_DIEU]->(d:Dieu)-[:CO_KHOAN]->(k:Khoan)
                 WHERE ($audience <> 'citizen' OR coalesce(k.visibility, 'public') = 'public')
-                                    AND ($as_of IS NULL OR v.ngay_hieu_luc IS NULL OR toString(v.ngay_hieu_luc) <= $as_of)
-                                    AND ($as_of IS NULL OR NOT EXISTS {
-                                        MATCH (moi:VanBanPhapLuat)-[:THAY_THE]->(v)
-                                        WHERE moi.ngay_hieu_luc IS NOT NULL AND toString(moi.ngay_hieu_luc) <= $as_of
-                                    })
+                  AND ($as_of IS NULL OR v.ngay_hieu_luc IS NULL OR date(v.ngay_hieu_luc) <= date($as_of))
+                  AND ($as_of IS NULL OR NOT EXISTS {
+                        MATCH (moi:VanBanPhapLuat)-[:THAY_THE]->(v)
+                        WHERE moi.ngay_hieu_luc IS NOT NULL AND date(moi.ngay_hieu_luc) <= date($as_of)
+                  })
                   AND any(kw IN $keywords WHERE
                     toLower(coalesce(k.noi_dung, '')) CONTAINS toLower(kw)
                     OR toLower(coalesce(d.tieu_de, '')) CONTAINS toLower(kw)
@@ -1036,6 +1036,8 @@ class QAService:
             "graph_paths_status": "disabled",
             "graph_paths_reason": "Fallback mode active",
             "audience": audience,
+            "as_of": None,
+            "notices": [],
             "degraded": True,
             "refuse_reason": [reason],
         }
@@ -1492,6 +1494,8 @@ class QAService:
                 "graph_paths_status": "disabled",
                 "graph_paths_reason": "LLM failed schema validation",
                 "audience": audience,
+                "as_of": as_of_val,
+                "notices": notices,
                 "refuse_reason": ["LLM output failed schema validation (needs_review)."],
             }
 
@@ -1606,6 +1610,8 @@ class QAService:
                 "graph_paths_status": "not_requested",
                 "graph_paths_reason": "No valid citations after verification",
                 "audience": audience,
+                "as_of": as_of_val,
+                "notices": notices,
                 "refused": True,
                 "refuse_reason": errors or ["All citations failed exact-match or topic-relevance verification."],
             }
@@ -1623,7 +1629,7 @@ class QAService:
                     notices=notices,
                     reason="LLM answer contradicted citations (NLI); used grounded doc summary.",
                 )
-        return {
+            return {
                 "answer": "Câu trả lời mâu thuẫn với chính căn cứ pháp lý được trích dẫn, nên đã bị hệ thống từ chối để bảo đảm an toàn.",
                 "citations": [],
                 "confidence": "low",
@@ -1632,6 +1638,8 @@ class QAService:
                 "graph_paths_reason": "Refused due to contradiction",
                 "audience": audience,
                 "citation_faithfulness": faith["score"],
+                "as_of": as_of_val,
+                "notices": notices,
                 "refused": True,
                 "refuse_reason": ["Citation contradicts the answer (NLI mâu thuẫn)."],
             }

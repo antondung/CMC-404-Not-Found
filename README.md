@@ -50,6 +50,8 @@ Hệ thống kết hợp các công nghệ tối ưu cho Web và AI hiện đạ
 ### AI & Xử lý Ngữ nghĩa
 - **LLM Router (9R-Shield):** Điều hướng linh hoạt giữa local model (Gemma) và API model tùy độ phức tạp của câu hỏi.
 - **Embedding:** OpenAI-compatible API — mặc định `text-embedding-3-small` (dim **1536**). Cấu hình qua `BE2_OPENAI_*` / `BE2_EMBEDDING_*` trong `Backend/.env`.
+- **Entailment gate (NLI):** pluggable. **Bản demo mặc định dùng heuristic** (token-overlap + chặn cứng khi lệch số/mã văn bản). Model transformers (vd. mDeBERTa) chỉ khi `BE2_NLI_TRANSFORMERS=1` và cài thêm deps — **không** claim “dùng BERT” trên demo.
+- **Clarity Index:** `clarity_risk × log(volume+1)` — chỉ số rủi ro diễn đạt có trọng số volume. **Không** phải Shannon entropy.
 - **Xử lý tài liệu:** `pdfplumber`, `PyMuPDF`, Tesseract OCR.
 
 ### Backend (Python)
@@ -94,10 +96,33 @@ docker-compose -f Data/docker-compose.data.yml --env-file Data/.env up -d
 
 > **Production checklist (bắt buộc trước khi công bố):**
 > 1. `APP_ENV=production` + `AUTH_TOKEN_SECRET` ≥32 ký tự ngẫu nhiên (không chứa `change-me`) + `ENABLE_DEV_TOKENS=false`
-> 2. `BE2_OPENAI_API_KEY` / `BE2_EMBEDDING_API_KEY` sống và đúng model embedding
+> 2. `BE2_OPENAI_API_KEY` / `BE2_EMBEDDING_API_KEY` **sống suốt cửa sổ demo** (QA/ingest/embedding chết nếu hết credit). Chuẩn bị key dự phòng hoặc quay video fallback.
 > 3. `Data/.env` `EMBEDDING_DIM=1536` khớp backend; recreate Qdrant nếu trước đó dùng 1024
 > 4. Chạy `cd Backend && pytest -vv` → 0 failed
 > 5. **Railway FE:** Root Directory = `Frontend`. **Không** đặt Build Command = `npm ci && …` (Railpack đã install — lần 2 gây EBUSY). Chỉ cần `VITE_API_URL=https://<backend-public>.up.railway.app`, Redeploy. Citizen `/`, Admin `/admin`. Backend: `CORS_ALLOW_ALL=true`.
+> 6. **Railway BE:** Root Directory = `Backend`. Dùng `Backend/Dockerfile` hoặc `Backend/nixpacks.toml` (`startCommand`: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`). Service BE2 riêng: `uvicorn be2_service:app --host 0.0.0.0 --port $PORT` + `BE2_INTELLIGENCE_URL` trỏ tới URL public của BE2.
+
+### Git LFS (backup Qdrant / snapshot lớn)
+
+Một số file dưới `Data/backups/` dùng **Git LFS**. Clone thường chỉ thấy pointer text (~130 byte) nếu chưa kéo LFS:
+
+```bash
+git lfs install
+git lfs pull
+```
+
+Không có `git-lfs` thì bỏ qua backup snapshot và dùng seed/reindex thay thế.
+
+### Demo sống (điền URL sau khi deploy)
+
+| Thành phần | URL |
+|---|---|
+| Frontend (citizen) | `https://<fe>.up.railway.app/` |
+| Frontend (admin) | `https://<fe>.up.railway.app/admin/` |
+| Backend BE3 docs | `https://<be3>.up.railway.app/docs` |
+| Backend BE2 health | `https://<be2>.up.railway.app/health` |
+
+Health tối thiểu trước khi chấm: `GET /health` (BE3) và `GET /health` (BE2, `openai_reachable: true`).
 
 #### 2. Cài đặt Dependency và Khởi chạy Ứng dụng
 Sử dụng script PowerShell `run.ps1` để tự động tạo môi trường ảo Python (venv), cài đặt thư viện (`pip`, `npm`), seed dữ liệu mẫu, và bật các services:

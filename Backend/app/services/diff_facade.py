@@ -29,9 +29,12 @@ def _to_jsonable(obj: Any) -> Any:
         return {k: _to_jsonable(v) for k, v in obj.items()}
     if isinstance(obj, (list, tuple)):
         return [_to_jsonable(v) for v in obj]
-    iso = getattr(obj, "iso_format", None)
+    iso = getattr(obj, "isoformat", None)
     if callable(iso):
-        return iso()
+        try:
+            return iso()
+        except Exception:  # noqa: BLE001
+            pass
     return str(obj)
 
 

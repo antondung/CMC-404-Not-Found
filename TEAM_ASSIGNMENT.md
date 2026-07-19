@@ -82,7 +82,7 @@
 | **LLM (OpenAI-compatible)** | Chat local/large qua BE2 gateway (`BE2_OPENAI_*`) — **không dùng Ollama** | BE1, BE2, BE3 |
 | **9R-Shield / LLM Router** | Route local vs large theo độ phức tạp | BE2 sở hữu router; BE1/BE3 gọi |
 | **Embedding `text-embedding-3-small`** | Vector Khoản + topic MXH — dim **1536** (`BE2_EMBEDDING_*`) | BE2 |
-| **NLI model (VN hoặc multilingual)** | Claim ↔ Khoản → khop/mau_thuan/khong_ro | BE2 |
+| **NLI / entailment gate (pluggable)** | Claim ↔ Khoản → khop/mau_thuan/khong_ro. **Demo mặc định = heuristic** (token-overlap + chặn lệch số/mã VB). Model transformers chỉ bật khi `BE2_NLI_TRANSFORMERS=1` + deps có sẵn — **không** claim BERT/mDeBERTa trên bản demo. | BE2 |
 | **GPTCache** (optional) + Redis | Semantic cache câu hỏi lặp | BE3 |
 | **pdfplumber / PyMuPDF / lxml** | Đọc PDF/HTML luật | BE1 |
 

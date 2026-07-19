@@ -39,7 +39,7 @@ async def get_graph_neighborhood(
     return success_response(data=res, request_id=get_request_id())
 
 
-@router.get("/graph/clarity-index", summary="Chỉ số Mù mờ Pháp lý (Legal Clarity Index)")
+@router.get("/graph/clarity-index", summary="Chỉ số rủi ro diễn đạt (clarity_risk × log volume)")
 async def get_clarity_index(
     min_volume: int = Query(default=5, ge=1, le=1000, description="Ngưỡng số lượt đối chiếu tối thiểu để tính"),
     limit: int = Query(default=50, ge=1, le=200, description="Số Khoản trả về"),

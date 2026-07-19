@@ -1,0 +1,15 @@
+# Railway / Nixpacks — set Root Directory to `Backend`
+#
+# Service roles:
+#   API :8000  → startCommand uvicorn app.main:app
+#   BE2 :8002  → startCommand uvicorn be2_service:app  (override in Railway UI)
+#   Worker     → startCommand arq app.workers.arq_settings.WorkerSettings
+
+[phases.setup]
+nixPkgs = ["python312", "gcc", "postgresql"]
+
+[phases.install]
+cmds = ["pip install -r requirements.txt"]
+
+[start]
+cmd = "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"

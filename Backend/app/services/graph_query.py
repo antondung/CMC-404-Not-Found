@@ -32,8 +32,13 @@ def _jsonable(value: Any) -> Any:
         return {str(k): _jsonable(v) for k, v in value.items()}
     if isinstance(value, (list, tuple, set)):
         return [_jsonable(v) for v in value]
-    iso = getattr(value, "iso_format", None)
-    return iso() if callable(iso) else str(value)
+    iso = getattr(value, "isoformat", None)
+    if callable(iso):
+        try:
+            return iso()
+        except Exception:  # noqa: BLE001
+            pass
+    return str(value)
 
 def _node_type(node: Any) -> tuple[str, str]:
     labels = set(node.labels) if hasattr(node, "labels") else set()
@@ -253,8 +258,9 @@ class GraphQueryService:
 
         Aggregates the DOI_CHIEU edges (citizen opinions cross-checked against a Khoản) to find which
         provisions are most often misunderstood. High ``clarity_risk`` (share of mâu_thuẫn/khong_ro)
-        combined with high volume signals a clause that may be written or communicated unclearly.
-        This is a communication signal, NOT a legal judgement that the law is wrong.
+        weighted by ``log(volume + 1)`` ranks clauses that are both contested and widely discussed.
+        This is a communication / clarity-risk signal — NOT Shannon entropy and NOT a legal judgement
+        that the law itself is wrong.
         """
         bounded_min = max(1, min(min_volume, 1000))
         bounded_limit = max(1, min(limit, 200))

@@ -67,7 +67,7 @@ export default function GraphPage() {
           <p className="text-slate-500 text-sm mt-1">Khám phá quan hệ pháp lý trong Neo4j và phát hiện điều khoản đang bị hiểu sai nhiều nhất.</p>
         </div>
         <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
-          {([['explore', 'Khám phá', TreeStructure], ['clarity', 'Chỉ số Mù mờ', Gauge]] as const).map(([id, label, Icon]) => (
+          {([['explore', 'Khám phá', TreeStructure], ['clarity', 'Chỉ số rủi ro diễn đạt', Gauge]] as const).map(([id, label, Icon]) => (
             <button key={id} onClick={() => setTab(id)} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${tab === id ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
               <Icon size={16} weight={tab === id ? 'fill' : 'regular'} /> {label}
             </button>

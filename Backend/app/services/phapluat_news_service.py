@@ -2,15 +2,17 @@ from __future__ import annotations
 
 import html
 import json
+import logging
 import re
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from html.parser import HTMLParser
 from typing import Any
 from urllib.parse import urljoin
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 NEWS_URL = "https://phapluat.gov.vn/tin-tuc"
 NEWS_SOURCE_URLS = (
@@ -110,7 +112,8 @@ async def _fetch_article_body(client: httpx.AsyncClient, url: str, *, max_chars:
     try:
         resp = await client.get(_reader_url(url), headers={"User-Agent": "LexSocialAI/1.0"})
         resp.raise_for_status()
-    except httpx.HTTPError:
+    except Exception:  # noqa: BLE001 — one bad article must not abort the whole sync
+        logger.debug("Failed to fetch article body for %s", url, exc_info=True)
         return None
     text = resp.text
     marker = "Markdown Content:"
@@ -141,43 +144,65 @@ class PhapLuatNewsService:
 
     async def fetch_items(self, limit_per_topic: int = 5) -> list[NewsItem]:
         source_urls = tuple(dict.fromkeys((self.base_url, *NEWS_SOURCE_URLS)))
+        # Keep the httpx client open for the whole scrape — article bodies are fetched
+        # after listing pages, and a closed client raises RuntimeError (not HTTPError).
         async with httpx.AsyncClient(timeout=25.0, follow_redirects=True) as client:
-            responses = []
+            responses: list[tuple[str, str]] = []
             for source_url in source_urls:
-                resp = await client.get(_reader_url(source_url), headers={"User-Agent": "LexSocialAI/1.0"})
-                resp.raise_for_status()
-                responses.append((source_url, resp.text))
+                try:
+                    resp = await client.get(_reader_url(source_url), headers={"User-Agent": "LexSocialAI/1.0"})
+                    resp.raise_for_status()
+                    responses.append((source_url, resp.text))
+                except httpx.HTTPError:
+                    logger.warning("Failed to fetch news listing %s", source_url, exc_info=True)
+                    continue
 
-        seen: set[str] = set()
-        counts = {topic: 0 for topic in TOPICS}
-        items: list[NewsItem] = []
-        for source_url, body in responses:
-            parser = _LinkCollector()
-            parser.feed(body)
-            links = [
-                *parser.links,
-                *[(url, text) for text, url in _MD_LINK_RE.findall(body)],
-                *[(url, f"{text} {date_text}") for text, date_text, url in _MD_HEADING_LINK_RE.findall(body)],
-            ]
-            for href, anchor_text in links:
-                url = urljoin(source_url, href)
-                if not _is_article_url(url):
-                    continue
-                title, published_text = _title_from_anchor(anchor_text)
-                if len(title) < 20:
-                    continue
-                topic = _topic_for(f"{title} {url}")
-                if not topic or counts[topic] >= limit_per_topic or url in seen:
-                    continue
-                seen.add(url)
-                counts[topic] += 1
-                body_text = await _fetch_article_body(client, url)
-                items.append(NewsItem(title=title, url=url, topic=topic, published_text=published_text, body=body_text))
+            if not responses:
+                raise RuntimeError(
+                    "Không tải được danh sách tin từ phapluat.gov.vn (tất cả nguồn đều lỗi)."
+                )
+
+            seen: set[str] = set()
+            counts = {topic: 0 for topic in TOPICS}
+            items: list[NewsItem] = []
+            for source_url, body in responses:
+                parser = _LinkCollector()
+                parser.feed(body)
+                links = [
+                    *parser.links,
+                    *[(url, text) for text, url in _MD_LINK_RE.findall(body)],
+                    *[
+                        (url, f"{text} {date_text}")
+                        for text, date_text, url in _MD_HEADING_LINK_RE.findall(body)
+                    ],
+                ]
+                for href, anchor_text in links:
+                    url = urljoin(source_url, href)
+                    if not _is_article_url(url):
+                        continue
+                    title, published_text = _title_from_anchor(anchor_text)
+                    if len(title) < 20:
+                        continue
+                    topic = _topic_for(f"{title} {url}")
+                    if not topic or counts[topic] >= limit_per_topic or url in seen:
+                        continue
+                    seen.add(url)
+                    counts[topic] += 1
+                    body_text = await _fetch_article_body(client, url)
+                    items.append(
+                        NewsItem(
+                            title=title,
+                            url=url,
+                            topic=topic,
+                            published_text=published_text,
+                            body=body_text,
+                        )
+                    )
+                    if all(count >= limit_per_topic for count in counts.values()):
+                        break
                 if all(count >= limit_per_topic for count in counts.values()):
                     break
-            if all(count >= limit_per_topic for count in counts.values()):
-                break
-        return items
+            return items
 
     async def sync_briefs(self, *, user_id: str | None = None, limit_per_topic: int = 5) -> dict[str, Any]:
         items = await self.fetch_items(limit_per_topic=limit_per_topic)
@@ -238,4 +263,5 @@ def _is_article_url(url: str) -> bool:
 
 
 def _reader_url(url: str) -> str:
-    return f"https://r.jina.ai/http://{url}"
+    # Jina Reader expects https://r.jina.ai/<full-url> (do not prefix http:// again).
+    return f"https://r.jina.ai/{url}"

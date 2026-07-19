@@ -59,7 +59,13 @@ async def sync_news_briefs(
     user: UserToken = Depends(require_admin()),
 ) -> dict[str, Any]:
     service = PhapLuatNewsService(pool=pool)
-    data = await service.sync_briefs(user_id=user.user_id, limit_per_topic=request.limit_per_topic)
+    try:
+        data = await service.sync_briefs(user_id=user.user_id, limit_per_topic=request.limit_per_topic)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Không cập nhật được tin pháp luật: {exc}",
+        ) from exc
     return success_response(data=data, request_id=get_request_id())
 
 @router.get("/briefs/{id}", summary="Chi tiết bài tóm tắt")

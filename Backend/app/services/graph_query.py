@@ -253,7 +253,7 @@ class GraphQueryService:
                 logger.warning("Failed to fetch seed suggestions from Neo4j", exc_info=True)
         return {"items": items, "total": len(items)}
 
-    async def clarity_index(self, min_volume: int = 5, limit: int = 50) -> dict[str, Any]:
+    async def clarity_index(self, min_volume: int = 1, limit: int = 50) -> dict[str, Any]:
         """Idea 02 — Legal Clarity Index.
 
         Aggregates the DOI_CHIEU edges (citizen opinions cross-checked against a Khoản) to find which

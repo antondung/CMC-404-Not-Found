@@ -21,8 +21,57 @@ class SocialAlertFacade:
     def __init__(self, pool: Any | None = None, neo4j_driver: Any | None = None) -> None:
         self.pool = pool
         self.driver = neo4j_driver
-        self.neo_repo = Neo4jSocialRepository(neo4j_driver) if neo4j_driver else None
+        # Pass Postgres pool so save_alert mirrors AlertMeta → alerts table (UI reads PG).
+        self.neo_repo = Neo4jSocialRepository(neo4j_driver, pool) if neo4j_driver else None
         self.pg_repo = PostgresContentRepository(pool) if pool else None
+
+    async def _build_review_ctx(self, cfg: Any) -> dict[str, Any] | None:
+        """Build worker-compatible ctx for claim/NLI/alert after admin crawl."""
+        if not self.neo_repo:
+            return None
+        from app.intelligence.embedder import Embedder
+        from app.intelligence.llm_router import LLMRouter
+        from app.intelligence.nli import NLIService
+        from app.pipelines.social.alert_signal import AlertSignalService
+        from app.pipelines.social.claim_check import ClaimChecker
+        from app.pipelines.social.entity_link import EntityLinker
+        from app.pipelines.social.topic_classify import TopicClassifier
+
+        ctx: dict[str, Any] = {
+            "config": cfg,
+            "social_repo": self.neo_repo,
+            "alert_signal_service": AlertSignalService(self.neo_repo, cfg),
+            "claim_checker": ClaimChecker(None, NLIService(cfg)),
+            "topic_classifier": None,
+            "entity_linker": None,
+        }
+        try:
+            from app.api.deps import get_qdrant_client
+
+            qdrant = await get_qdrant_client()
+            embedder = Embedder(cfg)
+            ctx["topic_classifier"] = TopicClassifier(qdrant, embedder, cfg)
+            ctx["entity_linker"] = EntityLinker(qdrant, self.neo_repo, embedder, None, cfg)
+        except Exception:  # noqa: BLE001
+            logger.warning("Review ctx without Qdrant/entity linker — Neo4j khoan fallback only", exc_info=True)
+        try:
+            from app.api.deps import RealLLMClient, normalize_service_url
+            import os
+
+            router = LLMRouter(
+                config=cfg,
+                client=RealLLMClient(
+                    base_url=normalize_service_url(
+                        os.getenv("BE2_INTELLIGENCE_URL"),
+                        default="http://localhost:8002",
+                    )
+                ),
+            )
+            ctx["claim_checker"] = ClaimChecker(router, NLIService(cfg))
+            ctx["llm_router"] = router
+        except Exception:  # noqa: BLE001
+            logger.warning("Review ctx using heuristic NLI only (no LLM router)", exc_info=True)
+        return ctx
 
     async def ingest_post(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Trigger ingestion job into real Postgres jobs queue.
@@ -107,6 +156,7 @@ class SocialAlertFacade:
                 errors.append({"platform": provider, "message": msg, "details": details if isinstance(details, dict) else None})
 
         ingested_items: list[dict[str, Any]] = []
+        chain_results: list[dict[str, Any]] = []
         if not dry_run and self.neo_repo:
             ingest_service = SocialIngestService(self.neo_repo, cfg)
             for payload in collected:
@@ -122,6 +172,36 @@ class SocialAlertFacade:
             except Exception:  # noqa: BLE001
                 logger.warning("Failed to ensure ChuDe topics after crawl", exc_info=True)
 
+            # Topic → link → claim/NLI → alert (fills Alerts UI + Graph clarity DOI_CHIEU).
+            try:
+                review_ctx = await self._build_review_ctx(cfg)
+                if review_ctx:
+                    from app.workers.social_jobs import _chain_social_review
+
+                    for item in ingested_items:
+                        platform = item.get("platform")
+                        external_id = item.get("external_id")
+                        if not platform or not external_id:
+                            continue
+                        try:
+                            chain_results.append(
+                                await _chain_social_review(
+                                    review_ctx,
+                                    bai_dang_id=f"{platform}:{external_id}",
+                                    dry_run=False,
+                                )
+                            )
+                        except Exception as exc:  # noqa: BLE001
+                            errors.append(
+                                {
+                                    "platform": platform,
+                                    "external_id": external_id,
+                                    "message": f"review chain: {exc}",
+                                }
+                            )
+            except Exception:  # noqa: BLE001
+                logger.warning("Social review chain unavailable after crawl", exc_info=True)
+
         status = "success" if collected else ("partial" if errors else "failed")
         if collected and errors:
             status = "partial"
@@ -134,6 +214,13 @@ class SocialAlertFacade:
         elif errors:
             message = f"Thu thập được {len(collected)} mục, có {len(errors)} lỗi."
 
+        alerts_made = sum(1 for c in chain_results if c.get("alert"))
+        if chain_results and not message:
+            message = (
+                f"Đã lưu {len(ingested_items)} bài, chạy pipeline claim/NLI; "
+                f"tạo {alerts_made} cảnh báo."
+            )
+
         return {
             "status": status,
             "message": message,
@@ -142,6 +229,8 @@ class SocialAlertFacade:
             "dry_run": dry_run,
             "collected": len(collected),
             "ingested": len(ingested_items),
+            "chain": chain_results,
+            "alerts_created": alerts_made,
             "items": ingested_items if ingested_items else collected[:100],
             "errors": errors,
         }
@@ -391,7 +480,7 @@ class SocialAlertFacade:
             return await conn.fetch(base_sql)
 
     async def list_alerts(self, severity: str | None = None, status: str | None = None) -> list[dict[str, Any]]:
-        """List alerts generated from BE2 claim check and NLI signal detection in real DB."""
+        """List alerts from Postgres; fall back to Neo4j AlertMeta if PG empty/unavailable."""
         items: list[dict[str, Any]] = []
         if self.pool and hasattr(self.pool, "acquire"):
             try:
@@ -406,6 +495,43 @@ class SocialAlertFacade:
                         items.append(data)
             except Exception:
                 logger.warning("Failed to list alerts from Postgres", exc_info=True)
+
+        if items:
+            return items
+
+        if self.driver and hasattr(self.driver, "session"):
+            try:
+                async with self.driver.session() as session:
+                    res = await session.run(
+                        """
+                        MATCH (a:AlertMeta)
+                        RETURN a
+                        ORDER BY coalesce(a.created_at, datetime('1970-01-01')) DESC
+                        LIMIT 100
+                        """
+                    )
+                    async for record in res:
+                        node = dict(record["a"])
+                        data = {
+                            "id": node.get("uuid") or node.get("id"),
+                            "chu_de": node.get("chu_de"),
+                            "khoan_ids": node.get("khoan_ids") or [],
+                            "severity": node.get("severity"),
+                            "volume": node.get("volume") or 0,
+                            "status": node.get("status") or "open",
+                            "provenance_status": node.get("provenance_status"),
+                            "signals": json.loads(node["signals_json"])
+                            if isinstance(node.get("signals_json"), str)
+                            else (node.get("signals") or []),
+                            "created_at": str(node.get("created_at") or ""),
+                        }
+                        if severity and data.get("severity") != severity:
+                            continue
+                        if status and data.get("status") != status:
+                            continue
+                        items.append(data)
+            except Exception:
+                logger.warning("Failed to list alerts from Neo4j AlertMeta", exc_info=True)
 
         return items
 

@@ -418,7 +418,7 @@ function ClarityTab() {
   const [items, setItems] = useState<ClarityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [minVolume, setMinVolume] = useState(5);
+  const [minVolume, setMinVolume] = useState(1);
 
   const load = useCallback((mv: number) => {
     setLoading(true);
@@ -461,8 +461,11 @@ function ClarityTab() {
       ) : items.length === 0 ? (
         <div className="p-16 text-center bg-white rounded-2xl border border-slate-200">
           <Gauge size={40} className="text-slate-300 mx-auto mb-4" weight="fill" />
-          <p className="text-slate-500 font-semibold">Chưa đủ dữ liệu đối chiếu để xếp hạng.</p>
-          <p className="text-slate-400 text-sm mt-1">Chỉ số xuất hiện khi có đủ ý kiến MXH liên kết tới các Khoản.</p>
+          <p className="text-slate-500 font-semibold">Chưa có quan hệ DOI_CHIEU để xếp hạng.</p>
+          <p className="text-slate-400 text-sm mt-1 max-w-md mx-auto">
+            Chỉ số lấy từ ý kiến MXH đối chiếu Khoản (sau crawl không dry-run). Hãy chạy crawl radar xã hội,
+            rồi đặt ngưỡng tối thiểu = 1 lượt đối chiếu.
+          </p>
         </div>
       ) : (
         <div className="space-y-3">

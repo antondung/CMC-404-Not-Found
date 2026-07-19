@@ -53,11 +53,11 @@ class BE2Config(BaseModel):
     llm_retry_count: int = Field(default=0, ge=0, le=3)
 
     topic_threshold: float = Field(default=0.55, ge=0, le=1)
-    link_threshold: float = Field(default=0.70, ge=0, le=1)
+    link_threshold: float = Field(default=0.55, ge=0, le=1)
     nli_confidence_threshold: float = Field(default=0.70, ge=0, le=1)
     qa_cache_ttl_s: int = Field(default=300, ge=0, le=86400)
     qa_cache_enabled: bool = True
-    alert_volume_threshold: int = Field(default=3, ge=1)
+    alert_volume_threshold: int = Field(default=1, ge=1)
     alert_time_window_s: int = Field(default=3600, ge=1)
     alert_dedupe_window_s: int = Field(default=86400, ge=1)
     alert_cooldown_s: int = Field(default=3600, ge=0)
@@ -142,11 +142,11 @@ def get_config() -> BE2Config:
         llm_large_timeout_s=_float_env("BE2_LLM_LARGE_TIMEOUT_S", 40.0),
         llm_retry_count=_int_env("BE2_LLM_RETRY_COUNT", 0),
         topic_threshold=_float_env("BE2_TOPIC_THRESHOLD", 0.55),
-        link_threshold=_float_env("BE2_LINK_THRESHOLD", 0.70),
+        link_threshold=_float_env("BE2_LINK_THRESHOLD", 0.55),
         nli_confidence_threshold=_float_env("BE2_NLI_CONFIDENCE_THRESHOLD", 0.70),
         qa_cache_ttl_s=_int_env("BE2_QA_CACHE_TTL_S", 300),
         qa_cache_enabled=_bool_env("BE2_QA_CACHE_ENABLED", "true"),
-        alert_volume_threshold=_int_env("BE2_ALERT_VOLUME_THRESHOLD", 3),
+        alert_volume_threshold=_int_env("BE2_ALERT_VOLUME_THRESHOLD", 1),
         alert_time_window_s=_int_env("BE2_ALERT_TIME_WINDOW_S", 3600),
         alert_dedupe_window_s=_int_env("BE2_ALERT_DEDUPE_WINDOW_S", 86400),
         alert_cooldown_s=_int_env("BE2_ALERT_COOLDOWN_S", 3600),

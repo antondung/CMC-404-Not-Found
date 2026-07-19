@@ -23,8 +23,24 @@ class EntityLinker:
         if topic.score < self.config.topic_threshold:
             return LinkPreview(bai_dang_id=bai_dang_id, candidates=[], proposed_edges=[], dry_run=dry_run, status="blocked", reasons=["topic_score_below_threshold"])
         vector = (await self.embedder.embed_texts([content]))[0]
-        hits = await self.vector_client.search("khoan", vector, limit=top_k, query_filter={"must": [{"key": "chu_de", "match": {"value": topic.slug}}]})
-        candidates = [{"khoan_id": h.get("payload", {}).get("khoan_id"), "score": float(h.get("score", 0.0)), "payload": h.get("payload", {})} for h in hits]
+        hits = await self.vector_client.search(
+            "khoan",
+            vector,
+            limit=top_k,
+            query_filter={"must": [{"key": "chu_de", "match": {"value": topic.slug}}]},
+        )
+        if not hits:
+            # Topic filter often empty when Qdrant payloads lack chu_de — fall back to global search.
+            hits = await self.vector_client.search("khoan", vector, limit=top_k, query_filter=None)
+            reasons.append("topic_filter_empty_fallback_global")
+        candidates = [
+            {
+                "khoan_id": h.get("payload", {}).get("khoan_id"),
+                "score": float(h.get("score", 0.0)),
+                "payload": h.get("payload", {}),
+            }
+            for h in hits
+        ]
         candidates = [c for c in candidates if c["khoan_id"]]
         ranked = await self.reranker.rerank(content, candidates) if candidates else []
         known_ids = {c["khoan_id"] for c in candidates}

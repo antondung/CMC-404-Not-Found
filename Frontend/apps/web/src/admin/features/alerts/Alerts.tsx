@@ -172,7 +172,10 @@ export default function AlertsPage() {
         <div className="admin-card p-16 text-center">
           <Warning size={40} className="mx-auto mb-4 text-border" weight="fill" aria-hidden />
           <p className="font-semibold text-muted">Chưa có cảnh báo nào được ghi nhận.</p>
-          <p className="mt-1 text-sm text-muted">Cảnh báo xuất hiện khi pipeline giám sát MXH phát hiện tín hiệu sai lệch.</p>
+          <p className="mt-1 text-sm text-muted max-w-md mx-auto">
+            Cảnh báo xuất hiện sau khi crawl MXH (không dry-run) chạy pipeline claim/NLI và phát hiện mâu thuẫn
+            với Khoản. Kiểm tra <code className="text-xs">BE2_ALERT_VOLUME_THRESHOLD=1</code> và OpenAI/NLI.
+          </p>
         </div>
       ) : (
         <div className="space-y-5">

@@ -177,16 +177,37 @@ class Neo4jSocialRepository:
 
     async def create_link_edge(self, bai_dang_id: str, candidate: LinkCandidate, *, method: str) -> None:
         platform, external_id = bai_dang_id.split(":", 1)
+        # Do not require ChuDe-[:LIEN_QUAN]->Khoan beforehand — MERGE it when ChuDe exists.
         query = """
         MATCH (b:BaiDang {platform: $platform, external_id: $external_id})
         MATCH (k:Khoan {khoan_id: $khoan_id})
-        MATCH (b)-[:THAO_LUAN_VE]->(:ChuDe)-[:LIEN_QUAN]->(k)
+        OPTIONAL MATCH (b)-[:THAO_LUAN_VE]->(c:ChuDe)
+        FOREACH (_ IN CASE WHEN c IS NULL THEN [] ELSE [1] END |
+          MERGE (c)-[:LIEN_QUAN]->(k)
+        )
         MERGE (b)-[r:GAN_CO_CAN_KIEM_CHUNG]->(k)
         SET r.score = $score, r.method = $method, r.updated_at = datetime($updated_at)
         """
         async with self.driver.session() as session:
-            result = await session.run(query, platform=platform, external_id=external_id, khoan_id=candidate.khoan_id, score=candidate.score, method=method, updated_at=datetime.now(timezone.utc).isoformat())
+            result = await session.run(
+                query,
+                platform=platform,
+                external_id=external_id,
+                khoan_id=candidate.khoan_id,
+                score=candidate.score,
+                method=method,
+                updated_at=datetime.now(timezone.utc).isoformat(),
+            )
             await result.consume()
+
+    async def fetch_khoan_text(self, khoan_id: str) -> str | None:
+        async with self.driver.session() as session:
+            result = await session.run(
+                "MATCH (k:Khoan {khoan_id: $khoan_id}) RETURN k.noi_dung AS noi_dung LIMIT 1",
+                khoan_id=khoan_id,
+            )
+            record = await result.single()
+        return str(record["noi_dung"]) if record and record.get("noi_dung") else None
 
     async def save_nli(self, bai_dang_id: str, khoan_id: str, result: NliResult, *, claim_text: str, evidence_span: str) -> str:
         platform, external_id = bai_dang_id.split(":", 1)
@@ -217,6 +238,7 @@ class Neo4jSocialRepository:
         MERGE (a:AlertMeta {uuid: $uuid})
         SET a.chu_de = $chu_de, a.khoan_ids = $khoan_ids, a.severity = $severity,
             a.volume = $volume, a.status = $status, a.provenance_status = $provenance_status,
+            a.dedupe_key = $dedupe_key,
             a.signals_json = $signals_json,
             a.created_at = coalesce(a.created_at, datetime($created_at))
         WITH a
@@ -227,7 +249,20 @@ class Neo4jSocialRepository:
         """
         async with self.driver.session() as session:
             signals = alert.get("signals", [])
-            result = await session.run(query, uuid=alert_uuid, chu_de=alert.get("chu_de"), khoan_ids=alert.get("khoan_ids", []), severity=alert.get("severity"), volume=alert.get("volume"), status=alert.get("status", "open"), provenance_status=alert.get("provenance_status", "missing"), signals_json=json.dumps(signals, ensure_ascii=False, default=str), signal_ids=[s.get("ykien_id") for s in signals if s.get("ykien_id")], created_at=datetime.now(timezone.utc).isoformat())
+            result = await session.run(
+                query,
+                uuid=alert_uuid,
+                chu_de=alert.get("chu_de"),
+                khoan_ids=alert.get("khoan_ids", []),
+                severity=alert.get("severity"),
+                volume=alert.get("volume"),
+                status=alert.get("status", "open"),
+                provenance_status=alert.get("provenance_status", "missing"),
+                dedupe_key=alert.get("dedupe_key"),
+                signals_json=json.dumps(signals, ensure_ascii=False, default=str),
+                signal_ids=[s.get("ykien_id") for s in signals if s.get("ykien_id")],
+                created_at=datetime.now(timezone.utc).isoformat(),
+            )
             record = await result.single()
         if self.pool and hasattr(self.pool, "acquire"):
             async with self.pool.acquire() as conn:
@@ -256,8 +291,14 @@ class Neo4jSocialRepository:
         return record["uuid"] if record else str(alert_uuid)
 
     async def find_recent_alert(self, key: str, cooldown_s: int) -> dict[str, Any] | None:
-        query = "MATCH (a:AlertMeta {uuid: $key}) RETURN a LIMIT 1"
+        alert_uuid = str(uuid5(NAMESPACE_URL, f"be2:alert:{key}"))
+        query = """
+        MATCH (a:AlertMeta)
+        WHERE a.uuid = $uuid OR a.dedupe_key = $key
+        RETURN a
+        LIMIT 1
+        """
         async with self.driver.session() as session:
-            result = await session.run(query, key=key)
+            result = await session.run(query, uuid=alert_uuid, key=key)
             record = await result.single()
         return dict(record["a"]) if record else None

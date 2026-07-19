@@ -15,8 +15,13 @@ class AlertSignalService:
         eligible = [
             s for s in signals
             if self._has_provenance(s)
-            and s.get("label") in {NliLabel.MAU_THUAN, NliLabel.MAU_THUAN.value}
-            and float(s.get("score", 0.0)) >= self.config.nli_confidence_threshold
+            and s.get("label") in {
+                NliLabel.MAU_THUAN,
+                NliLabel.MAU_THUAN.value,
+                NliLabel.KHONG_RO,
+                NliLabel.KHONG_RO.value,
+            }
+            and self._score_eligible(s)
         ]
         if len(eligible) < self.config.alert_volume_threshold or dry_run:
             return None
@@ -31,6 +36,13 @@ class AlertSignalService:
         alert = {"chu_de": chu_de, "khoan_ids": [khoan_id], "severity": self._severity(volume), "volume": volume, "status": "open", "dedupe_key": dedupe_key, "signals": grouped_signals, "provenance_status": "complete", "note": "Tín hiệu cần xem xét, không phải kết luận nội dung giả."}
         alert_id = await self.repository.save_alert(alert)
         return {"alert_id": alert_id, **alert}
+
+    def _score_eligible(self, signal: dict[str, Any]) -> bool:
+        score = float(signal.get("score", 0.0))
+        if score >= self.config.nli_confidence_threshold:
+            return True
+        # Heuristic NLI often emits low-score khong_ro + needs_review — still triage-worthy.
+        return bool(signal.get("needs_review")) and score >= 0.15
 
     @staticmethod
     def _has_provenance(signal: dict[str, Any]) -> bool:

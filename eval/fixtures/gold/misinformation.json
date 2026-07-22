@@ -1,0 +1,10 @@
+{
+  "metadata": {"dataset_id": "misinformation-contract-smoke-v1", "dataset_kind": "synthetic_contract_fixture", "independent_review": false},
+  "cases": [
+    {"case_id": "old-threshold-news", "expected_verdict": "OUTDATED_BUT_PREVIOUSLY_TRUE", "expected_cluster_id": "threshold-200m", "expected_high_risk": true},
+    {"case_id": "old-threshold-social", "expected_verdict": "OUTDATED_BUT_PREVIOUSLY_TRUE", "expected_cluster_id": "threshold-200m", "expected_high_risk": true},
+    {"case_id": "always-wrong", "expected_verdict": "CONTRADICTED", "expected_cluster_id": "threshold-50m", "expected_high_risk": true},
+    {"case_id": "missing-law", "expected_verdict": "UNVERIFIABLE", "expected_cluster_id": "unknown-topic", "expected_high_risk": false},
+    {"case_id": "supported-current", "expected_verdict": "SUPPORTED", "expected_cluster_id": "threshold-500m", "expected_high_risk": false}
+  ]
+}

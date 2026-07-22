@@ -2,8 +2,90 @@ from __future__ import annotations
 
 import pytest
 from httpx import AsyncClient, ASGITransport
+from fastapi import HTTPException
 from app.main import app
-from app.core.security import Role
+from app.api.admin.jobs import list_jobs
+from app.api.admin.review import ReviewActionRequest, list_review_queue, process_review_item
+from app.api.auth import LoginRequest, login
+from app.core.security import Role, SecuritySettings, UserToken
+
+
+class _FailingPool:
+    def acquire(self):
+        class _Ctx:
+            async def __aenter__(self):
+                raise RuntimeError("postgresql://secret-user:secret-password@internal-db")
+
+            async def __aexit__(self, *args):
+                return False
+
+        return _Ctx()
+
+
+class _FailingDriver:
+    def session(self):
+        class _Ctx:
+            async def __aenter__(self):
+                raise RuntimeError("bolt://secret-user:secret-password@internal-graph")
+
+            async def __aexit__(self, *args):
+                return False
+
+        return _Ctx()
+
+
+@pytest.mark.asyncio
+async def test_jobs_failure_is_degraded_and_does_not_report_false_healthy():
+    with pytest.raises(HTTPException) as error:
+        await list_jobs(pool=_FailingPool())
+    assert error.value.status_code == 503
+    assert "secret-password" not in str(error.value.detail)
+
+
+@pytest.mark.asyncio
+async def test_login_database_failure_does_not_leak_connection_details():
+    with pytest.raises(HTTPException) as error:
+        await login(LoginRequest(email="admin@example.com", password="password"), pool=_FailingPool())
+    assert error.value.status_code == 503
+    assert "secret-password" not in str(error.value.detail)
+
+
+@pytest.mark.asyncio
+async def test_review_queue_database_failure_is_not_reported_as_empty():
+    with pytest.raises(HTTPException) as error:
+        await list_review_queue(pool=_FailingPool(), driver=_FailingDriver())
+    assert error.value.status_code == 503
+    assert "secret-password" not in str(error.value.detail)
+
+
+@pytest.mark.asyncio
+async def test_review_job_update_failure_is_degraded_without_secret_leak():
+    actor = UserToken(user_id="reviewer", roles=[Role.ADMIN_PHAP_CHE.value])
+    with pytest.raises(HTTPException) as error:
+        await process_review_item(
+            "job:00000000-0000-0000-0000-000000000001",
+            ReviewActionRequest(action="approve"),
+            pool=_FailingPool(),
+            driver=_FailingDriver(),
+            user=actor,
+        )
+    assert error.value.status_code == 503
+    assert "secret-password" not in str(error.value.detail)
+
+
+@pytest.mark.asyncio
+async def test_review_graph_update_failure_is_degraded_without_secret_leak():
+    actor = UserToken(user_id="reviewer", roles=[Role.ADMIN_PHAP_CHE.value])
+    with pytest.raises(HTTPException) as error:
+        await process_review_item(
+            "neo4j:fb:post-101",
+            ReviewActionRequest(action="approve"),
+            pool=_FailingPool(),
+            driver=_FailingDriver(),
+            user=actor,
+        )
+    assert error.value.status_code == 503
+    assert "secret-password" not in str(error.value.detail)
 
 
 @pytest.mark.asyncio
@@ -13,6 +95,20 @@ async def test_health_check_envelope():
         assert res.status_code == 200
         data = res.json()
         assert data["status"] == "ok"
+
+
+def test_production_security_settings_report_missing_secret(monkeypatch):
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("ENABLE_DEV_TOKENS", "true")
+    monkeypatch.delenv("AUTH_TOKEN_SECRET", raising=False)
+
+    settings = SecuritySettings()
+
+    assert settings.boot_error is not None
+    assert "AUTH_TOKEN_SECRET missing" in settings.boot_error
+    assert "ENABLE_DEV_TOKENS must be false" in settings.boot_error
+    assert settings.enable_dev_tokens is False
+    assert len(settings.auth_token_secret) >= 32
 
 
 @pytest.mark.asyncio

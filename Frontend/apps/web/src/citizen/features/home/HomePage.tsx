@@ -14,7 +14,8 @@ import {
   Scales,
 } from '@phosphor-icons/react';
 import { apiGet } from '../../../lib/api';
-import { CitizenFooter, CitizenHeader, SuggestionChips, SUGGESTIONS } from '../../components/CitizenChrome';
+import { CitizenFooter, CitizenHeader, SuggestionChips } from '../../components/CitizenChrome';
+import { SUGGESTIONS } from '../../suggestions';
 import { Reveal } from '../../components/Reveal';
 import { AccentIllustration, Atmosphere } from '../../components/Atmosphere';
 

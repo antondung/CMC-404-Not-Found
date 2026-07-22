@@ -1,6 +1,6 @@
 // =========================================================
 // Neo4j indexes - toi uu truy van KG
-// Nguon: Data/SYSTEM_DATA.md §4.1
+// Contract: Data/schema/ontology.json; temporal rollout: docs/architecture/lawgic-core-execution-plan-v2.md
 // Ap dung:  cat neo4j_indexes.cypher | cypher-shell -u neo4j -p <pw>
 // Idempotent: IF NOT EXISTS.
 // =========================================================
@@ -43,6 +43,10 @@ CREATE INDEX baidang_thoi_gian IF NOT EXISTS
 CREATE FULLTEXT INDEX khoan_noidung_ft IF NOT EXISTS
   FOR (k:Khoan) ON EACH [k.noi_dung];
 
+// Immutable Dieu/Khoan/Diem v2 lexical source. Canonical text is hydrated after ranking.
+CREATE FULLTEXT INDEX legal_provision_text_ft IF NOT EXISTS
+  FOR (p:LegalProvision) ON EACH [p.noi_dung, p.tieu_de];
+
 // =========================================================
 // Phase B - MXH (Social)
 // =========================================================
@@ -50,6 +54,15 @@ CREATE FULLTEXT INDEX khoan_noidung_ft IF NOT EXISTS
 // Tra cuu YKien theo bai dang goc (lay claim cua 1 BaiDang)
 CREATE INDEX ykien_baidang IF NOT EXISTS
   FOR (y:YKien) ON (y.bai_dang_id);
+
+CREATE INDEX misconception_scope IF NOT EXISTS
+  FOR (m:Misconception) ON (m.topic, m.legal_anchor_id, m.status);
+
+CREATE INDEX misconception_last_seen IF NOT EXISTS
+  FOR (m:Misconception) ON (m.last_seen_at);
+
+CREATE INDEX misconception_temporal_risk IF NOT EXISTS
+  FOR (m:Misconception) ON (m.temporal_verdict, m.risk_severity, m.risk_score);
 
 // Loc bai dang theo nen tang (dashboard MXH)
 CREATE INDEX baidang_platform IF NOT EXISTS

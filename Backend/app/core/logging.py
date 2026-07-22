@@ -28,6 +28,13 @@ def reset_request_id(token: Token[str]) -> None:
 
 def setup_logging(level: str = "INFO") -> None:
     """Configure basic structured logging for the backend."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            try:
+                reconfigure(encoding="utf-8", errors="backslashreplace")
+            except (OSError, ValueError):
+                pass
     numeric_level = getattr(logging, level.upper(), logging.INFO)
     logging.basicConfig(
         level=numeric_level,

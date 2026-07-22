@@ -164,7 +164,10 @@ class LegalDiffFacade:
             "status": result["status"],
             "dieu_count": result.get("dieu_count", 0),
             "khoan_count": result.get("khoan_count", 0),
+            "diem_count": result.get("diem_count", 0),
             "indexed_count": result.get("indexed_count", 0),
+            "write_mode": result.get("write_mode", "legacy_v1"),
+            "v2_write_report": result.get("v2_write_report"),
             "ner_count": result.get("ner_count", 0),
             "needs_review": result.get("needs_review", False),
             "message": result.get("message", "Đã xử lý."),
@@ -319,7 +322,7 @@ class LegalDiffFacade:
             try:
                 query = """
                 MATCH (v:VanBanPhapLuat)
-                WHERE v.vb_id = $id OR v.so_hieu = $id OR id(v) = $id
+                WHERE v.vb_id = $id OR v.so_hieu = $id OR elementId(v) = $id
                 OPTIONAL MATCH (v)-[:CO_DIEU|CO_KHOAN*1..2]->(k:Khoan)
                 RETURN v, collect(k) AS khoans
                 """
@@ -354,7 +357,7 @@ class LegalDiffFacade:
             try:
                 query = """
                 MATCH (k:Khoan)
-                WHERE k.khoan_id = $id OR id(k) = $id
+                WHERE k.khoan_id = $id OR elementId(k) = $id
                 OPTIONAL MATCH (k)-[r:QUY_DINH|AP_DUNG_CHO|THAY_THE]->(e)
                 RETURN k, collect({rel: type(r), entity: e}) AS entities
                 """

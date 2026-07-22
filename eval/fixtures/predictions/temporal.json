@@ -1,0 +1,7 @@
+{
+  "predictions": [
+    {"case_id": "before-cutover", "predicted_active_ids": ["FIXTURE-LAW::D5.K2.Pa@2020-01-01"]},
+    {"case_id": "at-cutover", "predicted_active_ids": ["FIXTURE-LAW::D5.K2.Pa@2026-07-01"]},
+    {"case_id": "future-hidden", "predicted_active_ids": []}
+  ]
+}

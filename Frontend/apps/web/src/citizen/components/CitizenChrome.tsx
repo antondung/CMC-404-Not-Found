@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Scales, MagnifyingGlass, Article, BookOpen, List, X, type Icon } from '@phosphor-icons/react';
+import { SUGGESTIONS } from '../suggestions';
 
 const NAV: { to: string; label: string; icon: Icon; primary?: boolean }[] = [
   { to: '/ask', label: 'Hỏi trợ lý AI', icon: MagnifyingGlass, primary: true },
@@ -132,12 +133,6 @@ export function CitizenFooter() {
     </footer>
   );
 }
-
-export const SUGGESTIONS = [
-  'Nghỉ thai sản được bao nhiêu ngày?',
-  'Mức phạt nồng độ cồn hiện nay?',
-  'Thủ tục làm CCCD gắn chip?',
-] as const;
 
 export function SuggestionChips({
   items = SUGGESTIONS,

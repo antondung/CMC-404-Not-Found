@@ -8,6 +8,7 @@ legal jobs waiting for human review.
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -18,6 +19,7 @@ from app.core.envelope import success_response
 from app.core.logging import get_request_id
 
 router = APIRouter(tags=["Admin Review"], dependencies=[Depends(require_admin())])
+logger = logging.getLogger(__name__)
 
 
 class ReviewActionRequest(BaseModel):
@@ -40,7 +42,7 @@ def _parse_payload(raw: Any) -> dict[str, Any]:
 async def _jobs_needing_review(pool: Any, type_filter: str | None) -> list[dict[str, Any]]:
     """Pull legal/social ingest jobs stuck in needs_review from Postgres."""
     if not (pool and hasattr(pool, "acquire")):
-        return []
+        raise RuntimeError("PostgreSQL review store is unavailable")
     items: list[dict[str, Any]] = []
     try:
         async with pool.acquire() as conn:
@@ -96,21 +98,21 @@ async def _jobs_needing_review(pool: Any, type_filter: str | None) -> list[dict[
                     },
                 }
             )
-    except Exception:
-        return items
+    except Exception as exc:
+        raise RuntimeError("PostgreSQL review query failed") from exc
     return items
 
 
 async def _neo4j_needing_review(driver: Any, type_filter: str | None) -> list[dict[str, Any]]:
     """Pull graph nodes explicitly flagged needs_review (social posts, NER entities, …)."""
     if not (driver and hasattr(driver, "session")):
-        return []
+        raise RuntimeError("Neo4j review store is unavailable")
     items: list[dict[str, Any]] = []
     try:
         query = """
         MATCH (n)
-        WHERE n.needs_review = true
-        RETURN id(n) AS nid, labels(n) AS labels, n
+        WHERE n['needs_review'] = true
+        RETURN elementId(n) AS nid, labels(n) AS labels, n
         LIMIT 100
         """
         async with driver.session() as session:
@@ -150,8 +152,8 @@ async def _neo4j_needing_review(driver: Any, type_filter: str | None) -> list[di
                         "created_at": str(n.get("ngay_dang") or n.get("created_at") or ""),
                     }
                 )
-    except Exception:
-        return items
+    except Exception as exc:
+        raise RuntimeError("Neo4j review query failed") from exc
     return items
 
 
@@ -161,8 +163,15 @@ async def list_review_queue(
     pool: Any = Depends(get_db_pool),
     driver: Any = Depends(get_neo4j_driver),
 ) -> dict[str, Any]:
-    job_items = await _jobs_needing_review(pool, type)
-    neo_items = await _neo4j_needing_review(driver, type)
+    try:
+        job_items = await _jobs_needing_review(pool, type)
+        neo_items = await _neo4j_needing_review(driver, type)
+    except Exception as exc:  # noqa: BLE001 - fail closed at the API boundary
+        logger.exception("Review queue query failed")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Hàng đợi duyệt tạm thời không khả dụng.",
+        ) from exc
     items = job_items + neo_items
     return success_response(
         data={"items": items, "total": len(items)},
@@ -187,66 +196,84 @@ async def process_review_item(
     # Job-backed review items (legal ingest, …)
     if item_id.startswith("job:") or _looks_like_uuid(item_id):
         job_id = item_id.removeprefix("job:")
-        if pool and hasattr(pool, "acquire"):
-            try:
-                new_status = "success" if action in {"approve", "override"} else "error"
-                note = request.note or (
-                    f"Reviewed ({action}) by {user.user_id}"
+        if not (pool and hasattr(pool, "acquire")):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Kho lưu công việc duyệt tạm thời không khả dụng.",
+            )
+        try:
+            new_status = "success" if action in {"approve", "override"} else "error"
+            note = request.note or f"Reviewed ({action}) by {user.user_id}"
+            async with pool.acquire() as conn:
+                result = await conn.execute(
+                    """
+                    UPDATE jobs
+                    SET status = $1::job_status,
+                        error = CASE WHEN $1::text = 'success' THEN NULL ELSE COALESCE(error, $2) END,
+                        stage = 'reviewed',
+                        updated_at = now()
+                    WHERE id = $3::uuid AND status = 'needs_review'::job_status
+                    """,
+                    new_status,
+                    note,
+                    job_id,
                 )
-                async with pool.acquire() as conn:
-                    result = await conn.execute(
-                        """
-                        UPDATE jobs
-                        SET status = $1::job_status,
-                            error = CASE WHEN $1::text = 'success' THEN NULL ELSE COALESCE(error, $2) END,
-                            stage = 'reviewed',
-                            updated_at = now()
-                        WHERE id = $3::uuid AND status = 'needs_review'::job_status
-                        """,
-                        new_status,
-                        note,
-                        job_id,
-                    )
-                processed = False
-                if isinstance(result, str):
-                    try:
-                        processed = int(result.split()[-1]) > 0
-                    except (ValueError, IndexError):
-                        processed = result.endswith("1")
-                else:
-                    processed = bool(result)
-            except Exception as exc:  # noqa: BLE001
-                raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"job update failed: {exc}") from exc
+            if isinstance(result, str):
+                try:
+                    processed = int(result.split()[-1]) > 0
+                except (ValueError, IndexError):
+                    processed = result.endswith("1")
+            else:
+                processed = bool(result)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Review job update failed for %s", job_id)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Không thể cập nhật công việc duyệt lúc này.",
+            ) from exc
+
+        # Queue responses namespace job IDs. Do not retry a missing job ID
+        # against Neo4j and turn a normal 404 into a misleading graph lookup.
+        if item_id.startswith("job:") and not processed:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Review item not found: {item_id}")
 
     # Neo4j-backed review items
     if item_id.startswith("neo4j:") or not processed:
         neo_id = item_id.removeprefix("neo4j:")
-        if driver and hasattr(driver, "session"):
-            try:
-                # approve → clear flag; reject → clear flag + mark rejected
-                query = """
-                MATCH (n)
-                WHERE n.bai_dang_id = $id OR n.khoan_id = $id OR n.dieu_id = $id
-                   OR n.vb_id = $id OR n.so_hieu = $id OR toString(id(n)) = $id
-                SET n.needs_review = false,
-                    n.reviewed_by = $user,
-                    n.review_action = $action,
-                    n.review_note = $note
-                RETURN count(n) AS c
-                """
-                async with driver.session() as session:
-                    res = await session.run(
-                        query,
-                        id=neo_id,
-                        user=user.user_id,
-                        action=action,
-                        note=request.note or "",
-                    )
-                    rec = await res.single()
-                    if rec and int(rec.get("c") or 0) > 0:
-                        processed = True
-            except Exception:
-                pass
+        if not (driver and hasattr(driver, "session")):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Kho đồ thị duyệt tạm thời không khả dụng.",
+            )
+        try:
+            # approve → clear flag; reject → clear flag + mark rejected
+            query = """
+            MATCH (n)
+            WHERE n.bai_dang_id = $id OR n.khoan_id = $id OR n.dieu_id = $id
+               OR n.vb_id = $id OR n.so_hieu = $id OR elementId(n) = $id
+            SET n.needs_review = false,
+                n.reviewed_by = $user,
+                n.review_action = $action,
+                n.review_note = $note
+            RETURN count(n) AS c
+            """
+            async with driver.session() as session:
+                res = await session.run(
+                    query,
+                    id=neo_id,
+                    user=user.user_id,
+                    action=action,
+                    note=request.note or "",
+                )
+                rec = await res.single()
+                if rec and int(rec.get("c") or 0) > 0:
+                    processed = True
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Neo4j review update failed for %s", neo_id)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Không thể cập nhật phần tử duyệt lúc này.",
+            ) from exc
 
     if not processed:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Review item not found: {item_id}")

@@ -176,8 +176,8 @@ export default function AlertsPage() {
   return (
     <div className="mx-auto max-w-6xl pb-20">
       <PageHeader
-        title="Cảnh báo tin giả & sai lệch"
-        subtitle="AI trích xuất nhận định pháp lý trên MXH và đối chiếu với cơ sở dữ liệu luật — số liệu từ API `/admin/alerts`."
+        title="Cảnh báo nguy cơ hiểu nhầm"
+        subtitle="AI trích xuất claim từ báo chí và nguồn công khai, đối chiếu với căn cứ pháp luật; mọi tín hiệu đều cần cán bộ xác minh."
         actions={
           <div className="flex items-center gap-3">
             <button
@@ -224,7 +224,7 @@ export default function AlertsPage() {
           <p className="font-semibold text-muted">Chưa có cảnh báo nào được ghi nhận.</p>
           <p className="mt-1 text-sm text-muted max-w-lg mx-auto">
             Bài MXH đã crawl trước đây chưa chạy claim/NLI. Bấm <strong>Xử lý lại bài đã crawl</strong> để đọc
-            dữ liệu cũ trong Neo4j, tạo DOI_CHIEU và cảnh báo — không cần crawl lại.
+            dữ liệu cũ trong Neo4j, tạo DOI_CHIEU và cảnh báo có đầy đủ provenance — không cần crawl lại.
           </p>
           <button
             type="button"
@@ -275,7 +275,7 @@ export default function AlertsPage() {
                 <div className="flex flex-col">
                   <div className="flex items-center gap-2 mb-3">
                     <Users size={18} className="text-blue-500" weight="fill" />
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Nội dung lan truyền MXH</span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Nội dung nguồn cần xác minh</span>
                   </div>
                   <div className="bg-slate-50 rounded-xl p-5 border border-slate-200/60 mb-4 relative">
                     <p className="text-[15px] font-medium text-slate-800 leading-relaxed relative z-10 italic">

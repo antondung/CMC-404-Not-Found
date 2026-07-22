@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -10,6 +11,7 @@ from app.core.envelope import success_response
 from app.core.logging import get_request_id
 
 router = APIRouter(tags=["Admin Jobs"], dependencies=[Depends(require_admin())])
+logger = logging.getLogger(__name__)
 
 
 def _parse_json(raw: Any) -> Any:
@@ -42,64 +44,71 @@ async def list_jobs(
     items: list[dict[str, Any]] = []
     running = queued = failed = needs_review = 0
 
-    if pool and hasattr(pool, "acquire"):
-        try:
-            async with pool.acquire() as conn:
-                # Full-table summary (not limited to the page of items).
-                for row in await conn.fetch(
-                    """
-                    SELECT status::text AS status, COUNT(*)::int AS cnt
-                    FROM jobs
-                    GROUP BY status
-                    """
-                ):
-                    st = str(row["status"] or "").lower()
-                    cnt = int(row["cnt"] or 0)
-                    if st == "running":
-                        running = cnt
-                    elif st == "queued":
-                        queued = cnt
-                    elif st in {"error", "failed"}:
-                        failed += cnt
-                    elif st == "needs_review":
-                        needs_review = cnt
+    if not (pool and hasattr(pool, "acquire")):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Job database is unavailable",
+        )
+    try:
+        async with pool.acquire() as conn:
+            # Full-table summary (not limited to the page of items).
+            for row in await conn.fetch(
+                """
+                SELECT status::text AS status, COUNT(*)::int AS cnt
+                FROM jobs
+                GROUP BY status
+                """
+            ):
+                st = str(row["status"] or "").lower()
+                cnt = int(row["cnt"] or 0)
+                if st == "running":
+                    running = cnt
+                elif st == "queued":
+                    queued = cnt
+                elif st in {"error", "failed"}:
+                    failed += cnt
+                elif st == "needs_review":
+                    needs_review = cnt
 
-                clauses: list[str] = []
-                args: list[Any] = []
-                if type:
-                    args.append(type)
-                    clauses.append(f"type = ${len(args)}")
-                if status_filter:
-                    args.append(status_filter)
-                    clauses.append(f"status::text = ${len(args)}")
-                where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
-                args.append(max(1, min(limit, 500)))
-                rows = await conn.fetch(
-                    f"""
-                    SELECT id, type, status::text AS status, payload_json, error, created_at
-                    FROM jobs
-                    {where}
-                    ORDER BY created_at DESC
-                    LIMIT ${len(args)}
-                    """,
-                    *args,
+            clauses: list[str] = []
+            args: list[Any] = []
+            if type:
+                args.append(type)
+                clauses.append(f"type = ${len(args)}")
+            if status_filter:
+                args.append(status_filter)
+                clauses.append(f"status::text = ${len(args)}")
+            where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+            args.append(max(1, min(limit, 500)))
+            rows = await conn.fetch(
+                f"""
+                SELECT id, type, status::text AS status, payload_json, error, created_at
+                FROM jobs
+                {where}
+                ORDER BY created_at DESC
+                LIMIT ${len(args)}
+                """,
+                *args,
+            )
+            for r in rows:
+                st = str(r["status"] or "")
+                items.append(
+                    {
+                        "job_id": str(r["id"]),
+                        "type": r["type"],
+                        "status": st,
+                        "payload": _parse_json(r["payload_json"]) or {},
+                        "error": _parse_json(r["error"]),
+                        "created_at": _iso(r["created_at"]),
+                        "needs_review": st == "needs_review",
+                    }
                 )
-                for r in rows:
-                    st = str(r["status"] or "")
-                    items.append(
-                        {
-                            "job_id": str(r["id"]),
-                            "type": r["type"],
-                            "status": st,
-                            "payload": _parse_json(r["payload_json"]) or {},
-                            "error": _parse_json(r["error"]),
-                            "created_at": _iso(r["created_at"]),
-                            "needs_review": st == "needs_review",
-                        }
-                    )
-        except Exception:
-            # Keep empty list — never invent mock history after purge.
-            items = []
+    except Exception as exc:
+        logger.exception("Failed to list jobs")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Job database is temporarily unavailable",
+        ) from exc
 
     return success_response(
         data={
@@ -183,7 +192,8 @@ async def get_job_detail(
     except HTTPException:
         raise
     except Exception as exc:
+        logger.exception("Failed to read job detail", extra={"job_id": id})
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Không đọc được job: {exc}",
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Job database is temporarily unavailable",
         ) from exc

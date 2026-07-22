@@ -1,0 +1,8 @@
+{
+  "metadata": {"dataset_id": "temporal-contract-smoke-v1", "dataset_kind": "synthetic_contract_fixture", "independent_review": false},
+  "cases": [
+    {"case_id": "before-cutover", "as_of": "2026-06-30", "expected_active_ids": ["FIXTURE-LAW::D5.K2.Pa@2020-01-01"]},
+    {"case_id": "at-cutover", "as_of": "2026-07-01", "expected_active_ids": ["FIXTURE-LAW::D5.K2.Pa@2026-07-01"]},
+    {"case_id": "future-hidden", "as_of": "2026-12-31", "expected_active_ids": []}
+  ]
+}

@@ -35,14 +35,18 @@ from app.exceptions import BE2Error
 
 # Import Phase A Routers
 from app.api.admin import legal as admin_legal
+from app.api.admin import temporal as admin_temporal
+from app.api.admin import amendments as admin_amendments
 from app.api.admin import jobs as admin_jobs
 from app.api.admin import qa as admin_qa
 from app.api.citizen import legal as citizen_legal
+from app.api.citizen import temporal as citizen_temporal
 from app.api.citizen import qa as citizen_qa
 
 # Import Phase B Routers
 from app.api.admin import social as admin_social
 from app.api.admin import alerts as admin_alerts
+from app.api.admin import misconceptions as admin_misconceptions
 from app.api.admin import graph as admin_graph
 from app.api.admin import review as admin_review
 from app.api.admin import dashboard as admin_dashboard
@@ -141,8 +145,22 @@ async def be2_error_handler(request: Request, exc: BE2Error) -> JSONResponse:
         "graph_paths_unavailable"
     }:
         status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    elif exc.code == "temporal_law_not_found":
+        status_code = status.HTTP_404_NOT_FOUND
+    elif exc.code == "temporal_data_integrity_error":
+        status_code = status.HTTP_409_CONFLICT
     elif exc.code == "brief_conflict":
         status_code = status.HTTP_409_CONFLICT
+    elif exc.code == "amendment_review_not_found":
+        status_code = status.HTTP_404_NOT_FOUND
+    elif exc.code == "amendment_review_conflict":
+        status_code = status.HTTP_409_CONFLICT
+    elif exc.code == "amendment_review_persistence_error":
+        status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    elif exc.code == "amendment_commit_conflict":
+        status_code = status.HTTP_409_CONFLICT
+    elif exc.code == "amendment_commit_unavailable":
+        status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     elif exc.code == "publish_gate_error":
         status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
 
@@ -219,14 +237,18 @@ async def health_check() -> dict[str, Any]:
 
 # Register Phase A Routers
 app.include_router(admin_legal.router, prefix="/admin")
+app.include_router(admin_temporal.router, prefix="/admin")
+app.include_router(admin_amendments.router, prefix="/admin")
 app.include_router(admin_jobs.router, prefix="/admin")
 app.include_router(admin_qa.router, prefix="/admin")
 app.include_router(citizen_legal.router, prefix="/citizen")
+app.include_router(citizen_temporal.router, prefix="/citizen")
 app.include_router(citizen_qa.router, prefix="/citizen")
 
 # Register Phase B Routers
 app.include_router(admin_social.router, prefix="/admin")
 app.include_router(admin_alerts.router, prefix="/admin")
+app.include_router(admin_misconceptions.router, prefix="/admin")
 app.include_router(admin_graph.router, prefix="/admin")
 app.include_router(admin_review.router, prefix="/admin")
 app.include_router(admin_dashboard.router, prefix="/admin")

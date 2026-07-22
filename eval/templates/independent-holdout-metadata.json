@@ -1,0 +1,15 @@
+{
+  "metadata": {
+    "dataset_id": "lawgic-SUITE-holdout-v1",
+    "dataset_kind": "independent_holdout",
+    "independent_review": true,
+    "reviewer_ids": [
+      "reviewer-01",
+      "reviewer-02"
+    ],
+    "adjudication_status": "adjudicated",
+    "guideline_version": "lawgic-holdout-v1",
+    "source_dataset_sha256": "REPLACE_WITH_64_LOWERCASE_HEX_CHARACTERS"
+  },
+  "cases": []
+}

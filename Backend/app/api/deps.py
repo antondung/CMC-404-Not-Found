@@ -9,11 +9,16 @@ from fastapi import Depends, HTTPException, status
 from app.config import BE2Config, get_config
 from app.core.security import Role, UserToken, get_current_user, require_admin, require_roles
 from app.adapters.neo4j_social import Neo4jSocialRepository
+from app.adapters.neo4j_temporal import Neo4jTemporalRepository
+from app.adapters.neo4j_amendment_commit import Neo4jAmendmentCommitRepository
 from app.adapters.postgres_content import PostgresContentRepository
+from app.adapters.postgres_amendment_review import PostgresAmendmentReviewRepository
 from app.adapters.qdrant_vector import QdrantVectorClient
 from app.adapters.minio_storage import MinioStorage
 from app.intelligence.llm_router import LLMRouter
+from app.intelligence.nli import NLIService
 from app.intelligence.embedder import Embedder
+from app.services.temporal_law_service import TemporalLawService
 
 logger = logging.getLogger(__name__)
 
@@ -221,10 +226,48 @@ async def get_postgres_repo(pool: Any = Depends(get_db_pool)) -> PostgresContent
     return PostgresContentRepository(pool=pool)
 
 
+async def get_amendment_review_repository(
+    pool: Any = Depends(get_db_pool),
+) -> PostgresAmendmentReviewRepository:
+    if pool is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="PostgreSQL is not available for amendment review.",
+        )
+    return PostgresAmendmentReviewRepository(pool=pool)
+
+
 async def get_neo4j_repo(driver: Any = Depends(get_neo4j_driver)) -> Neo4jSocialRepository:
     if driver is None:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Kết nối Neo4j Graph Database chưa sẵn sàng.")
     return Neo4jSocialRepository(driver=driver)
+
+async def get_temporal_law_service(
+    driver: Any = Depends(get_neo4j_driver),
+) -> TemporalLawService:
+    if driver is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Neo4j temporal graph is not available.",
+        )
+    return TemporalLawService(Neo4jTemporalRepository(driver))
+
+
+async def get_amendment_commit_repository(
+    driver: Any = Depends(get_neo4j_driver),
+) -> Neo4jAmendmentCommitRepository:
+    if driver is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Neo4j is not available for amendment commit.",
+        )
+    return Neo4jAmendmentCommitRepository(driver)
+
+
+async def get_nli_service(
+    config: BE2Config = Depends(get_config),
+) -> NLIService:
+    return NLIService(config=config)
 
 
 # Re-export security dependencies for convenience
@@ -241,6 +284,10 @@ __all__ = [
     "get_embedder",
     "get_minio",
     "get_postgres_repo",
+    "get_amendment_review_repository",
     "get_neo4j_repo",
+    "get_temporal_law_service",
+    "get_amendment_commit_repository",
+    "get_nli_service",
     "get_redis",
 ]

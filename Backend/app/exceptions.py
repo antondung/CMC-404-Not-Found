@@ -33,6 +33,26 @@ class ContractMissingError(BE2Error):
     code = "contract_missing"
 
 
+class AmendmentReviewNotFoundError(BE2Error):
+    code = "amendment_review_not_found"
+
+
+class AmendmentReviewConflictError(BE2Error):
+    code = "amendment_review_conflict"
+
+
+class AmendmentReviewPersistenceError(TransientServiceError):
+    code = "amendment_review_persistence_error"
+
+
+class AmendmentCommitConflictError(BE2Error):
+    code = "amendment_commit_conflict"
+
+
+class AmendmentCommitUnavailableError(TransientServiceError):
+    code = "amendment_commit_unavailable"
+
+
 class ExternalServiceError(TransientServiceError):
     code = "external_service_error"
 
@@ -137,3 +157,29 @@ class ParserLowConfidenceError(ParserFallbackError):
 class GraphPathsUnavailableError(TransientServiceError):
     """Neo4j is unreachable when resolving citation graph paths."""
     code = "graph_paths_unavailable"
+
+# ---------------------------------------------------------------------------
+# Temporal legal graph
+# ---------------------------------------------------------------------------
+
+class TemporalLawUnavailableError(TransientServiceError):
+    """Neo4j is unreachable while reading the temporal legal graph."""
+    code = "temporal_law_unavailable"
+
+
+class TemporalLawNotFoundError(PermanentServiceError):
+    """No visible legal provision exists for the requested identifier/date."""
+    code = "temporal_law_not_found"
+
+
+class TemporalDataIntegrityError(PermanentServiceError):
+    """Immutable temporal versions violate lineage or interval invariants."""
+    code = "temporal_data_integrity_error"
+
+# ---------------------------------------------------------------------------
+# Legal retrieval v2
+# ---------------------------------------------------------------------------
+
+class LegalRetrievalUnavailableError(TransientServiceError):
+    """A canonical retrieval source is unavailable."""
+    code = "legal_retrieval_unavailable"

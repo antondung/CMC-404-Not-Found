@@ -1,0 +1,8 @@
+{
+  "metadata": {"dataset_id": "parser-contract-smoke-v1", "dataset_kind": "synthetic_contract_fixture", "independent_review": false},
+  "cases": [
+    {"case_id": "parser-points", "expected_ids_by_level": {"dieu": ["D5"], "khoan": ["D5.K2"], "diem": ["D5.K2.Pa", "D5.K2.Pb"]}, "expected_character_count": 180},
+    {"case_id": "parser-clause-leaf", "expected_ids_by_level": {"dieu": ["D5"], "khoan": ["D5.K3"], "diem": []}, "expected_character_count": 80},
+    {"case_id": "parser-article-leaf", "expected_ids_by_level": {"dieu": ["D6"], "khoan": [], "diem": []}, "expected_character_count": 60}
+  ]
+}

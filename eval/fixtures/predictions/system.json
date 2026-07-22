@@ -1,0 +1,8 @@
+{
+  "predictions": [
+    {"case_id": "latency-1", "success": true, "latency_ms": 101, "baseline_latency_ms": 100},
+    {"case_id": "latency-2", "success": true, "latency_ms": 120, "baseline_latency_ms": 110},
+    {"case_id": "latency-3", "success": true, "latency_ms": 145, "baseline_latency_ms": 130},
+    {"case_id": "latency-4", "success": true, "latency_ms": 160, "baseline_latency_ms": 150}
+  ]
+}

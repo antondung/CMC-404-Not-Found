@@ -28,6 +28,8 @@ import BriefsPage from '../admin/features/briefs/BriefsPage';
 import SuggestionsPage from '../admin/features/suggestions/SuggestionsPage';
 import SocialPage from '../admin/features/social/SocialPage';
 import ReviewPage from '../admin/features/review/ReviewPage';
+import AmendmentReviewPage from '../admin/features/amendment-review/AmendmentReviewPage';
+import MisconceptionsPage from '../admin/features/misconceptions/MisconceptionsPage';
 import KhoanPage from '../admin/features/khoan/KhoanPage';
 import LoginPage from '../admin/features/auth/Login';
 import HomePage from '../citizen/features/home/HomePage';
@@ -42,9 +44,11 @@ type NavItem = { to: string; label: string; icon: typeof SquaresFour };
 const MAIN_NAV: NavItem[] = [
   { to: '/admin', label: 'Tổng quan', icon: SquaresFour },
   { to: '/admin/alerts', label: 'Cảnh báo rủi ro', icon: Bell },
-  { to: '/admin/social', label: 'Radar MXH', icon: Broadcast },
+  { to: '/admin/social', label: 'Radar thông tin', icon: Broadcast },
+  { to: '/admin/misconceptions', label: 'Cụm hiểu nhầm', icon: Scales },
   { to: '/admin/qa', label: 'Hỏi đáp pháp lý', icon: ListMagnifyingGlass },
   { to: '/admin/review', label: 'Hàng đợi duyệt', icon: ListChecks },
+  { to: '/admin/amendments', label: 'Duyệt sửa đổi luật', icon: GitDiff },
   { to: '/admin/briefs', label: 'Bản tin', icon: Article },
   { to: '/admin/suggestions', label: 'Đề xuất đính chính', icon: PenNib },
 ];
@@ -150,8 +154,10 @@ function AdminShell() {
           <Route index element={<DashboardPage />} />
           <Route path="alerts" element={<AlertsPage />} />
           <Route path="social" element={<SocialPage />} />
+          <Route path="misconceptions" element={<MisconceptionsPage />} />
           <Route path="qa" element={<QAAdminPage />} />
           <Route path="review" element={<ReviewPage />} />
+          <Route path="amendments" element={<AmendmentReviewPage />} />
           <Route path="briefs" element={<BriefsPage />} />
           <Route path="suggestions" element={<SuggestionsPage />} />
           <Route path="van-ban" element={<IngestPage />} />

@@ -1,0 +1,19 @@
+{
+  "manifest_id": "lawgic-l7-contract-smoke-v1",
+  "gates": "config/release_gates.json",
+  "limitations": [
+    "All bundled cases are synthetic contract fixtures, not an independently reviewed legal holdout.",
+    "Latency values exercise the report contract and are not production measurements.",
+    "A passing smoke run must never be cited as release quality evidence."
+  ],
+  "suites": [
+    {"name": "parser", "task": "parser_structure", "gold": "fixtures/gold/parser.json", "predictions": "fixtures/predictions/parser.json"},
+    {"name": "retrieval", "task": "ranked_retrieval", "gold": "fixtures/gold/retrieval.json", "predictions": "fixtures/predictions/retrieval.json"},
+    {"name": "temporal", "task": "temporal_exact", "gold": "fixtures/gold/temporal.json", "predictions": "fixtures/predictions/temporal.json"},
+    {"name": "citation", "task": "citation_contract", "gold": "fixtures/gold/citation.json", "predictions": "fixtures/predictions/citation.json"},
+    {"name": "amendment", "task": "amendment", "gold": "fixtures/gold/amendment.json", "predictions": "fixtures/predictions/amendment.json"},
+    {"name": "misinformation", "task": "misinformation", "gold": "fixtures/gold/misinformation.json", "predictions": "fixtures/predictions/misinformation.json"},
+    {"name": "safety", "task": "safety", "gold": "fixtures/gold/safety.json", "predictions": "fixtures/predictions/safety.json"},
+    {"name": "system", "task": "system", "gold": "fixtures/gold/system.json", "predictions": "fixtures/predictions/system.json"}
+  ]
+}

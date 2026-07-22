@@ -1,0 +1,9 @@
+{
+  "predictions": [
+    {"case_id": "old-threshold-news", "predicted_verdict": "OUTDATED_BUT_PREVIOUSLY_TRUE", "predicted_cluster_id": "threshold-200m", "predicted_high_risk": true},
+    {"case_id": "old-threshold-social", "predicted_verdict": "OUTDATED_BUT_PREVIOUSLY_TRUE", "predicted_cluster_id": "threshold-200m", "predicted_high_risk": true},
+    {"case_id": "always-wrong", "predicted_verdict": "CONTRADICTED", "predicted_cluster_id": "threshold-50m", "predicted_high_risk": true},
+    {"case_id": "missing-law", "predicted_verdict": "UNVERIFIABLE", "predicted_cluster_id": "unknown-topic", "predicted_high_risk": false},
+    {"case_id": "supported-current", "predicted_verdict": "SUPPORTED", "predicted_cluster_id": "threshold-500m", "predicted_high_risk": false}
+  ]
+}

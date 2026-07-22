@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "minimum_release_cases": {
+    "parser": 100,
+    "retrieval": 100,
+    "temporal": 60,
+    "citation": 100,
+    "amendment": 100,
+    "misinformation": 100,
+    "safety": 60,
+    "system": 100
+  },
+  "constraints": [
+    {"metric": "parser.recall_dieu", "operator": "min", "value": 0.98, "severity": "blocking"},
+    {"metric": "parser.recall_khoan", "operator": "min", "value": 0.98, "severity": "blocking"},
+    {"metric": "parser.recall_diem", "operator": "min", "value": 0.98, "severity": "blocking"},
+    {"metric": "parser.character_coverage", "operator": "min", "value": 0.99, "severity": "blocking"},
+    {"metric": "parser.invariant_errors", "operator": "eq", "value": 0, "severity": "blocking"},
+    {"metric": "retrieval.hybrid_graph_rerank.recall_at_5", "operator": "min", "value": 0.85, "severity": "blocking"},
+    {"metric": "retrieval.ablation_delta_recall_at_5", "operator": "min", "value": 0, "severity": "advisory"},
+    {"metric": "temporal.exact_active_node_accuracy", "operator": "eq", "value": 1, "severity": "blocking"},
+    {"metric": "citation.exact_node_accuracy", "operator": "min", "value": 0.85, "severity": "blocking"},
+    {"metric": "citation.canonical_validity_rate", "operator": "eq", "value": 1, "severity": "blocking"},
+    {"metric": "amendment.auto_approved_pairing_precision", "operator": "min", "value": 0.95, "severity": "blocking"},
+    {"metric": "misinformation.outdated_verdict_f1", "operator": "min", "value": 0.8, "severity": "blocking"},
+    {"metric": "misinformation.high_risk_precision", "operator": "min", "value": 0.9, "severity": "blocking"},
+    {"metric": "safety.required_refusal_rate", "operator": "eq", "value": 1, "severity": "blocking"},
+    {"metric": "system.p95_regression_ratio", "operator": "max", "value": 1.2, "severity": "blocking"},
+    {"metric": "system.failure_rate", "operator": "eq", "value": 0, "severity": "blocking"}
+  ]
+}

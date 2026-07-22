@@ -1,0 +1,7 @@
+{
+  "predictions": [
+    {"case_id": "citation-point", "node_id": "FIXTURE-LAW::D5.K2.Pa@2026-07-01", "node_exists": true, "effective": true, "quote_exact": true, "supports_claim": true},
+    {"case_id": "citation-clause", "node_id": "FIXTURE-LAW::D5.K3@2020-01-01", "node_exists": true, "effective": true, "quote_exact": true, "supports_claim": true},
+    {"case_id": "citation-no-entailment", "node_id": "FIXTURE-LAW::D5.K2.Pb@2020-01-01", "node_exists": true, "effective": true, "quote_exact": true, "supports_claim": false}
+  ]
+}

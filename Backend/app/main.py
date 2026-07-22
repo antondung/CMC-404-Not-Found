@@ -46,6 +46,7 @@ from app.api.citizen import qa as citizen_qa
 # Import Phase B Routers
 from app.api.admin import social as admin_social
 from app.api.admin import alerts as admin_alerts
+from app.api.admin import misconceptions as admin_misconceptions
 from app.api.admin import graph as admin_graph
 from app.api.admin import review as admin_review
 from app.api.admin import dashboard as admin_dashboard
@@ -150,6 +151,16 @@ async def be2_error_handler(request: Request, exc: BE2Error) -> JSONResponse:
         status_code = status.HTTP_409_CONFLICT
     elif exc.code == "brief_conflict":
         status_code = status.HTTP_409_CONFLICT
+    elif exc.code == "amendment_review_not_found":
+        status_code = status.HTTP_404_NOT_FOUND
+    elif exc.code == "amendment_review_conflict":
+        status_code = status.HTTP_409_CONFLICT
+    elif exc.code == "amendment_review_persistence_error":
+        status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    elif exc.code == "amendment_commit_conflict":
+        status_code = status.HTTP_409_CONFLICT
+    elif exc.code == "amendment_commit_unavailable":
+        status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     elif exc.code == "publish_gate_error":
         status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
 
@@ -237,6 +248,7 @@ app.include_router(citizen_qa.router, prefix="/citizen")
 # Register Phase B Routers
 app.include_router(admin_social.router, prefix="/admin")
 app.include_router(admin_alerts.router, prefix="/admin")
+app.include_router(admin_misconceptions.router, prefix="/admin")
 app.include_router(admin_graph.router, prefix="/admin")
 app.include_router(admin_review.router, prefix="/admin")
 app.include_router(admin_dashboard.router, prefix="/admin")

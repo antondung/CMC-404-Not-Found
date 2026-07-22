@@ -69,9 +69,20 @@ class PublishGateService:
         actor_uuid = _as_uuid_or_none(actor.user_id)
         audit_id: str | int | None = None
 
-        if self.pool and hasattr(self.pool, "acquire"):
-            try:
-                async with self.pool.acquire() as conn:
+        if not (self.pool and hasattr(self.pool, "acquire")):
+            raise PublishGateError(
+                "Không thể xuất bản bản tóm tắt do Postgres không khả dụng.",
+                details={"brief_id": brief_id},
+            )
+        try:
+            async with self.pool.acquire() as conn:
+                transaction = getattr(conn, "transaction", None)
+                if not callable(transaction):
+                    raise PublishGateError(
+                        "Không thể xuất bản bản tóm tắt ngoài giao dịch cơ sở dữ liệu.",
+                        details={"brief_id": brief_id},
+                    )
+                async with transaction():
                     await conn.execute(
                         """
                         UPDATE briefs
@@ -100,22 +111,22 @@ class PublishGateService:
                     )
                     if row and row.get("id") is not None:
                         audit_id = row["id"]
-            except Exception as exc:
-                logger.exception(
-                    "Publish gate DB transaction failed",
-                    extra={
-                        "operation": "publish_brief",
-                        "brief_id": brief_id,
-                        "actor": actor.user_id,
-                        "error": str(exc),
-                    },
-                )
-                raise PublishGateError(
-                    "Không thể xuất bản bản tóm tắt do lỗi hệ thống cơ sở dữ liệu.",
-                    details={"brief_id": brief_id, "error": str(exc)},
-                ) from exc
-        else:
-            audit_id = f"audit-{uuid.uuid4().hex[:8]}"
+        except PublishGateError:
+            raise
+        except Exception as exc:
+            logger.exception(
+                "Publish gate DB transaction failed",
+                extra={
+                    "operation": "publish_brief",
+                    "brief_id": brief_id,
+                    "actor": actor.user_id,
+                    "error": str(exc),
+                },
+            )
+            raise PublishGateError(
+                "Không thể xuất bản bản tóm tắt do lỗi hệ thống cơ sở dữ liệu.",
+                details={"brief_id": brief_id, "error": str(exc)},
+            ) from exc
 
         updated_brief = dict(brief_data)
         updated_brief["status"] = "published"

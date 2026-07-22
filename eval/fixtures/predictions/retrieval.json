@@ -1,0 +1,7 @@
+{
+  "predictions": [
+    {"case_id": "retrieval-threshold", "profiles": {"lexical": ["FIXTURE-LAW::D5.K2.Pa"], "vector": ["FIXTURE-LAW::D5.K2.Pa"], "hybrid": ["FIXTURE-LAW::D5.K2.Pa"], "hybrid_graph": ["FIXTURE-LAW::D5.K2.Pa"], "hybrid_graph_rerank": ["FIXTURE-LAW::D5.K2.Pa"]}},
+    {"case_id": "retrieval-clause", "profiles": {"lexical": ["DISTRACTOR"], "vector": ["DISTRACTOR"], "hybrid": ["FIXTURE-LAW::D5.K3"], "hybrid_graph": ["FIXTURE-LAW::D5.K3"], "hybrid_graph_rerank": ["FIXTURE-LAW::D5.K3"]}},
+    {"case_id": "retrieval-article", "profiles": {"lexical": ["FIXTURE-LAW::D6"], "vector": ["FIXTURE-LAW::D6"], "hybrid": ["FIXTURE-LAW::D6"], "hybrid_graph": ["FIXTURE-LAW::D6"], "hybrid_graph_rerank": ["FIXTURE-LAW::D6"]}}
+  ]
+}

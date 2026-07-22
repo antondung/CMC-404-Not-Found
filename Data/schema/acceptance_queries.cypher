@@ -45,6 +45,8 @@ RETURN collect(a.provision_id) AS diem_a_versions,
 
 // T06 — V1 → V2 → V3 is ordered and contains no directed cycle.
 MATCH path=(first:LegalProvision {lineage_id: $lineage})-[:SUPERSEDED_BY*1..10]->(last:LegalProvision)
+WHERE NOT EXISTS { MATCH (:LegalProvision)-[:SUPERSEDED_BY]->(first) }
+  AND NOT EXISTS { MATCH (last)-[:SUPERSEDED_BY]->(:LegalProvision) }
 RETURN [node IN nodes(path) | node.provision_id] AS version_path,
        length(path) AS hops;
 
@@ -66,9 +68,13 @@ WITH p.provision_id AS id, count(*) AS occurrences
 WHERE occurrences > 1
 RETURN id, occurrences;
 
-// T10 — every v2 provision has canonical text/checksum and an interval start.
+// T10 — every v2 provision has canonical text/checksum, interval start and explicit publication metadata.
 MATCH (p:LegalProvision)
-WHERE p.noi_dung IS NULL OR p.text_checksum IS NULL OR p.effective_from IS NULL
+WHERE p.noi_dung IS NULL
+   OR p.text_checksum IS NULL
+   OR p.effective_from IS NULL
+   OR p.visibility IS NULL
+   OR p.review_status IS NULL
 RETURN p.provision_id AS invalid_id, labels(p) AS labels;
 
 // T11 — canonical citation material is loaded from Neo4j by physical ID, never Qdrant text.
@@ -86,8 +92,8 @@ RETURN count(p) AS canonical_node_count;
 MATCH (p:LegalProvision {provision_id: $citation_node_id})
 WHERE date(p.effective_from) <= date($as_of)
   AND (p.effective_to IS NULL OR date($as_of) < date(p.effective_to))
-  AND coalesce(p.visibility, 'public') = 'public'
-  AND coalesce(p.review_status, 'approved') = 'approved'
+  AND p.visibility = 'public'
+  AND p.review_status = 'approved'
 RETURN p.provision_id AS active_citation_node_id;
 
 // T14 — the proposed quote must be an exact canonical substring after application normalization.
@@ -100,3 +106,96 @@ MATCH (p:LegalProvision {provision_id: $citation_node_id})
 RETURN p.provision_id AS node_id,
        coalesce(p.noi_dung, p.tieu_de, '') AS nli_premise,
        $claim_text AS nli_hypothesis;
+
+// T16 — an approved deterministic amendment is committed with a closed interval
+// and retry identity on both temporal edges.
+MATCH (old:LegalProvision {provision_id: $old_provision_id})
+      -[superseded:SUPERSEDED_BY]->
+      (new:LegalProvision {provision_id: $new_provision_id})
+MATCH (old)-[amended:AMENDED_BY]->(source:VanBanPhapLuat {vb_id: $source_vb_id})
+WHERE old.effective_to = new.effective_from
+  AND superseded.review_id = $review_id
+  AND superseded.commit_key = $commit_key
+  AND amended.review_id = $review_id
+  AND amended.commit_key = $commit_key
+RETURN old.provision_id AS old_id,
+       new.provision_id AS new_id,
+       source.vb_id AS source_vb_id,
+       superseded.change_type AS change_type;
+
+// T17 — split/merge/uncertain reviews must never produce an automatic
+// SUPERSEDED_BY edge. A non-empty result is an acceptance failure.
+MATCH (:LegalProvision)-[edge:SUPERSEDED_BY]->(:LegalProvision)
+WHERE edge.review_id = $ambiguous_review_id
+RETURN edge.review_id AS invalid_review_id, edge.change_type AS invalid_change_type;
+
+// N01 — every misconception occurrence retains source-neutral provenance and
+// a canonical legal contradiction anchor.
+MATCH (content:BaiDang:NoiDungNguon)-[:CO_YKIEN]->(claim:YKien)
+      -[instance:INSTANCE_OF]->(misconception:Misconception)
+MATCH (misconception)-[:CONTRADICTS]->(legal)
+WHERE instance.content_id = content.content_id
+  AND instance.canonical_url IS NOT NULL
+  AND instance.content_hash IS NOT NULL
+  AND instance.published_at IS NOT NULL
+  AND instance.evidence_start IS NOT NULL
+  AND instance.evidence_end > instance.evidence_start
+RETURN content.content_id AS content_id,
+       claim.uuid AS claim_occurrence_id,
+       misconception.uuid AS misconception_id,
+       coalesce(legal.provision_id, legal.khoan_id) AS legal_anchor_id;
+
+// N02 — a claim occurrence must not be assigned to competing clusters.
+// Any returned row is an acceptance failure.
+MATCH (claim:YKien)-[:INSTANCE_OF]->(misconception:Misconception)
+WITH claim.uuid AS claim_occurrence_id, count(DISTINCT misconception) AS cluster_count
+WHERE cluster_count > 1
+RETURN claim_occurrence_id, cluster_count;
+
+// T18 — a claim that was supported at publication but contradicted by a
+// different current version is explicitly backed by both immutable versions.
+MATCH (claim:YKien)-[:HAS_TEMPORAL_EVALUATION]->
+      (evaluation:TemporalMisconceptionEvaluation {
+        verdict: 'OUTDATED_BUT_PREVIOUSLY_TRUE'
+      })
+MATCH (evaluation)-[:HISTORICAL_BASIS]->(old:LegalProvision)
+MATCH (evaluation)-[:CURRENT_BASIS]->(current:LegalProvision)
+WHERE evaluation.historical_label = 'khop'
+  AND evaluation.current_label = 'mau_thuan'
+  AND evaluation.historical_checksum = old.text_checksum
+  AND evaluation.current_checksum = current.text_checksum
+  AND evaluation.historical_lineage_id = old.lineage_id
+  AND evaluation.current_lineage_id = current.lineage_id
+  AND old.lineage_id = current.lineage_id
+  AND old.provision_id <> current.provision_id
+RETURN claim.uuid AS claim_occurrence_id,
+       old.provision_id AS historical_id,
+       current.provision_id AS current_id;
+
+// T19 — an outdated verdict without two valid immutable bases is forbidden.
+// Any returned row is an acceptance failure.
+MATCH (evaluation:TemporalMisconceptionEvaluation {
+  verdict: 'OUTDATED_BUT_PREVIOUSLY_TRUE'
+})
+OPTIONAL MATCH (evaluation)-[:HISTORICAL_BASIS]->(old:LegalProvision)
+OPTIONAL MATCH (evaluation)-[:CURRENT_BASIS]->(current:LegalProvision)
+WITH evaluation, collect(DISTINCT old) AS old_versions,
+     collect(DISTINCT current) AS current_versions
+WITH evaluation, old_versions, current_versions,
+     head(old_versions) AS old_version,
+     head(current_versions) AS current_version
+WHERE size(old_versions) <> 1 OR size(current_versions) <> 1
+   OR coalesce(evaluation.historical_checksum, '') <> coalesce(old_version.text_checksum, '')
+   OR coalesce(evaluation.current_checksum, '') <> coalesce(current_version.text_checksum, '')
+   OR coalesce(evaluation.historical_lineage_id, '') <> coalesce(old_version.lineage_id, '')
+   OR coalesce(evaluation.current_lineage_id, '') <> coalesce(current_version.lineage_id, '')
+   OR coalesce(old_version.lineage_id, '') <> coalesce(current_version.lineage_id, '')
+RETURN evaluation.evaluation_id AS invalid_evaluation_id;
+
+// T20 — raw alerts or unreviewed correction drafts must never masquerade as
+// published citizen briefs. Any returned row is an acceptance failure.
+MATCH (raw)
+WHERE (raw:AlertMeta OR raw:DeXuatDinhChinh)
+  AND raw:BaiTomTat
+  AND raw.status = 'published'
+RETURN coalesce(raw.uuid, elementId(raw)) AS leaked_raw_item_id, labels(raw) AS labels;

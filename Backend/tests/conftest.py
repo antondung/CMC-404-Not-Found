@@ -54,6 +54,9 @@ class FakeEmbedder:
 
 
 class FakeAsyncConnection:
+    def transaction(self):
+        return self
+
     async def __aenter__(self):
         return self
 
@@ -79,6 +82,12 @@ class FakeAsyncConnection:
 
     async def fetch(self, query: str, *args: Any) -> list[dict[str, Any]]:
         q = query.lower()
+        if "from jobs" in q and "group by status" in q:
+            counts: dict[str, int] = {}
+            for job in JOBS.values():
+                status_value = str(job.get("status") or "queued")
+                counts[status_value] = counts.get(status_value, 0) + 1
+            return [{"status": key, "cnt": value} for key, value in counts.items()]
         if "from jobs" in q:
             rows = list(JOBS.values())
             if "limit" in q and args:
@@ -274,7 +283,7 @@ class _FakeCursor:
                 yield {"topic": topic}
             else:
                 yield {"t": topic}
-        elif "needs_review = true" in self.q:
+        elif "needs_review" in self.q and "return" in self.q:
             yield {"id": 1, "labels": ["BaiDang"], "n": {"bai_dang_id": "fb:post-101", "noi_dung": "Bài đăng cần rà soát", "review_reason": "Low NLI confidence"}}
 
 

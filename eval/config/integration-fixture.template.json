@@ -1,0 +1,138 @@
+{
+  "fixture_id": "REPLACE_WITH_APPROVED_FIXTURE_ID",
+  "postgres_fixture_review_id": "REPLACE_WITH_FIXTURE_REVIEW_UUID",
+  "database": "neo4j",
+  "snapshots": {
+    "neo4j": "REPLACE_WITH_NEO4J_SNAPSHOT_ID",
+    "postgres": "REPLACE_WITH_POSTGRES_SNAPSHOT_ID",
+    "qdrant": "REPLACE_WITH_QDRANT_SNAPSHOT_ID"
+  },
+  "checks": {
+    "T01": {
+      "params": {"khoan_lineage": "REPLACE_KHOAN_LINEAGE"},
+      "assertion": {"type": "field_set_equals", "field": "diem_lineages", "value": ["REPLACE_DIEM_A_LINEAGE", "REPLACE_DIEM_B_LINEAGE"]}
+    },
+    "T02": {
+      "params": {"khoan_lineage": "REPLACE_KHOAN_LINEAGE", "as_of": "REPLACE_YYYY_MM_DD"},
+      "assertion": {"type": "field_set_equals", "field": "active_diem_ids", "value": ["REPLACE_ACTIVE_DIEM_A_ID", "REPLACE_ACTIVE_DIEM_B_ID"]}
+    },
+    "T03": {
+      "params": {"leaf_khoan_lineage": "REPLACE_LEAF_KHOAN_LINEAGE", "as_of": "REPLACE_YYYY_MM_DD"},
+      "assertion": {"type": "field_equals", "field": "leaf_id", "value": "REPLACE_LEAF_KHOAN_ID"}
+    },
+    "T04": {
+      "params": {"leaf_dieu_lineage": "REPLACE_LEAF_DIEU_LINEAGE", "as_of": "REPLACE_YYYY_MM_DD"},
+      "assertion": {"type": "field_equals", "field": "leaf_id", "value": "REPLACE_LEAF_DIEU_ID"}
+    },
+    "T05": {
+      "params": {"diem_a_lineage": "REPLACE_DIEM_A_LINEAGE", "diem_b_lineage": "REPLACE_DIEM_B_LINEAGE"},
+      "assertion": {
+        "type": "all",
+        "assertions": [
+          {"type": "field_set_equals", "field": "diem_a_versions", "value": ["REPLACE_DIEM_A_V1", "REPLACE_DIEM_A_V2"]},
+          {"type": "field_set_equals", "field": "diem_b_versions", "value": ["REPLACE_DIEM_B_V1"]},
+          {"type": "field_set_equals", "field": "diem_b_effective_to", "value": []}
+        ]
+      }
+    },
+    "T06": {
+      "params": {"lineage": "REPLACE_V1_V2_V3_LINEAGE"},
+      "assertion": {
+        "type": "all",
+        "assertions": [
+          {"type": "field_equals", "field": "version_path", "value": ["REPLACE_V1", "REPLACE_V2", "REPLACE_V3"]},
+          {"type": "field_equals", "field": "hops", "value": 2}
+        ]
+      }
+    },
+    "T07": {
+      "params": {"future_lineage": "REPLACE_FUTURE_LINEAGE", "as_of": "REPLACE_BEFORE_EFFECTIVE_DATE"},
+      "assertion": {"type": "field_set_equals", "field": "active_ids", "value": []}
+    },
+    "T08": {
+      "params": {"repealed_lineage": "REPLACE_REPEALED_LINEAGE", "as_of": "REPLACE_AT_OR_AFTER_REPEAL_DATE"},
+      "assertion": {"type": "field_set_equals", "field": "active_ids", "value": []}
+    },
+    "T09": {"params": {}, "assertion": {"type": "empty"}},
+    "T10": {"params": {}, "assertion": {"type": "empty"}},
+    "T11": {
+      "params": {"citation_node_id": "REPLACE_CITATION_NODE_ID"},
+      "assertion": {
+        "type": "all",
+        "assertions": [
+          {"type": "field_equals", "field": "node_id", "value": "REPLACE_CITATION_NODE_ID"},
+          {"type": "field_nonempty", "field": "canonical_text"},
+          {"type": "field_nonempty", "field": "text_checksum"}
+        ]
+      }
+    },
+    "T12": {
+      "params": {"fabricated_node_id": "REPLACE_FABRICATED_NODE_ID"},
+      "assertion": {"type": "field_equals", "field": "canonical_node_count", "value": 0}
+    },
+    "T13": {
+      "params": {"citation_node_id": "REPLACE_CITATION_NODE_ID", "as_of": "REPLACE_EFFECTIVE_DATE"},
+      "assertion": {"type": "field_equals", "field": "active_citation_node_id", "value": "REPLACE_CITATION_NODE_ID"}
+    },
+    "T14": {
+      "params": {"citation_node_id": "REPLACE_CITATION_NODE_ID", "exact_quote": "REPLACE_EXACT_CANONICAL_QUOTE"},
+      "assertion": {"type": "field_equals", "field": "quote_valid_node_id", "value": "REPLACE_CITATION_NODE_ID"}
+    },
+    "T15": {
+      "params": {"citation_node_id": "REPLACE_CITATION_NODE_ID", "claim_text": "REPLACE_SUPPORTED_CLAIM"},
+      "assertion": {
+        "type": "all",
+        "assertions": [
+          {"type": "field_equals", "field": "node_id", "value": "REPLACE_CITATION_NODE_ID"},
+          {"type": "field_nonempty", "field": "nli_premise"},
+          {"type": "field_equals", "field": "nli_hypothesis", "value": "REPLACE_SUPPORTED_CLAIM"}
+        ]
+      }
+    },
+    "T16": {
+      "params": {
+        "old_provision_id": "REPLACE_OLD_PROVISION_ID",
+        "new_provision_id": "REPLACE_NEW_PROVISION_ID",
+        "source_vb_id": "REPLACE_SOURCE_VB_ID",
+        "review_id": "REPLACE_REVIEW_ID",
+        "commit_key": "REPLACE_COMMIT_KEY"
+      },
+      "assertion": {
+        "type": "all",
+        "assertions": [
+          {"type": "field_equals", "field": "old_id", "value": "REPLACE_OLD_PROVISION_ID"},
+          {"type": "field_equals", "field": "new_id", "value": "REPLACE_NEW_PROVISION_ID"},
+          {"type": "field_equals", "field": "source_vb_id", "value": "REPLACE_SOURCE_VB_ID"},
+          {"type": "field_equals", "field": "change_type", "value": "REPLACE_EXPECTED_CHANGE_TYPE"}
+        ]
+      }
+    },
+    "T17": {"params": {"ambiguous_review_id": "REPLACE_AMBIGUOUS_REVIEW_ID"}, "assertion": {"type": "empty"}},
+    "T18": {
+      "params": {},
+      "assertion": {
+        "type": "all",
+        "assertions": [
+          {"type": "field_nonempty", "field": "claim_occurrence_id"},
+          {"type": "field_nonempty", "field": "historical_id"},
+          {"type": "field_nonempty", "field": "current_id"}
+        ]
+      }
+    },
+    "T19": {"params": {}, "assertion": {"type": "empty"}},
+    "T20": {"params": {}, "assertion": {"type": "empty"}},
+    "N01": {
+      "params": {},
+      "assertion": {
+        "type": "all",
+        "assertions": [
+          {"type": "field_nonempty", "field": "content_id"},
+          {"type": "field_nonempty", "field": "claim_occurrence_id"},
+          {"type": "field_nonempty", "field": "misconception_id"},
+          {"type": "field_nonempty", "field": "legal_anchor_id"}
+        ]
+      }
+    },
+    "N02": {"params": {}, "assertion": {"type": "empty"}}
+  }
+}

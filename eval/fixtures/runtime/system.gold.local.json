@@ -1,0 +1,490 @@
+{
+  "metadata": {
+    "dataset_id": "lawgic-local-integration-v1-shadow-system-v1",
+    "dataset_kind": "measured_local_shadow_read",
+    "independent_review": false,
+    "measured_at": "2026-07-21T15:41:19.928522+00:00"
+  },
+  "cases": [
+    {
+      "case_id": "shadow-0001-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0002-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0003-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0004-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0005-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0006-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0007-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0008-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0009-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0010-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0011-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0012-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0013-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0014-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0015-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0016-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0017-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0018-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0019-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0020-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0021-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0022-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0023-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0024-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0025-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0026-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0027-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0028-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0029-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0030-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0031-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0032-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0033-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0034-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0035-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0036-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0037-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0038-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0039-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0040-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0041-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0042-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0043-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0044-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0045-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0046-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0047-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0048-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0049-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0050-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0051-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0052-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0053-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0054-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0055-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0056-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0057-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0058-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0059-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0060-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0061-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0062-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0063-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0064-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0065-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0066-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0067-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0068-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0069-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0070-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0071-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0072-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0073-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0074-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0075-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0076-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0077-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0078-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0079-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0080-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0081-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0082-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0083-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0084-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0085-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0086-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0087-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0088-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0089-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0090-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0091-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0092-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0093-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0094-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0095-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0096-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0097-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0098-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0099-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0100-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0101-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0102-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0103-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0104-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0105-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0106-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0107-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0108-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0109-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0110-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0111-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0112-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0113-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0114-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0115-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0116-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0117-2027-01-02",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0118-2026-06-30",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0119-2026-07-21",
+      "expected_success": true
+    },
+    {
+      "case_id": "shadow-0120-2027-01-02",
+      "expected_success": true
+    }
+  ]
+}

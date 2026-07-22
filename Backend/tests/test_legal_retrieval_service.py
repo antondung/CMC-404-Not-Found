@@ -302,6 +302,34 @@ async def test_graph_expansion_adds_related_canonical_candidate() -> None:
 
 
 @pytest.mark.anyio
+async def test_graph_retrieval_drops_parent_when_active_deepest_leaf_is_present() -> None:
+    items = temporal_legal_fixture()
+    parent = next(
+        item
+        for item in items
+        if item.level == ProvisionLevel.KHOAN
+        and item.clause == "2"
+        and item.is_effective_on(V2_DATE)
+    )
+    child = _point_versions("a")[1]
+    repository = FakeRepository(
+        lexical=[_row(parent, 0.9)],
+        graph=[_row(child, 0.8, graph_distance=1)],
+    )
+    service = LegalRetrievalService(repository, FakeTemporalService())
+
+    result = await service.retrieve(
+        "ngưỡng áp dụng",
+        as_of=V2_DATE,
+        profile=RetrievalProfile.HYBRID_GRAPH,
+    )
+
+    returned_ids = {item.provision.provision_id for item in result.items}
+    assert child.provision_id in returned_ids
+    assert parent.provision_id not in returned_ids
+
+
+@pytest.mark.anyio
 async def test_citizen_canonical_hydration_drops_internal_discovery_hit() -> None:
     internal = build_provision_version(
         logical_vb_id="INTERNAL-RETRIEVAL",

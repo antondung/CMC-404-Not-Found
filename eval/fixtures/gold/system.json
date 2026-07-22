@@ -1,0 +1,9 @@
+{
+  "metadata": {"dataset_id": "system-contract-smoke-v1", "dataset_kind": "synthetic_contract_fixture", "independent_review": false},
+  "cases": [
+    {"case_id": "latency-1", "expected_success": true},
+    {"case_id": "latency-2", "expected_success": true},
+    {"case_id": "latency-3", "expected_success": true},
+    {"case_id": "latency-4", "expected_success": true}
+  ]
+}

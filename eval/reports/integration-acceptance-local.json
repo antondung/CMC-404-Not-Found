@@ -1,0 +1,462 @@
+{
+  "schema_version": "1.0",
+  "mode": "read_only_integration_acceptance",
+  "fixture_id": "lawgic-local-integration-v1",
+  "snapshots": {
+    "neo4j": "content-sha256:a512819ee81fb5e690282d0f0965aeb7202d1d6393498e63122a95bfc69f504e",
+    "postgres": "content-sha256:5da885080adddefa97cdd3c009b3576585490e51a27cac544e0b6b77fe58a80e",
+    "qdrant": "content-sha256:0ea716669396bd3944d833abf25711cbaa8d73c1905432d1e693cca033b57cc4"
+  },
+  "evaluated_at": "2026-07-21T15:39:58.008878+00:00",
+  "stores": {
+    "neo4j": {
+      "mode": "read_only",
+      "check_count": 22,
+      "results": [
+        {
+          "check_id": "T01",
+          "title": "parser/writer preserved every Điểm expected for one Khoản.",
+          "passed": true,
+          "row_count": 1,
+          "assertion": {
+            "type": "field_set_equals",
+            "field": "diem_lineages",
+            "value": [
+              "LAWGIC-FIXTURE-LAW::D5.K2.Pa",
+              "LAWGIC-FIXTURE-LAW::D5.K2.Pb"
+            ]
+          },
+          "message": "expected diem_lineages=['LAWGIC-FIXTURE-LAW::D5.K2.Pa', 'LAWGIC-FIXTURE-LAW::D5.K2.Pb'], received ['LAWGIC-FIXTURE-LAW::D5.K2.Pa', 'LAWGIC-FIXTURE-LAW::D5.K2.Pb']"
+        },
+        {
+          "check_id": "T02",
+          "title": "deepest leaf: a Khoản with active Điểm must not be returned as a leaf.",
+          "passed": true,
+          "row_count": 1,
+          "assertion": {
+            "type": "field_set_equals",
+            "field": "active_diem_ids",
+            "value": [
+              "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+              "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114"
+            ]
+          },
+          "message": "expected active_diem_ids=['LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3', 'LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114'], received ['LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3', 'LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114']"
+        },
+        {
+          "check_id": "T03",
+          "title": "a Khoản without active Điểm is itself a leaf.",
+          "passed": true,
+          "row_count": 1,
+          "assertion": {
+            "type": "field_equals",
+            "field": "leaf_id",
+            "value": "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6"
+          },
+          "message": "expected leaf_id='LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6', received 'LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6'"
+        },
+        {
+          "check_id": "T04",
+          "title": "an Điều without active Khoản is itself a leaf.",
+          "passed": true,
+          "row_count": 1,
+          "assertion": {
+            "type": "field_equals",
+            "field": "leaf_id",
+            "value": "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+          },
+          "message": "expected leaf_id='LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063', received 'LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063'"
+        },
+        {
+          "check_id": "T05",
+          "title": "partial amendment changes only Điểm a; Điểm b stays open-ended.",
+          "passed": true,
+          "row_count": 1,
+          "assertion": {
+            "type": "all",
+            "assertions": [
+              {
+                "type": "field_set_equals",
+                "field": "diem_a_versions",
+                "value": [
+                  "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+                  "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+                  "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787"
+                ]
+              },
+              {
+                "type": "field_set_equals",
+                "field": "diem_b_versions",
+                "value": [
+                  "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114"
+                ]
+              },
+              {
+                "type": "field_set_equals",
+                "field": "diem_b_effective_to",
+                "value": []
+              }
+            ]
+          },
+          "message": "expected diem_a_versions=['LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78', 'LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3', 'LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787'], received ['LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78', 'LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3', 'LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787']; expected diem_b_versions=['LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114'], received ['LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114']; expected diem_b_effective_to=[], received []"
+        },
+        {
+          "check_id": "T06",
+          "title": "V1 → V2 → V3 is ordered and contains no directed cycle.",
+          "passed": true,
+          "row_count": 1,
+          "assertion": {
+            "type": "all",
+            "assertions": [
+              {
+                "type": "field_equals",
+                "field": "version_path",
+                "value": [
+                  "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+                  "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+                  "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787"
+                ]
+              },
+              {
+                "type": "field_equals",
+                "field": "hops",
+                "value": 2
+              }
+            ]
+          },
+          "message": "expected version_path=['LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78', 'LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3', 'LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787'], received ['LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78', 'LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3', 'LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787']; expected hops=2, received 2"
+        },
+        {
+          "check_id": "T07",
+          "title": "future-effective versions are absent before their start date.",
+          "passed": true,
+          "row_count": 1,
+          "assertion": {
+            "type": "field_set_equals",
+            "field": "active_ids",
+            "value": []
+          },
+          "message": "expected active_ids=[], received []"
+        },
+        {
+          "check_id": "T08",
+          "title": "repealed provisions are absent at and after exclusive effective_to.",
+          "passed": true,
+          "row_count": 1,
+          "assertion": {
+            "type": "field_set_equals",
+            "field": "active_ids",
+            "value": []
+          },
+          "message": "expected active_ids=[], received []"
+        },
+        {
+          "check_id": "T09",
+          "title": "provision_id is globally unique after repeated ingest.",
+          "passed": true,
+          "row_count": 0,
+          "assertion": {
+            "type": "empty"
+          },
+          "message": "expected zero rows, received 0"
+        },
+        {
+          "check_id": "T10",
+          "title": "every v2 provision has canonical text/checksum, interval start and explicit publication metadata.",
+          "passed": true,
+          "row_count": 0,
+          "assertion": {
+            "type": "empty"
+          },
+          "message": "expected zero rows, received 0"
+        },
+        {
+          "check_id": "T11",
+          "title": "canonical citation material is loaded from Neo4j by physical ID, never Qdrant text.",
+          "passed": true,
+          "row_count": 1,
+          "assertion": {
+            "type": "all",
+            "assertions": [
+              {
+                "type": "field_equals",
+                "field": "node_id",
+                "value": "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3"
+              },
+              {
+                "type": "field_nonempty",
+                "field": "canonical_text"
+              },
+              {
+                "type": "field_nonempty",
+                "field": "text_checksum"
+              }
+            ]
+          },
+          "message": "expected node_id='LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3', received 'LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3'; expected non-empty canonical_text, received 'Ngưỡng áp dụng là 500 triệu đồng.'; expected non-empty text_checksum, received '659b8f8907f3edaebe6f6e8a5c78b959875322ad31e8e2f88bc24567fcb878a1'"
+        },
+        {
+          "check_id": "T12",
+          "title": "a fabricated physical node resolves to zero canonical rows.",
+          "passed": true,
+          "row_count": 1,
+          "assertion": {
+            "type": "field_equals",
+            "field": "canonical_node_count",
+            "value": 0
+          },
+          "message": "expected canonical_node_count=0, received 0"
+        },
+        {
+          "check_id": "T13",
+          "title": "an exact physical citation node must itself be effective at as_of.",
+          "passed": true,
+          "row_count": 1,
+          "assertion": {
+            "type": "field_equals",
+            "field": "active_citation_node_id",
+            "value": "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3"
+          },
+          "message": "expected active_citation_node_id='LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3', received 'LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3'"
+        },
+        {
+          "check_id": "T14",
+          "title": "the proposed quote must be an exact canonical substring after application normalization.",
+          "passed": true,
+          "row_count": 1,
+          "assertion": {
+            "type": "field_equals",
+            "field": "quote_valid_node_id",
+            "value": "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3"
+          },
+          "message": "expected quote_valid_node_id='LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3', received 'LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3'"
+        },
+        {
+          "check_id": "T15",
+          "title": "return canonical premise for claim-level NLI; service must refuse non-entailed edges.",
+          "passed": true,
+          "row_count": 1,
+          "assertion": {
+            "type": "all",
+            "assertions": [
+              {
+                "type": "field_equals",
+                "field": "node_id",
+                "value": "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3"
+              },
+              {
+                "type": "field_nonempty",
+                "field": "nli_premise"
+              },
+              {
+                "type": "field_equals",
+                "field": "nli_hypothesis",
+                "value": "Ngưỡng áp dụng là 200 triệu đồng."
+              }
+            ]
+          },
+          "message": "expected node_id='LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3', received 'LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3'; expected non-empty nli_premise, received 'Ngưỡng áp dụng là 500 triệu đồng.'; expected nli_hypothesis='Ngưỡng áp dụng là 200 triệu đồng.', received 'Ngưỡng áp dụng là 200 triệu đồng.'"
+        },
+        {
+          "check_id": "T16",
+          "title": "an approved deterministic amendment is committed with a closed interval",
+          "passed": true,
+          "row_count": 1,
+          "assertion": {
+            "type": "all",
+            "assertions": [
+              {
+                "type": "field_equals",
+                "field": "old_id",
+                "value": "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78"
+              },
+              {
+                "type": "field_equals",
+                "field": "new_id",
+                "value": "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3"
+              },
+              {
+                "type": "field_equals",
+                "field": "source_vb_id",
+                "value": "LAWGIC-FIXTURE-LAW-V2"
+              },
+              {
+                "type": "field_equals",
+                "field": "change_type",
+                "value": "REWORDED"
+              }
+            ]
+          },
+          "message": "expected old_id='LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78', received 'LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78'; expected new_id='LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3', received 'LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3'; expected source_vb_id='LAWGIC-FIXTURE-LAW-V2', received 'LAWGIC-FIXTURE-LAW-V2'; expected change_type='REWORDED', received 'REWORDED'"
+        },
+        {
+          "check_id": "T17",
+          "title": "split/merge/uncertain reviews must never produce an automatic",
+          "passed": true,
+          "row_count": 0,
+          "assertion": {
+            "type": "empty"
+          },
+          "message": "expected zero rows, received 0"
+        },
+        {
+          "check_id": "T18",
+          "title": "a claim that was supported at publication but contradicted by a",
+          "passed": true,
+          "row_count": 1,
+          "assertion": {
+            "type": "all",
+            "assertions": [
+              {
+                "type": "field_nonempty",
+                "field": "claim_occurrence_id"
+              },
+              {
+                "type": "field_nonempty",
+                "field": "historical_id"
+              },
+              {
+                "type": "field_nonempty",
+                "field": "current_id"
+              }
+            ]
+          },
+          "message": "expected non-empty claim_occurrence_id, received 'lawgic-fixture-claim'; expected non-empty historical_id, received 'LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78'; expected non-empty current_id, received 'LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3'"
+        },
+        {
+          "check_id": "T19",
+          "title": "an outdated verdict without two valid immutable bases is forbidden.",
+          "passed": true,
+          "row_count": 0,
+          "assertion": {
+            "type": "empty"
+          },
+          "message": "expected zero rows, received 0"
+        },
+        {
+          "check_id": "T20",
+          "title": "raw alerts or unreviewed correction drafts must never masquerade as",
+          "passed": true,
+          "row_count": 0,
+          "assertion": {
+            "type": "empty"
+          },
+          "message": "expected zero rows, received 0"
+        },
+        {
+          "check_id": "N01",
+          "title": "every misconception occurrence retains source-neutral provenance and",
+          "passed": true,
+          "row_count": 1,
+          "assertion": {
+            "type": "all",
+            "assertions": [
+              {
+                "type": "field_nonempty",
+                "field": "content_id"
+              },
+              {
+                "type": "field_nonempty",
+                "field": "claim_occurrence_id"
+              },
+              {
+                "type": "field_nonempty",
+                "field": "misconception_id"
+              },
+              {
+                "type": "field_nonempty",
+                "field": "legal_anchor_id"
+              }
+            ]
+          },
+          "message": "expected non-empty content_id, received 'lawgic-fixture-content'; expected non-empty claim_occurrence_id, received 'lawgic-fixture-claim'; expected non-empty misconception_id, received 'lawgic-fixture-misconception'; expected non-empty legal_anchor_id, received 'LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3'"
+        },
+        {
+          "check_id": "N02",
+          "title": "a claim occurrence must not be assigned to competing clusters.",
+          "passed": true,
+          "row_count": 0,
+          "assertion": {
+            "type": "empty"
+          },
+          "message": "expected zero rows, received 0"
+        }
+      ],
+      "passed": true
+    },
+    "postgres": {
+      "mode": "read_only_transaction",
+      "check_count": 7,
+      "results": [
+        {
+          "check_id": "PG01",
+          "title": "Required amendment review and reconciliation columns exist",
+          "passed": true,
+          "violation_count": 0,
+          "violations": []
+        },
+        {
+          "check_id": "PG02",
+          "title": "Review persistence never enables auto approval or direct commit",
+          "passed": true,
+          "violation_count": 0,
+          "violations": []
+        },
+        {
+          "check_id": "PG03",
+          "title": "Committed batches have complete retry-safe reconciliation evidence",
+          "passed": true,
+          "violation_count": 0,
+          "violations": []
+        },
+        {
+          "check_id": "PG04",
+          "title": "Reviewed terminal batches retain actor and timestamp",
+          "passed": true,
+          "violation_count": 0,
+          "violations": []
+        },
+        {
+          "check_id": "PG05",
+          "title": "Candidates and audit events are attached to existing review batches",
+          "passed": true,
+          "violation_count": 0,
+          "violations": []
+        },
+        {
+          "check_id": "PG06",
+          "title": "Every non-draft workflow has an append-only audit event",
+          "passed": true,
+          "violation_count": 0,
+          "violations": []
+        },
+        {
+          "check_id": "PG07",
+          "title": "The fixture amendment is durably reviewed, committed and audited",
+          "passed": true,
+          "violation_count": 0,
+          "violations": []
+        }
+      ],
+      "passed": true
+    },
+    "qdrant_parity": {
+      "mode": "read_only",
+      "collection": "legal_provision",
+      "status": "match",
+      "exact_match": true,
+      "neo4j_count": 8,
+      "qdrant_count": 8,
+      "matched_count": 8,
+      "coverage": 1.0,
+      "missing_in_qdrant": [],
+      "extra_in_qdrant": [],
+      "duplicate_neo4j_ids": [],
+      "duplicate_qdrant_ids": [],
+      "checksum_mismatch_ids": [],
+      "passed": true
+    }
+  },
+  "passed": true,
+  "mutated": false
+}

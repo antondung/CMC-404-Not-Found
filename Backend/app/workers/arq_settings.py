@@ -8,6 +8,7 @@ from arq.connections import RedisSettings
 from app.config import BE2Config, get_config
 from app.workers.content_jobs import brief_generate, daily_news_briefs, suggest_generate
 from app.workers.legal_jobs import legal_ingest, legal_extract
+from app.workers.amendment_jobs import amendment_reconciliation_monitor
 from app.workers.social_jobs import alert_fanout, daily_news_monitor, daily_social_monitor, social_claim, social_ingest, social_link, social_topic
 
 BE2_WORKER_FUNCTIONS = [
@@ -24,7 +25,11 @@ BE2_WORKER_FUNCTIONS = [
 ]
 
 # Legal ingest is BE1/BE3 territory (kept out of the scope-limited BE2 worker).
-LEGAL_WORKER_FUNCTIONS = [legal_ingest, legal_extract]
+LEGAL_WORKER_FUNCTIONS = [
+    legal_ingest,
+    legal_extract,
+    amendment_reconciliation_monitor,
+]
 
 def redis_settings(config: BE2Config | None = None) -> RedisSettings:
     cfg = config or get_config()
@@ -55,6 +60,13 @@ async def worker_startup(ctx: dict) -> None:
     from app.pipelines.content.brief_generate import BriefGenerateService
     from app.pipelines.content.suggest_generate import SuggestGenerateService
     from app.services.phapluat_news_service import PhapLuatNewsService
+    from app.services.misconception_service import MisconceptionService
+    from app.services.temporal_law_service import TemporalLawService
+    from app.services.temporal_misconception_service import TemporalMisconceptionService
+    from app.adapters.neo4j_temporal import Neo4jTemporalRepository
+    from app.adapters.neo4j_amendment_commit import Neo4jAmendmentCommitRepository
+    from app.adapters.postgres_amendment_review import PostgresAmendmentReviewRepository
+    from app.services.amendment_reconciliation_service import AmendmentReconciliationService
 
     cfg = get_config()
     pool = await get_db_pool()
@@ -88,12 +100,28 @@ async def worker_startup(ctx: dict) -> None:
     ctx["social_ingest_service"] = SocialIngestService(social_repo, cfg)
     ctx["topic_classifier"] = TopicClassifier(qdrant, embedder, cfg)
     ctx["entity_linker"] = EntityLinker(qdrant, social_repo, embedder, None, cfg)
-    ctx["claim_checker"] = ClaimChecker(router, None)
+    claim_checker = ClaimChecker(router, None)
+    ctx["claim_checker"] = claim_checker
     ctx["alert_signal_service"] = AlertSignalService(social_repo, cfg)
+    ctx["misconception_service"] = MisconceptionService(social_repo, cfg)
+    temporal_law_service = TemporalLawService(Neo4jTemporalRepository(driver)) if driver else None
+    ctx["temporal_misconception_service"] = (
+        TemporalMisconceptionService(social_repo, temporal_law_service, claim_checker.nli, cfg)
+        if social_repo and temporal_law_service
+        else None
+    )
     ctx["social_daily_monitor"] = build_default_monitor(cfg)
     ctx["brief_generate_service"] = BriefGenerateService(legal_repo, content_repo, router)
     ctx["suggest_generate_service"] = SuggestGenerateService(legal_repo, content_repo, router)
     ctx["phapluat_news_service"] = PhapLuatNewsService(pool)
+    ctx["amendment_reconciliation_service"] = (
+        AmendmentReconciliationService(
+            PostgresAmendmentReviewRepository(pool),
+            Neo4jAmendmentCommitRepository(driver),
+        )
+        if pool and driver
+        else None
+    )
 
 def cron_jobs(config: BE2Config | None = None) -> list:
     cfg = config or get_config()
@@ -105,6 +133,21 @@ def cron_jobs(config: BE2Config | None = None) -> list:
     if cfg.news_monitor_enabled:
         jobs.append(cron(daily_news_monitor, hour=cfg.news_monitor_cron_hour, minute=cfg.news_monitor_cron_minute, name="daily_news_monitor"))
     return jobs
+
+
+def legal_cron_jobs(config: BE2Config | None = None) -> list:
+    cfg = config or get_config()
+    if not cfg.amendment_reconciliation_monitor_enabled:
+        return []
+    return [
+        cron(
+            amendment_reconciliation_monitor,
+            minute=set(
+                range(0, 60, cfg.amendment_reconciliation_monitor_interval_minutes)
+            ),
+            name="amendment_reconciliation_monitor",
+        )
+    ]
 
 
 async def worker_shutdown(ctx: dict) -> None:
@@ -135,5 +178,6 @@ class LegalWorkerSettings:
     redis_settings = redis_settings()
     on_startup = worker_startup
     on_shutdown = worker_shutdown
+    cron_jobs = legal_cron_jobs()
     max_tries = 3
     job_timeout = get_config().default_job_timeout_s

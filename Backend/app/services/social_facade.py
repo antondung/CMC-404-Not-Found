@@ -2,34 +2,47 @@ from __future__ import annotations
 
 import json
 import uuid
+import hashlib
 import logging
 from typing import Any
 from datetime import datetime, timezone
+from urllib.parse import urljoin, urlparse
 import httpx
 from app.adapters.neo4j_social import Neo4jSocialRepository
 from app.adapters.postgres_content import PostgresContentRepository
-from app.config import get_config
-from app.exceptions import BE2Error, JobEnqueueError
+from app.config import BE2Config, get_config
+from app.core.url_safety import AddressResolver, validate_public_http_url
+from app.exceptions import BE2Error, JobEnqueueError, QueueUnavailableError
 from app.pipelines.social.collectors import FacebookGraphCollector, ForumFeedCollector, YouTubeDataCollector
 from app.pipelines.social.ingest import SocialIngestService
+from app.schemas import JobEnvelope
 
 logger = logging.getLogger(__name__)
 
 class SocialAlertFacade:
     """Facade orchestrating BE2 Social Intelligence queries, Alert triage, and real link previews."""
 
-    def __init__(self, pool: Any | None = None, neo4j_driver: Any | None = None) -> None:
+    def __init__(
+        self,
+        pool: Any | None = None,
+        neo4j_driver: Any | None = None,
+        *,
+        config: BE2Config | None = None,
+        redis_pool: Any | None = None,
+        http_client: httpx.AsyncClient | None = None,
+        url_resolver: AddressResolver | None = None,
+    ) -> None:
         self.pool = pool
         self.driver = neo4j_driver
-        self.neo_repo = Neo4jSocialRepository(neo4j_driver) if neo4j_driver else None
+        self.config = config or get_config()
+        self._redis_pool = redis_pool
+        self._http_client = http_client
+        self._url_resolver = url_resolver
+        self.neo_repo = Neo4jSocialRepository(neo4j_driver, pool) if neo4j_driver else None
         self.pg_repo = PostgresContentRepository(pool) if pool else None
 
     async def ingest_post(self, payload: dict[str, Any]) -> dict[str, Any]:
-        """Trigger ingestion job into real Postgres jobs queue.
-
-        Only returns ``status=queued`` after a successful INSERT. Missing pool or DB errors
-        raise — never a false-success envelope.
-        """
+        """Persist a tracked job, then ingest now or enqueue a real ARQ job."""
         if not (self.pool and hasattr(self.pool, "acquire")):
             raise JobEnqueueError(
                 "Không thể xếp hàng social ingest: Postgres pool không khả dụng.",
@@ -37,6 +50,15 @@ class SocialAlertFacade:
             )
 
         job_id = str(uuid.uuid4())
+        normalized_payload = dict(payload)
+        external_id = str(normalized_payload.get("external_id") or "").strip()
+        if not external_id:
+            identity = "\n".join(
+                str(normalized_payload.get(key) or "").strip()
+                for key in ("platform", "url", "content", "noi_dung")
+            )
+            external_id = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:24]
+        normalized_payload["external_id"] = external_id
         try:
             async with self.pool.acquire() as conn:
                 await conn.execute(
@@ -46,7 +68,7 @@ class SocialAlertFacade:
                     ON CONFLICT DO NOTHING
                     """,
                     job_id,
-                    json.dumps(payload),
+                    json.dumps(normalized_payload, ensure_ascii=False),
                     datetime.now(timezone.utc),
                 )
         except BE2Error:
@@ -54,17 +76,83 @@ class SocialAlertFacade:
         except Exception as exc:
             logger.exception("social ingest INSERT failed", extra={"job_id": job_id})
             raise JobEnqueueError(
-                f"Không thể xếp hàng social ingest: {exc}",
-                details={"job_id": job_id, "platform": payload.get("platform")},
+                "Không thể ghi social ingest job vào Postgres.",
+                details={"job_id": job_id, "platform": normalized_payload.get("platform"), "error_type": type(exc).__name__},
+            ) from exc
+
+        try:
+            if self.config.social_ingest_async:
+                await self._enqueue_social_job(job_id, normalized_payload)
+                result_status = "queued"
+                message = "Social post ingestion task submitted into the ARQ queue."
+            else:
+                if self.neo_repo is None:
+                    raise JobEnqueueError(
+                        "Không thể xử lý social ingest: Neo4j không khả dụng.",
+                        details={"job_id": job_id},
+                    )
+                await self._set_job_status(job_id, "running")
+                await SocialIngestService(self.neo_repo, self.config).ingest(normalized_payload)
+                await self._set_job_status(job_id, "success")
+                result_status = "success"
+                message = "Social post ingested synchronously."
+        except BE2Error as exc:
+            await self._set_job_status(job_id, "error", exc.message)
+            raise
+        except Exception as exc:  # noqa: BLE001
+            await self._set_job_status(job_id, "error", "social_ingest_failed")
+            raise JobEnqueueError(
+                "Không thể xử lý social ingest.",
+                details={"job_id": job_id, "error_type": type(exc).__name__},
             ) from exc
 
         return {
             "job_id": job_id,
-            "platform": payload.get("platform", "facebook"),
-            "external_id": payload.get("external_id", str(uuid.uuid4())[:8]),
-            "status": "queued",
-            "message": "Social post ingestion task submitted into queue.",
+            "platform": normalized_payload.get("platform", "facebook"),
+            "external_id": external_id,
+            "status": result_status,
+            "message": message,
         }
+
+    async def _set_job_status(
+        self,
+        job_id: str,
+        status: str,
+        message: str | None = None,
+    ) -> None:
+        try:
+            async with self.pool.acquire() as conn:
+                await conn.execute(
+                    "UPDATE jobs SET status = $1::job_status, error = $2, updated_at = now() WHERE id = $3::uuid",
+                    status,
+                    message if status in {"error", "needs_review"} else None,
+                    job_id,
+                )
+        except Exception:  # noqa: BLE001 - preserve the original ingest/queue failure
+            logger.exception("Failed to update social ingest job status", extra={"job_id": job_id, "status": status})
+
+    async def _enqueue_social_job(self, job_id: str, payload: dict[str, Any]) -> None:
+        try:
+            if self._redis_pool is None:
+                from arq import create_pool
+                from app.workers.arq_settings import redis_settings
+
+                self._redis_pool = await create_pool(redis_settings(self.config))
+            envelope = JobEnvelope(
+                job_id=job_id,
+                correlation_id=job_id,
+                payload=payload,
+            )
+            await self._redis_pool.enqueue_job(
+                "social_ingest",
+                envelope.model_dump(mode="json"),
+                _job_id=job_id,
+            )
+        except Exception as exc:  # noqa: BLE001
+            raise QueueUnavailableError(
+                "Hệ thống hàng đợi đang bảo trì, không thể tạo social ingest job.",
+                details={"job_id": job_id, "error_type": type(exc).__name__},
+            ) from exc
 
     async def crawl_social(
         self,
@@ -387,24 +475,40 @@ class SocialAlertFacade:
 
     async def generate_link_preview(self, url: str) -> dict[str, Any]:
         """Extract live metadata / OpenGraph properties from external URL."""
-        domain = url.split("//")[-1].split("/")[0] if "//" in url else url
+        requested_url = await validate_public_http_url(url, resolver=self._url_resolver)
+        current_url = requested_url
+        domain = urlparse(requested_url).hostname or ""
         title = f"URL Content from {domain}"
         description = "Live content extracted via scraper"
+        close_client = self._http_client is None
+        client = self._http_client or httpx.AsyncClient(timeout=5.0, follow_redirects=False)
         try:
-            async with httpx.AsyncClient(timeout=5.0, follow_redirects=True) as client:
-                res = await client.get(url)
+            for _ in range(4):
+                res = await client.get(current_url, follow_redirects=False)
+                if res.status_code in {301, 302, 303, 307, 308} and res.headers.get("location"):
+                    current_url = await validate_public_http_url(
+                        urljoin(current_url, res.headers["location"]),
+                        resolver=self._url_resolver,
+                    )
+                    continue
                 if res.status_code == 200:
                     text = res.text[:4096]
                     if "<title>" in text and "</title>" in text:
                         title = text.split("<title>")[1].split("</title>")[0].strip()
+                break
+        except BE2Error:
+            raise
         except Exception:
-            logger.warning("Failed to generate link preview for %s", url, exc_info=True)
+            logger.warning("Failed to generate public link preview for host %s", domain, exc_info=True)
+        finally:
+            if close_client:
+                await client.aclose()
 
         return {
-            "url": url,
+            "url": requested_url,
             "domain": domain,
             "title": title,
             "description": description,
             "image": f"https://{domain}/favicon.ico",
-            "candidate_text": f"Trích đoạn nội dung chính từ {url}.",
+            "candidate_text": f"Trích đoạn nội dung chính từ {requested_url}.",
         }

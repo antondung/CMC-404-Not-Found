@@ -1,0 +1,2855 @@
+{
+  "schema_version": "1.0",
+  "evidence_kind": "measured_local_shadow_read",
+  "fixture_id": "lawgic-local-integration-v1",
+  "measured_at": "2026-07-21T15:41:19.928522+00:00",
+  "metrics": {
+    "case_count": 120,
+    "success_count": 120,
+    "failure_count": 0,
+    "failure_rate": 0.0,
+    "parity_rate": 1.0,
+    "candidate_p50_ms": 41.5806,
+    "candidate_p95_ms": 87.5594,
+    "baseline_p50_ms": 29.3355,
+    "baseline_p95_ms": 82.5191,
+    "p95_regression_ratio": 1.06108,
+    "estimated_cost_usd": 0.0,
+    "llm_calls": 0
+  },
+  "gates": [
+    {
+      "gate": "minimum_case_count",
+      "actual": 120,
+      "target": 100,
+      "passed": true
+    },
+    {
+      "gate": "failure_rate",
+      "actual": 0.0,
+      "target": 0.0,
+      "passed": true
+    },
+    {
+      "gate": "temporal_leaf_parity",
+      "actual": 1.0,
+      "target": 1.0,
+      "passed": true
+    },
+    {
+      "gate": "p95_regression_ratio",
+      "actual": 1.06108,
+      "target": 1.2,
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "release_eligible": false,
+  "limitations": [
+    "Measurements use the localhost synthetic integration fixture.",
+    "No LLM or paid external API is invoked; estimated cost is zero.",
+    "Local measurements cannot replace production-like shadow evidence or independent legal holdouts."
+  ],
+  "cases": [
+    {
+      "case_id": "shadow-0001-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 31.5419,
+      "baseline_latency_ms": 20.3166,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0002-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 57.9241,
+      "baseline_latency_ms": 39.3829,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0003-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 52.7296,
+      "baseline_latency_ms": 29.2117,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0004-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 78.9241,
+      "baseline_latency_ms": 35.0523,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0005-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 71.2856,
+      "baseline_latency_ms": 58.5149,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0006-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 62.7259,
+      "baseline_latency_ms": 27.0919,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0007-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 71.2483,
+      "baseline_latency_ms": 98.7543,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0008-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 24.7629,
+      "baseline_latency_ms": 21.9067,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0009-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 98.042,
+      "baseline_latency_ms": 21.7412,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0010-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 33.2162,
+      "baseline_latency_ms": 25.2925,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0011-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 39.109,
+      "baseline_latency_ms": 21.7617,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0012-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 70.5468,
+      "baseline_latency_ms": 34.6527,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0013-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 60.7829,
+      "baseline_latency_ms": 62.5904,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0014-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 68.7163,
+      "baseline_latency_ms": 32.6523,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0015-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 32.1373,
+      "baseline_latency_ms": 37.1242,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0016-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 42.1187,
+      "baseline_latency_ms": 28.0123,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0017-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 158.5564,
+      "baseline_latency_ms": 20.8516,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0018-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 94.5575,
+      "baseline_latency_ms": 22.0061,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0019-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 30.295,
+      "baseline_latency_ms": 18.9752,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0020-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 37.3309,
+      "baseline_latency_ms": 42.1328,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0021-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 41.5806,
+      "baseline_latency_ms": 23.8012,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0022-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 38.4487,
+      "baseline_latency_ms": 23.8705,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0023-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 22.8804,
+      "baseline_latency_ms": 20.5793,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0024-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 27.5078,
+      "baseline_latency_ms": 29.107,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0025-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 28.5775,
+      "baseline_latency_ms": 20.7115,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0026-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 22.9791,
+      "baseline_latency_ms": 41.0074,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0027-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 45.9967,
+      "baseline_latency_ms": 26.4351,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0028-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 48.7645,
+      "baseline_latency_ms": 46.8702,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0029-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 57.2071,
+      "baseline_latency_ms": 29.7033,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0030-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 149.2318,
+      "baseline_latency_ms": 120.3819,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0031-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 49.9817,
+      "baseline_latency_ms": 33.6513,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0032-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 37.0854,
+      "baseline_latency_ms": 19.3157,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0033-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 54.0396,
+      "baseline_latency_ms": 25.3043,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0034-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 42.8397,
+      "baseline_latency_ms": 37.5892,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0035-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 46.0555,
+      "baseline_latency_ms": 26.0805,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0036-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 56.2028,
+      "baseline_latency_ms": 39.7698,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0037-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 40.7171,
+      "baseline_latency_ms": 56.6303,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0038-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 30.49,
+      "baseline_latency_ms": 34.5487,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0039-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 54.5255,
+      "baseline_latency_ms": 31.6186,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0040-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 72.3048,
+      "baseline_latency_ms": 34.7891,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0041-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 80.0065,
+      "baseline_latency_ms": 49.4263,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0042-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 49.0935,
+      "baseline_latency_ms": 87.0228,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0043-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 43.9816,
+      "baseline_latency_ms": 40.0034,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0044-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 52.4786,
+      "baseline_latency_ms": 32.7302,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0045-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 70.262,
+      "baseline_latency_ms": 34.7987,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0046-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 63.9926,
+      "baseline_latency_ms": 21.5613,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0047-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 36.572,
+      "baseline_latency_ms": 17.1733,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0048-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 46.2016,
+      "baseline_latency_ms": 48.5668,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0049-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 49.8065,
+      "baseline_latency_ms": 55.061,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0050-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 29.9452,
+      "baseline_latency_ms": 26.7816,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0051-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 67.1912,
+      "baseline_latency_ms": 54.5703,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0052-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 39.4115,
+      "baseline_latency_ms": 18.6576,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0053-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 25.4041,
+      "baseline_latency_ms": 21.6077,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0054-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 53.1956,
+      "baseline_latency_ms": 25.0877,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0055-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 49.9482,
+      "baseline_latency_ms": 32.3989,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0056-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 25.8213,
+      "baseline_latency_ms": 17.4125,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0057-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 25.1098,
+      "baseline_latency_ms": 42.0739,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0058-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 53.6563,
+      "baseline_latency_ms": 87.4896,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0059-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 42.7655,
+      "baseline_latency_ms": 82.5191,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0060-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 38.6336,
+      "baseline_latency_ms": 54.7466,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0061-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 33.8305,
+      "baseline_latency_ms": 46.3807,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0062-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 32.527,
+      "baseline_latency_ms": 26.1807,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0063-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 84.9013,
+      "baseline_latency_ms": 36.2264,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0064-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 152.2212,
+      "baseline_latency_ms": 106.1151,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0065-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 43.7597,
+      "baseline_latency_ms": 47.1796,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0066-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 67.9725,
+      "baseline_latency_ms": 27.2245,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0067-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 86.9944,
+      "baseline_latency_ms": 54.8054,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0068-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 47.4133,
+      "baseline_latency_ms": 36.4239,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0069-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 36.2175,
+      "baseline_latency_ms": 23.7751,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0070-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 64.3382,
+      "baseline_latency_ms": 22.0551,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0071-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 40.6345,
+      "baseline_latency_ms": 53.536,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0072-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 35.1909,
+      "baseline_latency_ms": 19.9103,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0073-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 45.2134,
+      "baseline_latency_ms": 38.5158,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0074-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 57.824,
+      "baseline_latency_ms": 73.2509,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0075-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 76.7614,
+      "baseline_latency_ms": 86.4892,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0076-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 33.5928,
+      "baseline_latency_ms": 23.6293,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0077-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 33.9767,
+      "baseline_latency_ms": 27.8941,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0078-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 29.4076,
+      "baseline_latency_ms": 26.887,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0079-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 39.3658,
+      "baseline_latency_ms": 37.6009,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0080-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 26.5898,
+      "baseline_latency_ms": 15.8435,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0081-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 27.0475,
+      "baseline_latency_ms": 32.7601,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0082-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 50.5973,
+      "baseline_latency_ms": 28.5463,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0083-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 30.2005,
+      "baseline_latency_ms": 48.3044,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0084-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 52.1868,
+      "baseline_latency_ms": 28.8658,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0085-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 106.4545,
+      "baseline_latency_ms": 21.1077,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0086-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 84.8825,
+      "baseline_latency_ms": 33.4703,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0087-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 27.5052,
+      "baseline_latency_ms": 31.4893,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0088-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 46.618,
+      "baseline_latency_ms": 33.8653,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0089-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 87.5594,
+      "baseline_latency_ms": 66.8149,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0090-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 39.6716,
+      "baseline_latency_ms": 59.3105,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0091-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 65.7549,
+      "baseline_latency_ms": 61.9909,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0092-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 50.2511,
+      "baseline_latency_ms": 43.1256,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0093-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 39.7699,
+      "baseline_latency_ms": 30.4267,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0094-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 49.4731,
+      "baseline_latency_ms": 33.5731,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0095-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 31.5164,
+      "baseline_latency_ms": 41.7474,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0096-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 36.1285,
+      "baseline_latency_ms": 36.9443,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0097-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 22.6665,
+      "baseline_latency_ms": 25.9401,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0098-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 27.9101,
+      "baseline_latency_ms": 22.0443,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0099-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 38.4214,
+      "baseline_latency_ms": 21.6853,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0100-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 25.5265,
+      "baseline_latency_ms": 23.2589,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0101-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 22.0288,
+      "baseline_latency_ms": 17.2687,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0102-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 27.6165,
+      "baseline_latency_ms": 22.0372,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0103-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 32.1965,
+      "baseline_latency_ms": 22.8466,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0104-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 48.7276,
+      "baseline_latency_ms": 46.7355,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0105-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 24.0418,
+      "baseline_latency_ms": 31.5892,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0106-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 44.6805,
+      "baseline_latency_ms": 47.7931,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0107-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 77.7561,
+      "baseline_latency_ms": 29.3355,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0108-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 30.5814,
+      "baseline_latency_ms": 18.6168,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0109-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 20.0796,
+      "baseline_latency_ms": 17.4095,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0110-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 20.3708,
+      "baseline_latency_ms": 12.5685,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0111-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 28.1833,
+      "baseline_latency_ms": 20.7853,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0112-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 24.8403,
+      "baseline_latency_ms": 15.7895,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0113-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 47.8014,
+      "baseline_latency_ms": 14.1958,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0114-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 25.707,
+      "baseline_latency_ms": 20.1821,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0115-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 24.8418,
+      "baseline_latency_ms": 19.0018,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0116-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 20.379,
+      "baseline_latency_ms": 15.3922,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0117-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 26.5626,
+      "baseline_latency_ms": 16.1009,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0118-2026-06-30",
+      "as_of": "2026-06-30",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 21.7268,
+      "baseline_latency_ms": 15.3252,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D8@2020-01-01#63fcad25b6d7"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0119-2026-07-21",
+      "as_of": "2026-07-21",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 17.9323,
+      "baseline_latency_ms": 16.9519,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    },
+    {
+      "case_id": "shadow-0120-2027-01-02",
+      "as_of": "2027-01-02",
+      "success": true,
+      "parity_match": true,
+      "latency_ms": 18.3144,
+      "baseline_latency_ms": 15.0573,
+      "reference_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "candidate_ids": [
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787",
+        "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114",
+        "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6",
+        "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063",
+        "LAWGIC-FIXTURE-LAW::D7@2027-01-01#f604a48f7b2e"
+      ],
+      "estimated_cost_usd": 0.0,
+      "llm_calls": 0
+    }
+  ]
+}

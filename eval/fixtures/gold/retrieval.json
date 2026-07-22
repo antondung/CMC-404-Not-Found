@@ -1,0 +1,8 @@
+{
+  "metadata": {"dataset_id": "retrieval-contract-smoke-v1", "dataset_kind": "synthetic_contract_fixture", "independent_review": false},
+  "cases": [
+    {"case_id": "retrieval-threshold", "query": "Ngưỡng áp dụng là bao nhiêu?", "as_of": "2026-07-01", "expected_ids": ["FIXTURE-LAW::D5.K2.Pa"]},
+    {"case_id": "retrieval-clause", "query": "Khoản không có điểm quy định gì?", "as_of": "2026-07-01", "expected_ids": ["FIXTURE-LAW::D5.K3"]},
+    {"case_id": "retrieval-article", "query": "Điều 6 quy định gì?", "as_of": "2026-07-01", "expected_ids": ["FIXTURE-LAW::D6"]}
+  ]
+}

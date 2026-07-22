@@ -1,0 +1,19 @@
+{
+  "manifest_id": "lawgic-l7-local-shadow-v1",
+  "gates": "config/release_gates.json",
+  "limitations": [
+    "Legal quality suites remain synthetic contract fixtures.",
+    "System latency is measured on the localhost synthetic integration fixture.",
+    "This manifest cannot authorize release and must remain NO_GO."
+  ],
+  "suites": [
+    {"name": "parser", "task": "parser_structure", "gold": "fixtures/gold/parser.json", "predictions": "fixtures/predictions/parser.json"},
+    {"name": "retrieval", "task": "ranked_retrieval", "gold": "fixtures/gold/retrieval.json", "predictions": "fixtures/predictions/retrieval.json"},
+    {"name": "temporal", "task": "temporal_exact", "gold": "fixtures/gold/temporal.json", "predictions": "fixtures/predictions/temporal.json"},
+    {"name": "citation", "task": "citation_contract", "gold": "fixtures/gold/citation.json", "predictions": "fixtures/predictions/citation.json"},
+    {"name": "amendment", "task": "amendment", "gold": "fixtures/gold/amendment.json", "predictions": "fixtures/predictions/amendment.json"},
+    {"name": "misinformation", "task": "misinformation", "gold": "fixtures/gold/misinformation.json", "predictions": "fixtures/predictions/misinformation.json"},
+    {"name": "safety", "task": "safety", "gold": "fixtures/gold/safety.json", "predictions": "fixtures/predictions/safety.json"},
+    {"name": "system", "task": "system", "gold": "fixtures/runtime/system.gold.local.json", "predictions": "fixtures/runtime/system.predictions.local.json"}
+  ]
+}

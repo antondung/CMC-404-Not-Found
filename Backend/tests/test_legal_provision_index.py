@@ -120,7 +120,7 @@ class _Driver:
     def __init__(self, rows: list[dict[str, Any]]):
         self.rows = rows
 
-    def session(self):
+    def session(self, **_kwargs):
         return _Session(self.rows)
 
 
@@ -165,9 +165,18 @@ def _leaf(provision_id: str) -> dict[str, Any]:
         "effective_from": "2026-07-01",
         "effective_to": None,
         "visibility": "public",
+        "review_status": "approved",
         "text_checksum": provision_id * 8,
         "text": f"Noi dung {provision_id}",
     }
+
+
+def test_payload_rejects_missing_publication_metadata() -> None:
+    row = _leaf("p1")
+    row.pop("review_status")
+
+    with pytest.raises(ValueError, match="review_status"):
+        legal_provision_payload(row)
 
 
 @pytest.mark.asyncio

@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 from collections import Counter
+import re
 from typing import Any
 from app.config import BE2Config, get_config
 from app.schemas import NliLabel
+
+
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$", re.IGNORECASE)
 
 
 class AlertSignalService:
@@ -20,31 +24,76 @@ class AlertSignalService:
         ]
         unique: dict[str, dict[str, Any]] = {}
         for signal in eligible:
-            identity = str(signal.get("ykien_id") or "|".join((
-                str(signal.get("bai_dang_id")),
-                str(signal.get("khoan_id")),
-                str(signal.get("claim_text")),
-            )))
+            content_hash = str(signal.get("content_hash") or "").strip()
+            identity = "|".join((
+                content_hash.lower(),
+                str(signal.get("misconception_id") or ""),
+                str(signal.get("khoan_id") or ""),
+                str(signal.get("claim_text") or ""),
+            ))
             unique.setdefault(identity, signal)
         eligible = list(unique.values())
         if len(eligible) < self.config.alert_volume_threshold or dry_run:
             return None
-        keys = [(s.get("chu_de"), s.get("khoan_id")) for s in eligible]
-        (chu_de, khoan_id), volume = Counter(keys).most_common(1)[0]
+        keys = [
+            (s.get("misconception_id"), s.get("chu_de"), s.get("khoan_id"))
+            for s in eligible
+        ]
+        (misconception_id, chu_de, khoan_id), volume = Counter(keys).most_common(1)[0]
         if volume < self.config.alert_volume_threshold:
             return None
-        dedupe_key = f"{chu_de}:{khoan_id}"
+        dedupe_key = (
+            f"misconception:{misconception_id}"
+            if misconception_id
+            else f"{chu_de}:{khoan_id}"
+        )
         if await self.repository.find_recent_alert(dedupe_key, self.config.alert_cooldown_s):
             return None
-        grouped_signals = [s for s in eligible if (s.get("chu_de"), s.get("khoan_id")) == (chu_de, khoan_id)]
-        alert = {"chu_de": chu_de, "khoan_ids": [khoan_id], "severity": self._severity(volume), "volume": volume, "status": "open", "dedupe_key": dedupe_key, "signals": grouped_signals, "provenance_status": "complete", "note": "Tín hiệu cần xem xét, không phải kết luận nội dung giả."}
+        grouped_signals = [
+            s
+            for s in eligible
+            if (s.get("misconception_id"), s.get("chu_de"), s.get("khoan_id"))
+            == (misconception_id, chu_de, khoan_id)
+        ]
+        risk_score = max(
+            (float(item["risk_score"]) for item in grouped_signals if item.get("risk_score") is not None),
+            default=None,
+        )
+        risk_factors = next(
+            (item.get("risk_factors") for item in grouped_signals if item.get("risk_factors")),
+            [],
+        )
+        alert = {
+            "chu_de": chu_de,
+            "khoan_ids": [khoan_id],
+            "misconception_ids": [misconception_id] if misconception_id else [],
+            "severity": self._risk_severity(risk_score) if risk_score is not None else self._severity(volume),
+            "risk_score": risk_score,
+            "risk_factors": risk_factors,
+            "volume": volume,
+            "status": "open",
+            "dedupe_key": dedupe_key,
+            "signals": grouped_signals,
+            "provenance_status": "complete",
+            "note": "Tín hiệu cần xem xét, không phải kết luận nội dung giả.",
+        }
         alert_id = await self.repository.save_alert(alert)
         return {"alert_id": alert_id, **alert}
 
     @staticmethod
     def _has_provenance(signal: dict[str, Any]) -> bool:
-        required = ("bai_dang_id", "ykien_id", "claim_text", "evidence_span", "post_url", "khoan_id")
+        required = (
+            "bai_dang_id",
+            "ykien_id",
+            "claim_text",
+            "evidence_span",
+            "post_url",
+            "khoan_id",
+            "content_hash",
+        )
         if not all(isinstance(signal.get(key), str) and signal[key].strip() for key in required):
+            return False
+        if _SHA256_RE.fullmatch(str(signal["content_hash"]).strip()) is None:
             return False
         post_content = signal.get("post_content")
         return isinstance(post_content, str) and signal["evidence_span"] in post_content
@@ -53,5 +102,15 @@ class AlertSignalService:
         if volume >= self.config.alert_volume_threshold * 3:
             return "high"
         if volume >= self.config.alert_volume_threshold * 2:
+            return "medium"
+        return "low"
+
+    @staticmethod
+    def _risk_severity(risk_score: float) -> str:
+        if risk_score >= 0.85:
+            return "critical"
+        if risk_score >= 0.70:
+            return "high"
+        if risk_score >= 0.50:
             return "medium"
         return "low"

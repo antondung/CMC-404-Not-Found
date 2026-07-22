@@ -27,8 +27,8 @@ RETURN p.provision_id AS provision_id,
        p.source_vb_id AS source_vb_id,
        p.effective_from AS effective_from,
        p.effective_to AS effective_to,
-       coalesce(p.visibility, 'public') AS visibility,
-       coalesce(p.review_status, 'approved') AS review_status,
+       p.visibility AS visibility,
+       p.review_status AS review_status,
        p.text_checksum AS text_checksum,
        coalesce(p.noi_dung, p.tieu_de, '') AS text
 ORDER BY p.provision_id
@@ -91,6 +91,8 @@ def legal_provision_payload(
         "logical_vb_id",
         "source_vb_id",
         "effective_from",
+        "visibility",
+        "review_status",
         "text_checksum",
     )
     missing = [name for name in required if row.get(name) in (None, "")]
@@ -105,8 +107,8 @@ def legal_provision_payload(
         "source_vb_id": str(row["source_vb_id"]),
         "effective_from": _qdrant_datetime(row["effective_from"]),
         "effective_to": _qdrant_datetime(row.get("effective_to")),
-        "visibility": str(row.get("visibility") or "public"),
-        "review_status": str(row.get("review_status") or "approved"),
+        "visibility": str(row["visibility"]),
+        "review_status": str(row["review_status"]),
         "text_checksum": str(row["text_checksum"]),
     }
     if include_debug_preview:
@@ -167,7 +169,7 @@ async def load_leaf_provisions_from_neo4j(
     if not (driver and hasattr(driver, "session")):
         raise ValueError("neo4j_unavailable")
     rows: list[dict[str, Any]] = []
-    async with driver.session() as session:
+    async with driver.session(default_access_mode="READ") as session:
         result = await session.run(
             _LEAF_QUERY,
             document_id=document_id,

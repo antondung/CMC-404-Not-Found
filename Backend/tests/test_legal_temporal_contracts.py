@@ -201,7 +201,9 @@ def test_lawgic_v2_flags_are_safe_by_default():
     assert config.qa_citation_v2 is False
     assert config.qa_strict_grounding_v2 is True
     assert config.amendment_preview_v2 is False
+    assert config.amendment_review_v2 is False
     assert config.amendment_commit_v2 is False
+    assert config.misconception_cluster_v2 is False
     assert config.misconception_temporal_v2 is False
 
 
@@ -213,6 +215,16 @@ def test_ontology_v2_and_acceptance_contract_are_present():
     assert ontology["version"] == "2.0.0"
     assert ontology["canonical_keys"]["LegalProvision"].startswith("provision_id")
     assert any("approved amendment commit" in item for item in ontology["invariants"])
+    relationships = {item["type"]: item for item in ontology["relationships"]}
+    assert "commit_key" in relationships["SUPERSEDED_BY"]["properties"]
+    assert "commit_key" in relationships["AMENDED_BY"]["properties"]
+    assert relationships["INSTANCE_OF"]["to"] == "Misconception"
+    assert relationships["CANH_BAO_VE"]["to"] == "Misconception"
+    assert relationships["HISTORICAL_BASIS"]["to"] == "LegalProvision"
+    assert relationships["CURRENT_BASIS"]["to"] == "LegalProvision"
     assert "legalprovision_id" in constraints
     assert "legalprovision_effective_interval" in constraints
-    assert all(f"T{number:02d}" in queries for number in range(1, 16))
+    assert "misconception_uuid" in constraints
+    assert "temporal_misconception_evaluation_id" in constraints
+    assert all(f"T{number:02d}" in queries for number in range(1, 20))
+    assert "N01" in queries and "N02" in queries

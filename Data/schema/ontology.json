@@ -1,7 +1,7 @@
 {
   "$comment": "Nguon chan ly ontology KG phap luat. Khop Backend/SYSTEM_BACKEND.md §3 va Data/SYSTEM_DATA.md §4.1. Doi ontology phai mo RFC trong PR, cap nhat CA HAI file cung luc.",
   "version": "2.0.0",
-  "updated_at": "2026-07-19",
+  "updated_at": "2026-07-21",
   "database": "neo4j",
   "edition_note": "Community Edition: chi UNIQUE constraint kha dung. Cac rang buoc NOT NULL / property-type / rel-property duoc enforce o tang Backend.",
   "enums": {
@@ -15,7 +15,9 @@
     "platform": ["facebook", "youtube", "forum", "news"],
     "provision_level": ["dieu", "khoan", "diem"],
     "provision_review_status": ["approved", "needs_review"],
-    "change_type": ["UNCHANGED", "REWORDED", "TIGHTENED", "LOOSENED", "ADDED", "REMOVED", "SPLIT", "MERGED", "UNCERTAIN"]
+    "change_type": ["UNCHANGED", "REWORDED", "TIGHTENED", "LOOSENED", "ADDED", "REMOVED", "SPLIT", "MERGED", "UNCERTAIN"],
+    "misconception_status": ["open", "reviewing", "corrected", "resolved"],
+    "temporal_misconception_verdict": ["SUPPORTED", "CONTRADICTED", "PARTIALLY_INCORRECT", "OUTDATED_BUT_PREVIOUSLY_TRUE", "UNVERIFIABLE", "NEEDS_REVIEW"]
   },
   "canonical_keys": {
     "VanBanPhapLuat": "vb_id = hash(so_hieu_norm + ngay_ban_hanh)",
@@ -25,7 +27,8 @@
     "Diem": "diem_id = {khoan_id}.P{ky_hieu}",
     "BaiDang": "(platform, external_id)",
     "ChuDe": "slug",
-    "ChuThe|NghiaVu|QuyenLoi|HanhViCam|ThoiHan|CheTai|YKien|AlertMeta|BaiTomTat|DeXuatDinhChinh|VanBanFile": "uuid"
+    "ChuThe|NghiaVu|QuyenLoi|HanhViCam|ThoiHan|CheTai|YKien|Misconception|AlertMeta|BaiTomTat|DeXuatDinhChinh|VanBanFile": "uuid",
+    "TemporalMisconceptionEvaluation": "evaluation_id = uuid5(cluster + occurrence + claim + published_at + as_of + legal lineages/checksums + verdict)"
   },
   "nodes": [
     {
@@ -158,10 +161,16 @@
     },
     {
       "label": "BaiDang",
+      "additional_labels": ["NoiDungNguon"],
       "key": ["platform", "external_id"],
       "properties": {
         "platform": "enum platform",
         "external_id": "string",
+        "content_id": "string",
+        "source_type": "string",
+        "provider": "string",
+        "canonical_url": "string",
+        "content_hash": "sha256 hex",
         "noi_dung": "string",
         "tac_gia_hash": "string (PII hashed)",
         "url": "string",
@@ -183,6 +192,60 @@
         "claim_text": "string",
         "stance": "string",
         "confidence": "float"
+      }
+    },
+    {
+      "label": "Misconception",
+      "key": "uuid",
+      "properties": {
+        "uuid": "string (unique)",
+        "canonical_claim": "string",
+        "normalized_claim": "string",
+        "topic": "string",
+        "legal_anchor_id": "string",
+        "number_signature": "list[string]",
+        "negation_signature": "list[string]",
+        "status": "enum misconception_status",
+        "volume": "int",
+        "source_count": "int",
+        "provider_count": "int",
+        "temporal_verdict": "enum temporal_misconception_verdict | null",
+        "temporal_as_of": "date | null",
+        "risk_score": "float | null",
+        "risk_severity": "string | null",
+        "risk_factors_json": "json string | null",
+        "evaluated_at": "datetime | null",
+        "evaluated_by": "string | null",
+        "created_at": "datetime",
+        "last_seen_at": "datetime"
+      }
+    },
+    {
+      "label": "TemporalMisconceptionEvaluation",
+      "key": "evaluation_id",
+      "properties": {
+        "evaluation_id": "string (unique)",
+        "misconception_id": "string",
+        "ykien_id": "string",
+        "claim_text": "string",
+        "published_at": "datetime",
+        "current_as_of": "date",
+        "verdict": "enum temporal_misconception_verdict",
+        "reason_codes": "list[string]",
+        "historical_label": "enum doi_chieu_label | null",
+        "historical_score": "float | null",
+        "historical_model": "string | null",
+        "historical_needs_review": "boolean | null",
+        "historical_lineage_id": "string | null",
+        "historical_checksum": "sha256 hex | null",
+        "current_label": "enum doi_chieu_label | null",
+        "current_score": "float | null",
+        "current_model": "string | null",
+        "current_needs_review": "boolean | null",
+        "current_lineage_id": "string | null",
+        "current_checksum": "sha256 hex | null",
+        "evaluated_at": "datetime",
+        "evaluated_by": "string"
       }
     },
     {
@@ -247,13 +310,14 @@
       "type": "SUPERSEDED_BY",
       "from": ["Dieu", "Khoan", "Diem"],
       "to": ["Dieu", "Khoan", "Diem"],
-      "properties": { "effective_from": "date", "change_type": "enum change_type", "confidence": "float", "review_id": "string", "source_vb_id": "string" },
+      "properties": { "effective_from": "date", "change_type": "enum change_type", "confidence": "float", "review_id": "string", "source_vb_id": "string", "commit_key": "string", "committed_by": "string", "committed_at": "datetime" },
       "invariant": "Same level and lineage; no cycles; old.effective_to = new.effective_from."
     },
     {
       "type": "AMENDED_BY",
       "from": ["Dieu", "Khoan", "Diem"],
-      "to": "VanBanPhapLuat"
+      "to": "VanBanPhapLuat",
+      "properties": { "review_id": "string", "commit_key": "string", "committed_by": "string", "committed_at": "datetime" }
     },
     { "type": "THAO_LUAN_VE", "from": "BaiDang", "to": "ChuDe" },
     { "type": "LIEN_QUAN", "from": "ChuDe", "to": ["Khoan", "Dieu", "VanBanPhapLuat"] },
@@ -271,6 +335,19 @@
       "to": "Khoan",
       "properties": { "label": "enum doi_chieu_label (required)", "score": "float" }
     },
+    {
+      "type": "INSTANCE_OF",
+      "from": "YKien",
+      "to": "Misconception",
+      "properties": { "content_id": "string", "source_type": "string", "provider": "string", "canonical_url": "string", "content_hash": "sha256 hex", "published_at": "datetime", "evidence_start": "int", "evidence_end": "int", "nli_label": "enum doi_chieu_label", "nli_score": "float", "engagement_score": "float", "cluster_similarity": "float", "assigned_at": "datetime", "temporal_verdict": "string", "evaluation_id": "string" },
+      "invariant": "One YKien occurrence belongs to at most one active misconception cluster per clustering version."
+    },
+    { "type": "CONTRADICTS", "from": "Misconception", "to": ["LegalProvision", "Khoan"] },
+    { "type": "BASED_ON_OUTDATED_VERSION", "from": "Misconception", "to": "LegalProvision" },
+    { "type": "CANH_BAO_VE", "from": "AlertMeta", "to": "Misconception" },
+    { "type": "HAS_TEMPORAL_EVALUATION", "from": "YKien", "to": "TemporalMisconceptionEvaluation" },
+    { "type": "HISTORICAL_BASIS", "from": "TemporalMisconceptionEvaluation", "to": "LegalProvision" },
+    { "type": "CURRENT_BASIS", "from": "TemporalMisconceptionEvaluation", "to": "LegalProvision" },
     { "type": "TOM_TAT_TU", "from": "BaiTomTat", "to": ["Khoan", "Dieu", "VanBanPhapLuat"] },
     { "type": "DE_XUAT_CHO", "from": "DeXuatDinhChinh", "to": ["AlertMeta", "YKien"] },
     { "type": "CAN_CU", "from": "DeXuatDinhChinh", "to": "Khoan" },
@@ -286,6 +363,9 @@
     "Citizen chi doc VanBanPhapLuat.visibility='public' va BaiTomTat.status='published' (filter o BE3).",
     "Canh GAN_CO_CAN_KIEM_CHUNG bat buoc co score + method.",
     "Canh DOI_CHIEU.label thuoc {khop, mau_thuan, khong_ro}.",
+    "Misconception clustering requires an exact source evidence span, canonical URL, content checksum and a high-confidence contradictory DOI_CHIEU occurrence.",
+    "OUTDATED_BUT_PREVIOUSLY_TRUE requires a historical KHOP basis and a different current MAU_THUAN physical version on the same lineage, with both immutable LegalProvision checksums.",
+    "Misconception source_count and risk velocity/diversity use distinct content_hash values so syndicated copies count once.",
     "MERGE idempotent: replay same source/text checksum -> same provision_id; conflicts require review."
   ],
   "audit_note": "PUBLISHED_AS (BaiTomTat) duoc ghi audit o Postgres (bang audit_log/briefs), khong bat buoc la canh Neo4j."

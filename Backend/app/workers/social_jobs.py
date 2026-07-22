@@ -1,11 +1,35 @@
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 from uuid import uuid4
 from app.exceptions import BE2Error, ValidationError
 from app.schemas import JobEnvelope, JobResult, NliResult
+from app.domain.misconception import ClaimOccurrenceEvidence
+from app.pipelines.social.ingest import content_item_from_social_post
 
 JOB_NAMES = {"social_ingest", "social_topic", "social_link", "social_claim", "alert_fanout", "daily_social_monitor", "daily_news_monitor"}
+
+
+async def _set_ingest_job_status(
+    ctx: dict,
+    job_id: str,
+    status: str,
+    message: str | None = None,
+) -> None:
+    pool = ctx.get("db_pool")
+    if not (pool and hasattr(pool, "acquire")):
+        return
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE jobs SET status = $1::job_status, error = $2, updated_at = now() WHERE id = $3::uuid",
+                status,
+                message if status in {"error", "needs_review"} else None,
+                job_id,
+            )
+    except Exception:  # noqa: BLE001 - a status update must not hide the worker result
+        return
 
 
 def should_retry(exc: Exception) -> bool:
@@ -20,12 +44,16 @@ def _error_payload(exc: Exception) -> dict[str, Any]:
 
 async def social_ingest(ctx: dict, envelope: dict) -> dict:
     job = JobEnvelope.model_validate(envelope)
+    await _set_ingest_job_status(ctx, job.job_id, "running")
     try:
         post = await ctx["social_ingest_service"].ingest(job.payload)
+        await _set_ingest_job_status(ctx, job.job_id, "success")
         return JobResult(job_id=job.job_id, status="success", data=post.model_dump()).model_dump()
     except BE2Error as exc:
+        await _set_ingest_job_status(ctx, job.job_id, "error", exc.code)
         return JobResult(job_id=job.job_id, status="failed", error=exc.to_dict()).model_dump()
     except Exception as exc:
+        await _set_ingest_job_status(ctx, job.job_id, "error", "social_ingest_failed")
         return JobResult(job_id=job.job_id, status="failed", error={"code": "social_ingest_failed", "message": str(exc)}).model_dump()
 
 
@@ -118,10 +146,22 @@ async def review_content_item(ctx: dict, *, bai_dang_id: str, dry_run: bool) -> 
 
     signals: list[dict[str, Any]] = []
     meta = post.source_metadata or {}
+    content_item = content_item_from_social_post(post)
+    engagement_total = sum(
+        max(0.0, float(value or 0.0))
+        for key, value in content_item.engagement.items()
+        if key in {"like_count", "comment_count", "share_count", "view_count"}
+        and isinstance(value, (int, float))
+    )
+    engagement_score = min(1.0, engagement_total / 10_000.0)
     for check in checks:
         claim = check["claim"]
         nli_result = NliResult.model_validate(check["nli"])
         ykien_id = None
+        misconception_id = None
+        temporal_verdict = None
+        risk_score = None
+        risk_factors = None
         if not dry_run:
             try:
                 ykien_id = await social_repo.save_nli(
@@ -134,9 +174,68 @@ async def review_content_item(ctx: dict, *, bai_dang_id: str, dry_run: bool) -> 
             except Exception as exc:  # noqa: BLE001
                 summary["errors"].append({"stage": "persist_nli", "error": _error_payload(exc)})
                 continue
+            misconception_service = ctx.get("misconception_service")
+            if (
+                ykien_id
+                and misconception_service is not None
+                and ctx["config"].misconception_cluster_v2
+                and content_item.canonical_url
+            ):
+                try:
+                    evidence_start = post.noi_dung.find(claim["evidence_span"])
+                    if evidence_start < 0:
+                        raise ValueError("evidence span is absent from canonical source text")
+                    assignment = await misconception_service.assign_occurrence(
+                        ClaimOccurrenceEvidence(
+                            ykien_id=ykien_id,
+                            content_id=content_item.content_id,
+                            source_type=content_item.source_type,
+                            provider=content_item.provider,
+                            canonical_url=content_item.canonical_url,
+                            content_hash=content_item.content_hash,
+                            published_at=content_item.published_at,
+                            claim_text=claim["text"],
+                            evidence_span=claim["evidence_span"],
+                            evidence_start=evidence_start,
+                            evidence_end=evidence_start + len(claim["evidence_span"]),
+                            source_text=post.noi_dung,
+                            topic=topic.slug or "unknown",
+                            legal_anchor_id=check["khoan_id"],
+                            nli_label=nli_result.label,
+                            nli_score=nli_result.score,
+                            engagement_score=engagement_score,
+                        )
+                    )
+                    if assignment is not None:
+                        misconception_id = assignment.misconception_id
+                        temporal_service = ctx.get("temporal_misconception_service")
+                        if (
+                            temporal_service is not None
+                            and ctx["config"].misconception_temporal_v2
+                        ):
+                            temporal_report = await temporal_service.evaluate_cluster(
+                                misconception_id,
+                                current_as_of=date.today(),
+                                actor_id="system:content-monitor",
+                                dry_run=False,
+                            )
+                            temporal_verdict = temporal_report.cluster_verdict.value
+                            risk_score = temporal_report.risk.risk_score
+                            risk_factors = [
+                                item.model_dump(mode="json")
+                                for item in temporal_report.risk.factors
+                            ]
+                except Exception as exc:  # noqa: BLE001
+                    summary["errors"].append(
+                        {"stage": "misconception_cluster", "error": _error_payload(exc)}
+                    )
         signals.append({
             "bai_dang_id": bai_dang_id,
             "ykien_id": ykien_id,
+            "misconception_id": misconception_id,
+            "temporal_verdict": temporal_verdict,
+            "risk_score": risk_score,
+            "risk_factors": risk_factors,
             "claim_text": claim["text"],
             "evidence_span": claim["evidence_span"],
             "post_content": post.noi_dung,
@@ -148,6 +247,7 @@ async def review_content_item(ctx: dict, *, bai_dang_id: str, dry_run: bool) -> 
             "needs_review": nli_result.needs_review,
             "source_type": meta.get("source_type") or post.platform,
             "provider": meta.get("provider") or meta.get("source_domain") or post.platform,
+            "content_hash": content_item.content_hash,
             "legal_evidence": {
                 "khoan_id": check["khoan_id"],
                 "quote": check["legal_text"],

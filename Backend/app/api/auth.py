@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
@@ -10,6 +11,7 @@ from app.core.logging import get_request_id
 from app.core.security import issue_token, get_current_user, UserToken, ADMIN_ROLES
 
 router = APIRouter(tags=["Auth"])
+logger = logging.getLogger(__name__)
 
 _ADMIN_ROLE_VALUES = {r.value for r in ADMIN_ROLES}
 
@@ -46,9 +48,10 @@ async def login(request: LoginRequest, pool: Any = Depends(get_db_pool)) -> dict
                 request.password,
             )
     except Exception as exc:  # noqa: BLE001
+        logger.exception("Authentication query failed")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Lỗi truy vấn xác thực: {exc}",
+            detail="Dịch vụ xác thực tạm thời không khả dụng.",
         )
 
     if not row:

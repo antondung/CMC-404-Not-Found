@@ -72,6 +72,24 @@ Implementation decisions:
 - Use half-open intervals: `effective_from <= as_of < effective_to`.
 - Select deepest effective leaves with stable `parent_lineage_id`, so physical version edges do not control leaf semantics.
 - Fail closed when more than one version in a lineage is active on the same date, when timeline intervals overlap, or when `SUPERSEDED_BY` contains a cycle.
+
+## L6.1 source-neutral misconception clustering decision
+
+- Treat `YKien` as one claim occurrence and `Misconception` as a reusable cluster; never cluster whole articles or topics directly.
+- Require exact evidence offsets, canonical URL, timezone-aware publication time and a checksum that matches normalized source text before clustering.
+- Scope candidates by topic and legal anchor, then require exact numeric and negation signatures. This deliberately favors precision over recall because merging claims with different thresholds or polarity corrupts communication-risk analysis.
+- Use deterministic token/sequence similarity with a 0.84 threshold for L6.1. Embedding retrieval may propose candidates later, but it cannot bypass the number, negation, provenance or human-review gates.
+- Store source/provider evidence on `INSTANCE_OF`; keep raw source bodies in their existing content/storage path rather than duplicating them in `Misconception`.
+- Keep clustering and temporal verdicts on separate flags. A valid cluster does not imply `OUTDATED_BUT_PREVIOUSLY_TRUE`; that verdict requires dual-time canonical legal evidence in L6.2.
+
+## L6.2 dual-time verdict and risk decisions
+
+- Resolve by legal lineage at the occurrence publication date and current as-of date; never compare against an unfiltered vector candidate.
+- Emit `OUTDATED_BUT_PREVIOUSLY_TRUE` only for historical entailment plus current contradiction, both above confidence threshold, with no NLI review flag and with different physical provision IDs.
+- Treat missing legal versions as `UNVERIFIABLE`. Treat low confidence or inconsistent labels against the same physical version as `NEEDS_REVIEW`.
+- Preserve each evaluation as an immutable node linked to both canonical legal bases. Keep the cluster verdict/risk fields as a replaceable latest snapshot, not the audit source of truth.
+- Use deterministic risk weights from the news-first ADR and expose every score, weight and contribution. Provenance is a deduction; source trust or reach never determines whether a claim is legally true.
+- Allow automatic worker evaluation only behind all legal, temporal, clustering and misconception-temporal flags. Keep the legal-role endpoint available for explicit dry-run evaluation before persistence.
 - Citizen reads require both `visibility=public` and `review_status=approved`.
 - Hydrate stale Qdrant physical IDs through lineage to the active Neo4j version before later citation work.
 - Keep v1 QA unchanged in L3; temporal APIs require both `LEGAL_PROVISION_V2_READ` and `TEMPORAL_LAW_V2`, which remain off by default.
@@ -163,3 +181,24 @@ Primary sources:
 - Vietnam Government legal-document portal, official amending-law examples: https://vanban.chinhphu.vn/?classid=1&docid=214592&pageid=27160&typegroupid=3
 - Vietnam Government legal-document portal, official decree text: https://vanban.chinhphu.vn/?docid=213327&pageid=27160
 - Vietnam national legal-document database, full-text structure: https://vbpl.vn/TW/Pages/vbpq-toanvan.aspx?ItemID=27134&Keyword=
+
+## Phase L7 evaluation evidence decision
+
+High-stakes legal labels are objective whenever a canonical source and date exist. Release gates therefore use exact/reference-based scoring for node identity, effective interval, quote validity, amendment pairs, temporal verdicts and refusal outcomes. LLM-as-judge output is not accepted as blocking evidence for these fields.
+
+Evaluation data is split into two explicit evidence classes:
+
+- `synthetic_contract_fixture` catches regressions in contracts, calculations and safety behavior, but can never authorize rollout.
+- `independent_holdout` may authorize rollout only after independent review, minimum sample sizes and all blocking gates pass.
+
+Gold labels and predictions live in separate files. Reports include failed metrics and limitations, and `--release` fails closed if dataset provenance is insufficient even when the numeric smoke metrics are perfect. This prevents circular evaluation in which implementation-authored examples are presented as independent quality evidence.
+
+Cluster quality uses pairwise precision/recall/F1, temporal and change-type classifiers publish per-label metrics, and amendment auto-approval has its own precision gate. Latency evidence is valid only when captured from shadow reads; bundled values exercise the reporting contract only.
+
+## L6.2B lineage and syndication hardening decisions
+
+- A temporal misconception compares versions of one logical provision. Different lineage IDs are data-integrity ambiguity, not proof of a legal change, so the result must be `NEEDS_REVIEW`.
+- Physical IDs alone do not make persisted evidence immutable. The write transaction must re-check both canonical checksums and lineage IDs immediately before creating evaluation/basis edges.
+- News syndication is not independent corroboration. Identical normalized source bodies share a `content_hash` and count once for source diversity, velocity and alert-volume thresholds even when copied by several providers.
+- Content-hash deduplication is scoped with misconception/legal/claim identity in alert aggregation so two genuinely different claims inside one article are not collapsed.
+- Provider count remains useful provenance metadata, but it is displayed separately and does not substitute for independent-content count.

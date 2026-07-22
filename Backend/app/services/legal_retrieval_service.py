@@ -461,6 +461,16 @@ class LegalRetrievalService:
             as_of=as_of,
             audience=audience,
         )
+        active_parent_lineages = {
+            provision.parent_lineage_id
+            for provision in canonical_versions
+            if provision.parent_lineage_id is not None
+        }
+        canonical_versions = [
+            provision
+            for provision in canonical_versions
+            if provision.lineage_id not in active_parent_lineages
+        ]
         fused_by_lineage = {item.lineage_id: item for item in fused}
         candidates: list[LegalRetrievalCandidate] = []
         for provision in canonical_versions:

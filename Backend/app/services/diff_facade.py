@@ -322,7 +322,7 @@ class LegalDiffFacade:
             try:
                 query = """
                 MATCH (v:VanBanPhapLuat)
-                WHERE v.vb_id = $id OR v.so_hieu = $id OR id(v) = $id
+                WHERE v.vb_id = $id OR v.so_hieu = $id OR elementId(v) = $id
                 OPTIONAL MATCH (v)-[:CO_DIEU|CO_KHOAN*1..2]->(k:Khoan)
                 RETURN v, collect(k) AS khoans
                 """
@@ -357,7 +357,7 @@ class LegalDiffFacade:
             try:
                 query = """
                 MATCH (k:Khoan)
-                WHERE k.khoan_id = $id OR id(k) = $id
+                WHERE k.khoan_id = $id OR elementId(k) = $id
                 OPTIONAL MATCH (k)-[r:QUY_DINH|AP_DUNG_CHO|THAY_THE]->(e)
                 RETURN k, collect({rel: type(r), entity: e}) AS entities
                 """

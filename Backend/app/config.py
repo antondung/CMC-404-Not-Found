@@ -67,6 +67,7 @@ class BE2Config(BaseModel):
     redis_url: str = "redis://localhost:6379/0"
 
     social_monitor_enabled: bool = True
+    social_ingest_async: bool = False
     social_monitor_topics: list[str] = Field(default_factory=list)
     social_monitor_limit_per_topic: int = Field(default=10, ge=1, le=100)
     social_monitor_lookback_hours: int = Field(default=24, ge=1, le=168)
@@ -109,7 +110,12 @@ class BE2Config(BaseModel):
     qa_citation_v2: bool = False
     qa_strict_grounding_v2: bool = True
     amendment_preview_v2: bool = False
+    amendment_review_v2: bool = False
     amendment_commit_v2: bool = False
+    amendment_reconciliation_monitor_enabled: bool = False
+    amendment_reconciliation_monitor_interval_minutes: int = Field(default=15, ge=1, le=60)
+    amendment_reconciliation_monitor_limit: int = Field(default=200, ge=1, le=500)
+    misconception_cluster_v2: bool = False
     misconception_temporal_v2: bool = False
 
 
@@ -168,6 +174,7 @@ def get_config() -> BE2Config:
         default_job_timeout_s=_int_env("BE2_DEFAULT_JOB_TIMEOUT_S", 300),
         redis_url=os.getenv("REDIS_URL") or os.getenv("BE2_REDIS_URL", "redis://localhost:6379/0"),
         social_monitor_enabled=_bool_env("BE2_SOCIAL_MONITOR_ENABLED"),
+        social_ingest_async=_bool_env("BE2_SOCIAL_INGEST_ASYNC", "false"),
         social_monitor_topics=_csv_env("BE2_SOCIAL_MONITOR_TOPICS"),
         social_monitor_limit_per_topic=_int_env("BE2_SOCIAL_MONITOR_LIMIT_PER_TOPIC", 10),
         social_monitor_lookback_hours=_int_env("BE2_SOCIAL_MONITOR_LOOKBACK_HOURS", 24),
@@ -207,6 +214,17 @@ def get_config() -> BE2Config:
         qa_citation_v2=_bool_env("QA_CITATION_V2", "false"),
         qa_strict_grounding_v2=_bool_env("QA_STRICT_GROUNDING_V2", "true"),
         amendment_preview_v2=_bool_env("AMENDMENT_PREVIEW_V2", "false"),
+        amendment_review_v2=_bool_env("AMENDMENT_REVIEW_V2", "false"),
         amendment_commit_v2=_bool_env("AMENDMENT_COMMIT_V2", "false"),
+        amendment_reconciliation_monitor_enabled=_bool_env(
+            "AMENDMENT_RECONCILIATION_MONITOR_ENABLED", "false"
+        ),
+        amendment_reconciliation_monitor_interval_minutes=_int_env(
+            "AMENDMENT_RECONCILIATION_MONITOR_INTERVAL_MINUTES", 15
+        ),
+        amendment_reconciliation_monitor_limit=_int_env(
+            "AMENDMENT_RECONCILIATION_MONITOR_LIMIT", 200
+        ),
+        misconception_cluster_v2=_bool_env("MISCONCEPTION_CLUSTER_V2", "false"),
         misconception_temporal_v2=_bool_env("MISCONCEPTION_TEMPORAL_V2", "false"),
     )

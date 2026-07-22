@@ -44,12 +44,13 @@ _DEV_ENVS = {"development", "local", "test"}
 class SecuritySettings:
     """Immutable security configuration resolved once at import time."""
 
-    __slots__ = ("auth_token_secret", "enable_dev_tokens", "app_env", "token_ttl_s")
+    __slots__ = ("auth_token_secret", "enable_dev_tokens", "app_env", "token_ttl_s", "boot_error")
 
     def __init__(self) -> None:
         self.app_env: str = os.getenv("APP_ENV", "development").lower().strip()
         self.enable_dev_tokens: bool = os.getenv("ENABLE_DEV_TOKENS", "false").lower() in {"1", "true", "yes"}
         self.token_ttl_s: int = int(os.getenv("AUTH_TOKEN_TTL_S") or "43200")
+        self.boot_error: str | None = None
 
         raw_secret = os.getenv("AUTH_TOKEN_SECRET")
 
@@ -72,9 +73,10 @@ class SecuritySettings:
                 self.enable_dev_tokens = False
 
             if problems:
+                self.boot_error = "; ".join(problems)
                 logger.critical(
                     "Insecure production auth config — using ephemeral secret so the process stays up. %s",
-                    "; ".join(problems),
+                    self.boot_error,
                 )
                 self.auth_token_secret = secrets.token_urlsafe(48)
             else:
@@ -116,8 +118,8 @@ get_security_settings()
 
 
 def security_boot_error() -> str | None:
-    """Kept for /health compatibility; production soft-fallback no longer sets this."""
-    return None
+    """Return a non-secret production auth readiness error for health reporting."""
+    return get_security_settings().boot_error
 
 
 _TOKEN_PREFIX = "lx1"

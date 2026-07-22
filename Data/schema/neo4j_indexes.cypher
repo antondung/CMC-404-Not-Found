@@ -55,6 +55,15 @@ CREATE FULLTEXT INDEX legal_provision_text_ft IF NOT EXISTS
 CREATE INDEX ykien_baidang IF NOT EXISTS
   FOR (y:YKien) ON (y.bai_dang_id);
 
+CREATE INDEX misconception_scope IF NOT EXISTS
+  FOR (m:Misconception) ON (m.topic, m.legal_anchor_id, m.status);
+
+CREATE INDEX misconception_last_seen IF NOT EXISTS
+  FOR (m:Misconception) ON (m.last_seen_at);
+
+CREATE INDEX misconception_temporal_risk IF NOT EXISTS
+  FOR (m:Misconception) ON (m.temporal_verdict, m.risk_severity, m.risk_score);
+
 // Loc bai dang theo nen tang (dashboard MXH)
 CREATE INDEX baidang_platform IF NOT EXISTS
   FOR (b:BaiDang) ON (b.platform);

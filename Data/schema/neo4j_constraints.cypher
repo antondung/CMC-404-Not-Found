@@ -60,6 +60,12 @@ CREATE CONSTRAINT chude_slug IF NOT EXISTS
 CREATE CONSTRAINT ykien_uuid IF NOT EXISTS
   FOR (y:YKien) REQUIRE y.uuid IS UNIQUE;
 
+CREATE CONSTRAINT misconception_uuid IF NOT EXISTS
+  FOR (m:Misconception) REQUIRE m.uuid IS UNIQUE;
+
+CREATE CONSTRAINT temporal_misconception_evaluation_id IF NOT EXISTS
+  FOR (e:TemporalMisconceptionEvaluation) REQUIRE e.evaluation_id IS UNIQUE;
+
 CREATE CONSTRAINT alertmeta_uuid IF NOT EXISTS
   FOR (a:AlertMeta) REQUIRE a.uuid IS UNIQUE;
 

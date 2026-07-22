@@ -1,0 +1,55 @@
+name: LAWGIC quality gates
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  backend-and-evaluation:
+    runs-on: ubuntu-latest
+    env:
+      APP_ENV: local
+      ENABLE_DEV_TOKENS: "1"
+      AUTH_TOKEN_SECRET: test-auth-token-secret-at-least-32-chars
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: Backend/requirements.txt
+      - run: python -m pip install -r Backend/requirements.txt
+      - name: Backend tests
+        working-directory: Backend
+        run: pytest -q
+      - name: Deterministic evaluation smoke gates
+        run: python Backend/scripts/run_lawgic_quality_gates.py --manifest eval/manifest.smoke.json --output eval/reports/l7-smoke-report.json
+      - name: Acceptance catalog contract
+        run: python Backend/scripts/run_lawgic_acceptance.py --catalog Data/schema/acceptance_queries.cypher --output eval/reports/acceptance-catalog-report.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lawgic-evaluation-reports
+          path: eval/reports/*.json
+
+  frontend-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
+      - run: npm ci
+        working-directory: Frontend
+      - name: Frontend contract tests
+        run: node --test tests/*.test.ts
+        working-directory: Frontend
+      - name: Frontend production build
+        run: npm run build
+        working-directory: Frontend
+      - name: Frontend lint
+        run: npm run lint -w web
+        working-directory: Frontend

@@ -1,0 +1,478 @@
+{
+  "schema_version": "1.0",
+  "manifest_id": "lawgic-l7-contract-smoke-v1",
+  "evaluated_at": "2026-07-21T14:39:20.268014+00:00",
+  "suites": {
+    "parser": {
+      "task": "parser_structure",
+      "metrics": {
+        "case_count": 3,
+        "recall_by_level": {
+          "dieu": 1.0,
+          "khoan": 1.0,
+          "diem": 1.0
+        },
+        "character_coverage": 1.0,
+        "invariant_errors": 0
+      },
+      "missing_prediction_ids": [],
+      "unknown_prediction_ids": []
+    },
+    "retrieval": {
+      "task": "ranked_retrieval",
+      "metrics": {
+        "case_count": 3,
+        "profiles": {
+          "hybrid": {
+            "recall_at_1": 1.0,
+            "recall_at_5": 1.0,
+            "mrr": 1.0,
+            "ndcg_at_5": 1.0
+          },
+          "hybrid_graph": {
+            "recall_at_1": 1.0,
+            "recall_at_5": 1.0,
+            "mrr": 1.0,
+            "ndcg_at_5": 1.0
+          },
+          "hybrid_graph_rerank": {
+            "recall_at_1": 1.0,
+            "recall_at_5": 1.0,
+            "mrr": 1.0,
+            "ndcg_at_5": 1.0
+          },
+          "lexical": {
+            "recall_at_1": 0.6666666666666666,
+            "recall_at_5": 0.6666666666666666,
+            "mrr": 0.6666666666666666,
+            "ndcg_at_5": 0.6666666666666666
+          },
+          "vector": {
+            "recall_at_1": 0.6666666666666666,
+            "recall_at_5": 0.6666666666666666,
+            "mrr": 0.6666666666666666,
+            "ndcg_at_5": 0.6666666666666666
+          }
+        },
+        "ablation_delta_recall_at_5": 0.33333333333333337
+      },
+      "missing_prediction_ids": [],
+      "unknown_prediction_ids": []
+    },
+    "temporal": {
+      "task": "temporal_exact",
+      "metrics": {
+        "case_count": 3,
+        "exact_active_node_accuracy": 1.0
+      },
+      "missing_prediction_ids": [],
+      "unknown_prediction_ids": []
+    },
+    "citation": {
+      "task": "citation_contract",
+      "metrics": {
+        "case_count": 3,
+        "exact_node_accuracy": 1.0,
+        "canonical_validity_rate": 1.0,
+        "support_classification": {
+          "accuracy": 1.0,
+          "macro_f1": 1.0,
+          "per_label": {
+            "supported": {
+              "support": 2,
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0
+            },
+            "unsupported": {
+              "support": 1,
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0
+            }
+          }
+        }
+      },
+      "missing_prediction_ids": [],
+      "unknown_prediction_ids": []
+    },
+    "amendment": {
+      "task": "amendment",
+      "metrics": {
+        "case_count": 4,
+        "pairing_precision": 1.0,
+        "pairing_recall": 1.0,
+        "change_type": {
+          "accuracy": 1.0,
+          "macro_f1": 1.0,
+          "per_label": {
+            "ADDED": {
+              "support": 1,
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0
+            },
+            "REWORDED": {
+              "support": 1,
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0
+            },
+            "SPLIT": {
+              "support": 1,
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0
+            },
+            "TIGHTENED": {
+              "support": 1,
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0
+            }
+          }
+        },
+        "review_rate": 0.5,
+        "auto_approved_pairing_precision": 1.0,
+        "auto_approved_count": 2
+      },
+      "missing_prediction_ids": [],
+      "unknown_prediction_ids": []
+    },
+    "misinformation": {
+      "task": "misinformation",
+      "metrics": {
+        "case_count": 5,
+        "verdict": {
+          "accuracy": 1.0,
+          "macro_f1": 1.0,
+          "per_label": {
+            "CONTRADICTED": {
+              "support": 1,
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0
+            },
+            "OUTDATED_BUT_PREVIOUSLY_TRUE": {
+              "support": 2,
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0
+            },
+            "SUPPORTED": {
+              "support": 1,
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0
+            },
+            "UNVERIFIABLE": {
+              "support": 1,
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0
+            }
+          }
+        },
+        "cluster_pairwise": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "outdated_verdict_f1": 1.0,
+        "high_risk_precision": 1.0
+      },
+      "missing_prediction_ids": [],
+      "unknown_prediction_ids": []
+    },
+    "safety": {
+      "task": "safety",
+      "metrics": {
+        "case_count": 4,
+        "required_refusal_rate": 1.0,
+        "over_refusal_rate": 0.0,
+        "accuracy": 1.0
+      },
+      "missing_prediction_ids": [],
+      "unknown_prediction_ids": []
+    },
+    "system": {
+      "task": "system",
+      "metrics": {
+        "case_count": 4,
+        "p50_latency_ms": 120.0,
+        "p95_latency_ms": 160.0,
+        "baseline_p95_latency_ms": 150.0,
+        "p95_regression_ratio": 1.0666666666666667,
+        "failure_rate": 0.0
+      },
+      "missing_prediction_ids": [],
+      "unknown_prediction_ids": []
+    }
+  },
+  "metric_values": {
+    "amendment.auto_approved_pairing_precision": 1.0,
+    "amendment.change_type_macro_f1": 1.0,
+    "amendment.pairing_precision": 1.0,
+    "amendment.pairing_recall": 1.0,
+    "citation.canonical_validity_rate": 1.0,
+    "citation.exact_node_accuracy": 1.0,
+    "citation.support_macro_f1": 1.0,
+    "misinformation.cluster_pairwise_f1": 1.0,
+    "misinformation.high_risk_precision": 1.0,
+    "misinformation.outdated_verdict_f1": 1.0,
+    "misinformation.verdict_macro_f1": 1.0,
+    "parser.character_coverage": 1.0,
+    "parser.invariant_errors": 0.0,
+    "parser.recall_diem": 1.0,
+    "parser.recall_dieu": 1.0,
+    "parser.recall_khoan": 1.0,
+    "retrieval.ablation_delta_recall_at_5": 0.33333333333333337,
+    "retrieval.hybrid.mrr": 1.0,
+    "retrieval.hybrid.ndcg_at_5": 1.0,
+    "retrieval.hybrid.recall_at_1": 1.0,
+    "retrieval.hybrid.recall_at_5": 1.0,
+    "retrieval.hybrid_graph.mrr": 1.0,
+    "retrieval.hybrid_graph.ndcg_at_5": 1.0,
+    "retrieval.hybrid_graph.recall_at_1": 1.0,
+    "retrieval.hybrid_graph.recall_at_5": 1.0,
+    "retrieval.hybrid_graph_rerank.mrr": 1.0,
+    "retrieval.hybrid_graph_rerank.ndcg_at_5": 1.0,
+    "retrieval.hybrid_graph_rerank.recall_at_1": 1.0,
+    "retrieval.hybrid_graph_rerank.recall_at_5": 1.0,
+    "retrieval.lexical.mrr": 0.6666666666666666,
+    "retrieval.lexical.ndcg_at_5": 0.6666666666666666,
+    "retrieval.lexical.recall_at_1": 0.6666666666666666,
+    "retrieval.lexical.recall_at_5": 0.6666666666666666,
+    "retrieval.vector.mrr": 0.6666666666666666,
+    "retrieval.vector.ndcg_at_5": 0.6666666666666666,
+    "retrieval.vector.recall_at_1": 0.6666666666666666,
+    "retrieval.vector.recall_at_5": 0.6666666666666666,
+    "safety.accuracy": 1.0,
+    "safety.over_refusal_rate": 0.0,
+    "safety.required_refusal_rate": 1.0,
+    "system.failure_rate": 0.0,
+    "system.p95_latency_ms": 160.0,
+    "system.p95_regression_ratio": 1.0666666666666667,
+    "temporal.exact_active_node_accuracy": 1.0
+  },
+  "gates": [
+    {
+      "metric": "parser.recall_dieu",
+      "operator": "min",
+      "target": 0.98,
+      "actual": 1.0,
+      "passed": true,
+      "severity": "blocking"
+    },
+    {
+      "metric": "parser.recall_khoan",
+      "operator": "min",
+      "target": 0.98,
+      "actual": 1.0,
+      "passed": true,
+      "severity": "blocking"
+    },
+    {
+      "metric": "parser.recall_diem",
+      "operator": "min",
+      "target": 0.98,
+      "actual": 1.0,
+      "passed": true,
+      "severity": "blocking"
+    },
+    {
+      "metric": "parser.character_coverage",
+      "operator": "min",
+      "target": 0.99,
+      "actual": 1.0,
+      "passed": true,
+      "severity": "blocking"
+    },
+    {
+      "metric": "parser.invariant_errors",
+      "operator": "eq",
+      "target": 0.0,
+      "actual": 0.0,
+      "passed": true,
+      "severity": "blocking"
+    },
+    {
+      "metric": "retrieval.hybrid_graph_rerank.recall_at_5",
+      "operator": "min",
+      "target": 0.85,
+      "actual": 1.0,
+      "passed": true,
+      "severity": "blocking"
+    },
+    {
+      "metric": "retrieval.ablation_delta_recall_at_5",
+      "operator": "min",
+      "target": 0.0,
+      "actual": 0.33333333333333337,
+      "passed": true,
+      "severity": "advisory"
+    },
+    {
+      "metric": "temporal.exact_active_node_accuracy",
+      "operator": "eq",
+      "target": 1.0,
+      "actual": 1.0,
+      "passed": true,
+      "severity": "blocking"
+    },
+    {
+      "metric": "citation.exact_node_accuracy",
+      "operator": "min",
+      "target": 0.85,
+      "actual": 1.0,
+      "passed": true,
+      "severity": "blocking"
+    },
+    {
+      "metric": "citation.canonical_validity_rate",
+      "operator": "eq",
+      "target": 1.0,
+      "actual": 1.0,
+      "passed": true,
+      "severity": "blocking"
+    },
+    {
+      "metric": "amendment.auto_approved_pairing_precision",
+      "operator": "min",
+      "target": 0.95,
+      "actual": 1.0,
+      "passed": true,
+      "severity": "blocking"
+    },
+    {
+      "metric": "misinformation.outdated_verdict_f1",
+      "operator": "min",
+      "target": 0.8,
+      "actual": 1.0,
+      "passed": true,
+      "severity": "blocking"
+    },
+    {
+      "metric": "misinformation.high_risk_precision",
+      "operator": "min",
+      "target": 0.9,
+      "actual": 1.0,
+      "passed": true,
+      "severity": "blocking"
+    },
+    {
+      "metric": "safety.required_refusal_rate",
+      "operator": "eq",
+      "target": 1.0,
+      "actual": 1.0,
+      "passed": true,
+      "severity": "blocking"
+    },
+    {
+      "metric": "system.p95_regression_ratio",
+      "operator": "max",
+      "target": 1.2,
+      "actual": 1.0666666666666667,
+      "passed": true,
+      "severity": "blocking"
+    },
+    {
+      "metric": "system.failure_rate",
+      "operator": "eq",
+      "target": 0.0,
+      "actual": 0.0,
+      "passed": true,
+      "severity": "blocking"
+    }
+  ],
+  "blocking_gates_passed": true,
+  "evidence": [
+    {
+      "suite": "parser",
+      "dataset_id": "parser-contract-smoke-v1",
+      "dataset_kind": "synthetic_contract_fixture",
+      "independent_review": false,
+      "case_count": 3,
+      "minimum_release_cases": 100,
+      "review_provenance_issues": [],
+      "release_eligible": false
+    },
+    {
+      "suite": "retrieval",
+      "dataset_id": "retrieval-contract-smoke-v1",
+      "dataset_kind": "synthetic_contract_fixture",
+      "independent_review": false,
+      "case_count": 3,
+      "minimum_release_cases": 100,
+      "review_provenance_issues": [],
+      "release_eligible": false
+    },
+    {
+      "suite": "temporal",
+      "dataset_id": "temporal-contract-smoke-v1",
+      "dataset_kind": "synthetic_contract_fixture",
+      "independent_review": false,
+      "case_count": 3,
+      "minimum_release_cases": 60,
+      "review_provenance_issues": [],
+      "release_eligible": false
+    },
+    {
+      "suite": "citation",
+      "dataset_id": "citation-contract-smoke-v1",
+      "dataset_kind": "synthetic_contract_fixture",
+      "independent_review": false,
+      "case_count": 3,
+      "minimum_release_cases": 100,
+      "review_provenance_issues": [],
+      "release_eligible": false
+    },
+    {
+      "suite": "amendment",
+      "dataset_id": "amendment-contract-smoke-v1",
+      "dataset_kind": "synthetic_contract_fixture",
+      "independent_review": false,
+      "case_count": 4,
+      "minimum_release_cases": 100,
+      "review_provenance_issues": [],
+      "release_eligible": false
+    },
+    {
+      "suite": "misinformation",
+      "dataset_id": "misinformation-contract-smoke-v1",
+      "dataset_kind": "synthetic_contract_fixture",
+      "independent_review": false,
+      "case_count": 5,
+      "minimum_release_cases": 100,
+      "review_provenance_issues": [],
+      "release_eligible": false
+    },
+    {
+      "suite": "safety",
+      "dataset_id": "safety-contract-smoke-v1",
+      "dataset_kind": "synthetic_contract_fixture",
+      "independent_review": false,
+      "case_count": 4,
+      "minimum_release_cases": 60,
+      "review_provenance_issues": [],
+      "release_eligible": false
+    },
+    {
+      "suite": "system",
+      "dataset_id": "system-contract-smoke-v1",
+      "dataset_kind": "synthetic_contract_fixture",
+      "independent_review": false,
+      "case_count": 4,
+      "minimum_release_cases": 100,
+      "review_provenance_issues": [],
+      "release_eligible": false
+    }
+  ],
+  "release_evidence_eligible": false,
+  "release_decision": "NO_GO",
+  "limitations": [
+    "All bundled cases are synthetic contract fixtures, not an independently reviewed legal holdout.",
+    "Latency values exercise the report contract and are not production measurements.",
+    "A passing smoke run must never be cited as release quality evidence."
+  ]
+}

@@ -55,8 +55,10 @@ class Session:
 class Driver:
     def __init__(self) -> None:
         self.calls: list[tuple[str, dict[str, Any]]] = []
+        self.session_kwargs: list[dict[str, Any]] = []
 
-    def session(self) -> Session:
+    def session(self, **kwargs: Any) -> Session:
+        self.session_kwargs.append(kwargs)
         return Session(self.calls)
 
 
@@ -77,13 +79,19 @@ async def test_exact_and_lexical_queries_are_id_only_and_public_filtered() -> No
     exact_query, exact_params = driver.calls[0]
     lexical_query, lexical_params = driver.calls[1]
     assert "legal_retrieval_v2_exact" in exact_query
-    assert "coalesce(p.visibility, 'public') = 'public'" in exact_query
+    assert "p.visibility = 'public'" in exact_query
+    assert "p.review_status = 'approved'" in exact_query
+    assert "coalesce(p.visibility, 'public')" not in exact_query
     assert "noi_dung AS text" not in exact_query
     assert exact_params["identifiers"] == ["law::D1"]
     assert "legal_retrieval_v2_lexical" in lexical_query
     assert "db.index.fulltext.queryNodes" in lexical_query
     assert lexical_params["index_name"] == "legal_provision_text_ft"
     assert lexical_params["search_query"] == "tax deadline"
+    assert driver.session_kwargs == [
+        {"default_access_mode": "READ"},
+        {"default_access_mode": "READ"},
+    ]
 
 
 @pytest.mark.anyio

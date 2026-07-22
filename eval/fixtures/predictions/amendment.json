@@ -1,0 +1,8 @@
+{
+  "predictions": [
+    {"case_id": "amount-raised", "predicted_pair": {"old_id": "P-A-V1", "new_id": "P-A-V2"}, "predicted_change_type": "TIGHTENED", "auto_approved": true},
+    {"case_id": "reworded", "predicted_pair": {"old_id": "P-B-V1", "new_id": "P-B-V2"}, "predicted_change_type": "REWORDED", "auto_approved": true},
+    {"case_id": "split-review", "predicted_pair": null, "predicted_change_type": "SPLIT", "auto_approved": false},
+    {"case_id": "added", "predicted_pair": null, "predicted_change_type": "ADDED", "auto_approved": false}
+  ]
+}

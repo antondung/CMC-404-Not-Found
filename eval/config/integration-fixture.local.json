@@ -1,0 +1,336 @@
+{
+  "fixture_id": "lawgic-local-integration-v1",
+  "fixture_kind": "synthetic_integration_fixture",
+  "postgres_fixture_review_id": "11111111-1111-4111-8111-111111111111",
+  "database": "neo4j",
+  "snapshots": {
+    "neo4j": "content-sha256:a512819ee81fb5e690282d0f0965aeb7202d1d6393498e63122a95bfc69f504e",
+    "postgres": "content-sha256:5da885080adddefa97cdd3c009b3576585490e51a27cac544e0b6b77fe58a80e",
+    "qdrant": "content-sha256:0ea716669396bd3944d833abf25711cbaa8d73c1905432d1e693cca033b57cc4"
+  },
+  "checks": {
+    "T01": {
+      "params": {
+        "khoan_lineage": "LAWGIC-FIXTURE-LAW::D5.K2"
+      },
+      "assertion": {
+        "type": "field_set_equals",
+        "field": "diem_lineages",
+        "value": [
+          "LAWGIC-FIXTURE-LAW::D5.K2.Pa",
+          "LAWGIC-FIXTURE-LAW::D5.K2.Pb"
+        ]
+      }
+    },
+    "T02": {
+      "params": {
+        "khoan_lineage": "LAWGIC-FIXTURE-LAW::D5.K2",
+        "as_of": "2026-07-21"
+      },
+      "assertion": {
+        "type": "field_set_equals",
+        "field": "active_diem_ids",
+        "value": [
+          "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+          "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114"
+        ]
+      }
+    },
+    "T03": {
+      "params": {
+        "leaf_khoan_lineage": "LAWGIC-FIXTURE-LAW::D5.K3",
+        "as_of": "2026-07-21"
+      },
+      "assertion": {
+        "type": "field_equals",
+        "field": "leaf_id",
+        "value": "LAWGIC-FIXTURE-LAW::D5.K3@2020-01-01#a033fba451a6"
+      }
+    },
+    "T04": {
+      "params": {
+        "leaf_dieu_lineage": "LAWGIC-FIXTURE-LAW::D6",
+        "as_of": "2026-07-21"
+      },
+      "assertion": {
+        "type": "field_equals",
+        "field": "leaf_id",
+        "value": "LAWGIC-FIXTURE-LAW::D6@2020-01-01#163711f87063"
+      }
+    },
+    "T05": {
+      "params": {
+        "diem_a_lineage": "LAWGIC-FIXTURE-LAW::D5.K2.Pa",
+        "diem_b_lineage": "LAWGIC-FIXTURE-LAW::D5.K2.Pb"
+      },
+      "assertion": {
+        "type": "all",
+        "assertions": [
+          {
+            "type": "field_set_equals",
+            "field": "diem_a_versions",
+            "value": [
+              "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+              "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+              "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787"
+            ]
+          },
+          {
+            "type": "field_set_equals",
+            "field": "diem_b_versions",
+            "value": [
+              "LAWGIC-FIXTURE-LAW::D5.K2.Pb@2020-01-01#9cbe98d83114"
+            ]
+          },
+          {
+            "type": "field_set_equals",
+            "field": "diem_b_effective_to",
+            "value": []
+          }
+        ]
+      }
+    },
+    "T06": {
+      "params": {
+        "lineage": "LAWGIC-FIXTURE-LAW::D5.K2.Pa"
+      },
+      "assertion": {
+        "type": "all",
+        "assertions": [
+          {
+            "type": "field_equals",
+            "field": "version_path",
+            "value": [
+              "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+              "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+              "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2027-01-01#654ce9ca3787"
+            ]
+          },
+          {
+            "type": "field_equals",
+            "field": "hops",
+            "value": 2
+          }
+        ]
+      }
+    },
+    "T07": {
+      "params": {
+        "future_lineage": "LAWGIC-FIXTURE-LAW::D7",
+        "as_of": "2026-07-21"
+      },
+      "assertion": {
+        "type": "field_set_equals",
+        "field": "active_ids",
+        "value": []
+      }
+    },
+    "T08": {
+      "params": {
+        "repealed_lineage": "LAWGIC-FIXTURE-LAW::D8",
+        "as_of": "2026-07-21"
+      },
+      "assertion": {
+        "type": "field_set_equals",
+        "field": "active_ids",
+        "value": []
+      }
+    },
+    "T09": {
+      "params": {},
+      "assertion": {
+        "type": "empty"
+      }
+    },
+    "T10": {
+      "params": {},
+      "assertion": {
+        "type": "empty"
+      }
+    },
+    "T11": {
+      "params": {
+        "citation_node_id": "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3"
+      },
+      "assertion": {
+        "type": "all",
+        "assertions": [
+          {
+            "type": "field_equals",
+            "field": "node_id",
+            "value": "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3"
+          },
+          {
+            "type": "field_nonempty",
+            "field": "canonical_text"
+          },
+          {
+            "type": "field_nonempty",
+            "field": "text_checksum"
+          }
+        ]
+      }
+    },
+    "T12": {
+      "params": {
+        "fabricated_node_id": "fabricated-node-does-not-exist"
+      },
+      "assertion": {
+        "type": "field_equals",
+        "field": "canonical_node_count",
+        "value": 0
+      }
+    },
+    "T13": {
+      "params": {
+        "citation_node_id": "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "as_of": "2026-07-21"
+      },
+      "assertion": {
+        "type": "field_equals",
+        "field": "active_citation_node_id",
+        "value": "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3"
+      }
+    },
+    "T14": {
+      "params": {
+        "citation_node_id": "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "exact_quote": "500 triệu đồng"
+      },
+      "assertion": {
+        "type": "field_equals",
+        "field": "quote_valid_node_id",
+        "value": "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3"
+      }
+    },
+    "T15": {
+      "params": {
+        "citation_node_id": "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "claim_text": "Ngưỡng áp dụng là 200 triệu đồng."
+      },
+      "assertion": {
+        "type": "all",
+        "assertions": [
+          {
+            "type": "field_equals",
+            "field": "node_id",
+            "value": "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3"
+          },
+          {
+            "type": "field_nonempty",
+            "field": "nli_premise"
+          },
+          {
+            "type": "field_equals",
+            "field": "nli_hypothesis",
+            "value": "Ngưỡng áp dụng là 200 triệu đồng."
+          }
+        ]
+      }
+    },
+    "T16": {
+      "params": {
+        "old_provision_id": "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78",
+        "new_provision_id": "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3",
+        "source_vb_id": "LAWGIC-FIXTURE-LAW-V2",
+        "review_id": "11111111-1111-4111-8111-111111111111",
+        "commit_key": "lawgic-fixture-commit-v1"
+      },
+      "assertion": {
+        "type": "all",
+        "assertions": [
+          {
+            "type": "field_equals",
+            "field": "old_id",
+            "value": "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2020-01-01#c1e08edfed78"
+          },
+          {
+            "type": "field_equals",
+            "field": "new_id",
+            "value": "LAWGIC-FIXTURE-LAW::D5.K2.Pa@2026-07-01#659b8f8907f3"
+          },
+          {
+            "type": "field_equals",
+            "field": "source_vb_id",
+            "value": "LAWGIC-FIXTURE-LAW-V2"
+          },
+          {
+            "type": "field_equals",
+            "field": "change_type",
+            "value": "REWORDED"
+          }
+        ]
+      }
+    },
+    "T17": {
+      "params": {
+        "ambiguous_review_id": "ambiguous-review-without-edges"
+      },
+      "assertion": {
+        "type": "empty"
+      }
+    },
+    "T18": {
+      "params": {},
+      "assertion": {
+        "type": "all",
+        "assertions": [
+          {
+            "type": "field_nonempty",
+            "field": "claim_occurrence_id"
+          },
+          {
+            "type": "field_nonempty",
+            "field": "historical_id"
+          },
+          {
+            "type": "field_nonempty",
+            "field": "current_id"
+          }
+        ]
+      }
+    },
+    "T19": {
+      "params": {},
+      "assertion": {
+        "type": "empty"
+      }
+    },
+    "T20": {
+      "params": {},
+      "assertion": {
+        "type": "empty"
+      }
+    },
+    "N01": {
+      "params": {},
+      "assertion": {
+        "type": "all",
+        "assertions": [
+          {
+            "type": "field_nonempty",
+            "field": "content_id"
+          },
+          {
+            "type": "field_nonempty",
+            "field": "claim_occurrence_id"
+          },
+          {
+            "type": "field_nonempty",
+            "field": "misconception_id"
+          },
+          {
+            "type": "field_nonempty",
+            "field": "legal_anchor_id"
+          }
+        ]
+      }
+    },
+    "N02": {
+      "params": {},
+      "assertion": {
+        "type": "empty"
+      }
+    }
+  }
+}

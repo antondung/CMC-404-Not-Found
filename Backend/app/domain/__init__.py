@@ -36,12 +36,52 @@ from app.domain.legal_write import (
     LegalWriteReport,
     LegalWriteStatus,
 )
+from app.domain.amendment_review import (
+    AmendmentBatchStatus,
+    AmendmentCandidateDecision,
+    AmendmentReviewBatch,
+    AmendmentReviewBatchSummary,
+    AmendmentReviewCandidate,
+)
+from app.domain.misconception import (
+    ClaimOccurrenceEvidence,
+    MisconceptionAssignment,
+    MisconceptionClusterCandidate,
+    MisconceptionEvaluationReport,
+    MisconceptionRiskAssessment,
+    MisconceptionStatus,
+    RiskFactor,
+    TemporalLegalCheck,
+    TemporalMisconceptionVerdict,
+    TemporalOccurrenceEvaluation,
+)
+from app.domain.amendment_commit import (
+    AmendmentCommitOperation,
+    AmendmentGraphCommitReport,
+)
 
 __all__ = [
     "AmendmentAction",
+    "AmendmentBatchStatus",
+    "AmendmentCandidateDecision",
+    "AmendmentCommitOperation",
+    "AmendmentGraphCommitReport",
     "AmendmentMatchPreview",
     "AmendmentPreviewResult",
     "AmendmentReviewRoute",
+    "AmendmentReviewBatch",
+    "AmendmentReviewBatchSummary",
+    "AmendmentReviewCandidate",
+    "ClaimOccurrenceEvidence",
+    "MisconceptionAssignment",
+    "MisconceptionClusterCandidate",
+    "MisconceptionEvaluationReport",
+    "MisconceptionRiskAssessment",
+    "MisconceptionStatus",
+    "RiskFactor",
+    "TemporalLegalCheck",
+    "TemporalMisconceptionVerdict",
+    "TemporalOccurrenceEvaluation",
     "AmendmentScoreBreakdown",
     "ExplicitAmendmentReference",
     "LegalChangeType",

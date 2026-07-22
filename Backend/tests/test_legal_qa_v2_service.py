@@ -275,3 +275,36 @@ async def test_qa_v2_dispatch_requires_temporal_read_flags(
     assert output["status"] == "refused"
     assert output["reason_code"] == "citation_v2_dependencies_disabled"
     assert calls == []
+
+
+@pytest.mark.anyio
+async def test_qa_v2_dispatch_requires_strict_grounding_flag(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+
+    class Delegate:
+        async def answer(self, *_: Any, **__: Any) -> CitationContractV2:
+            calls.append("called")
+            raise AssertionError("delegate must not run")
+
+    monkeypatch.setattr(
+        "app.services.qa_service.get_config",
+        lambda: BE2Config(
+            qa_citation_v2=True,
+            legal_provision_v2_read=True,
+            temporal_law_v2=True,
+            qa_strict_grounding_v2=False,
+        ),
+    )
+    service = QAService(nli=FakeNLI(), legal_qa_v2_service=Delegate())
+
+    output = await service.answer(
+        "Câu hỏi pháp lý",
+        audience="citizen",
+        as_of=V2_DATE.isoformat(),
+    )
+
+    assert output["status"] == "refused"
+    assert output["reason_code"] == "citation_v2_dependencies_disabled"
+    assert calls == []

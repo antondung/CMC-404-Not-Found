@@ -465,6 +465,10 @@ Commit transaction:
 ### L5.1 implementation status - 2026-07-20
 
 PR-L5.1 is complete in preview-only mode. Explicit Vietnamese targets and phrase replacements are parsed; immutable old/new candidate IDs are hydrated canonically from Neo4j; explainable one-to-one matching and conservative change classification are exposed through an Admin-only preview API. Every result has `commit_allowed=false` and `auto_approve_eligible=false`. Ambiguous structure, invalid dates, cross-document candidates and canonical phrase mismatches fail closed or require mandatory review. No review persistence, interval closure or graph edge write is included; those remain L5.2/L5.3.
+
+### L5.2 implementation status - 2026-07-21
+
+PR-L5.2 is complete in code. PostgreSQL stores review batches, candidates and append-only audit events with request-hash idempotency and optimistic revision guards. Legal reviewers may edit canonical pairs, effective dates, change types and decisions through Admin APIs. Changing a pair invalidates old scores/references, recomputes the diff and forces mandatory review. An approved batch still has `commit_allowed=false`; no Neo4j commit path exists in L5.2. `AMENDMENT_REVIEW_V2=false` and `AMENDMENT_COMMIT_V2=false` remain disabled.
 **Exit gate L5**
 
 - Auto-pair precision trên gold `>= 95%`; nếu chưa đạt, tắt auto-approve.
@@ -618,7 +622,9 @@ TEMPORAL_LAW_V2=false
 QA_CITATION_V2=false
 QA_STRICT_GROUNDING_V2=true
 AMENDMENT_PREVIEW_V2=false
+AMENDMENT_REVIEW_V2=false
 AMENDMENT_COMMIT_V2=false
+MISCONCEPTION_CLUSTER_V2=false
 MISCONCEPTION_TEMPORAL_V2=false
 ```
 
@@ -713,6 +719,68 @@ Roadmap chỉ được đánh dấu hoàn thành khi:
 | Gold set không độc lập | Cao | Label thủ công, tách train/tune/test, lưu guideline | Cả nhóm trước công bố metric |
 | Graph tăng kích thước | Trung bình | Interval/lineage index, retention chỉ cho cache không xóa history | DB theo dõi từ L2 |
 | Social verdict bị hiểu là phán quyết | Cao | Giữ nhãn “cần xác minh”, human review, provenance đầy đủ | BE2 + FE trước L6 publish |
+
+## 13. Execution update — PR-L5.3 complete (2026-07-21)
+
+`PR-L5.3` is complete in code and tests. Approved deterministic candidates can be committed through a separately gated legal-role API. The complete batch is written in one managed Neo4j transaction with checksum, interval, lineage, level, cycle and competing-edge guards. `SUPERSEDED_BY` and `AMENDED_BY` carry a review ID and commit key so PostgreSQL reconciliation can be retried safely after graph success.
+
+The Admin UI now supports batch selection, candidate correction, evidence/diff review, workflow decisions and an explicit commit confirmation. All feature flags remain disabled and no real migration or graph mutation has been executed.
+
+Verified baseline after L5.3:
+
+- 274 backend tests passed.
+- 6 frontend contract tests passed.
+- Backend compileall, frontend production build and frontend lint passed.
+
+The active next slice is `PR-L6.1`: source-neutral misconception evidence and clustering, with news pages first and social-network adapters later.
+
+## 14. Execution update — PR-L6.1 complete (2026-07-21)
+
+`PR-L6.1` is complete in code and tests. The shared news/social worker now converts every collected source to the platform-neutral `ContentItem` contract and may attach a provenance-complete contradictory claim occurrence to a `Misconception` cluster.
+
+Clustering is deterministic and precision-first: candidates share topic and legal anchor; numeric and negation signatures must match exactly; lexical/sequence similarity must reach 0.84. Assignment runs in a managed Neo4j transaction and refuses a second competing cluster for the same occurrence. Alerts use the misconception ID when present and retain the legacy topic/provision grouping when the feature is disabled.
+
+Verified baseline after L6.1:
+
+- 33 focused misconception/news/social/temporal tests passed.
+- 286 backend tests passed; Python compileall passed.
+- `MISCONCEPTION_CLUSTER_V2=false` and `MISCONCEPTION_TEMPORAL_V2=false` remain disabled.
+- No schema apply, crawl or live/staging mutation was performed.
+
+The active next slice is `PR-L6.2`: dual-time verdicts, `OUTDATED_BUT_PREVIOUSLY_TRUE`, explainable risk factors and Admin UI.
+
+## 15. Execution update — PR-L6.2 complete (2026-07-21)
+
+`PR-L6.2` is complete in code and tests. Every occurrence can now be resolved against the immutable legal provision effective at publication and the provision effective at a selected current date. The outdated verdict requires historical entailment, current contradiction, confidence gates and two different physical provision IDs.
+
+Evaluation evidence is append-only through `TemporalMisconceptionEvaluation` nodes. Each node links to its historical and current canonical bases and carries the evaluated checksums, NLI labels, scores, models and reason codes. The cluster stores only the latest aggregate verdict/risk snapshot; past occurrence evaluations remain queryable.
+
+The explainable risk calculation exposes eight factors and a provenance deduction. The shared news/social worker can evaluate and propagate risk-aware severity only when all temporal/misconception flags are enabled. Admin may also perform a dry-run or persisted evaluation through a legal-role-only endpoint and inspect both legal versions in the new UI.
+
+Verified baseline after L6.2:
+
+- 38 focused temporal-misconception/clustering/social/contract tests passed.
+- 298 backend tests passed; Python compileall passed.
+- 8 frontend contract tests passed; production build and lint passed.
+- No schema apply, crawl, flag activation or live/staging mutation was performed.
+
+The active next slice is `PR-L7.1`: independent gold data, real datastore acceptance, evaluation reports and rollout evidence.
+
+## 16. Execution update — PR-L7.1A evaluation contract complete (2026-07-21)
+
+The deterministic L7 evaluation and CI contract is implemented. Eight suites now report objective metrics from separated gold and prediction files, and the release runner distinguishes synthetic smoke fixtures from independently reviewed holdouts. T20 completes the catalog, while a validator enforces the exact T01-T20/N01-N02 set.
+
+The bundled smoke report passes its blocking contract gates but intentionally returns `NO_GO`: all cases are synthetic and below the configured release sample sizes. This is the expected safe outcome, not a quality failure. The CI workflow retains both evaluation and catalog reports and does not contact or mutate a live datastore.
+
+PR-L7.1 is not fully complete. The remaining L7.1B work is independent legal labelling, approved fixture loading, real Neo4j/PostgreSQL/Qdrant acceptance, measured shadow-read P95/cost/failure rates, snapshots and a release-mode `GO` report. All rollout flags remain disabled.
+
+## 17. Execution update — PR-L6.2B hardening complete (2026-07-21)
+
+The L6.2 path was re-audited after the evaluation slice. Two high-impact gaps were closed: cross-lineage dual-time evidence can no longer produce an outdated verdict, and syndicated copies can no longer inflate source diversity, risk velocity or alert volume.
+
+Evaluation persistence now binds and revalidates claim/publication/lineage/checksum evidence inside the same managed transaction. T18/T19 also require same-lineage checksum-consistent bases. Admin displays independent content separately from provider count.
+
+The full current backend collection passes with 234 tests and the frontend contract suite passes with 9 tests. All relevant feature flags remain disabled and no real datastore was contacted.
 
 ### Go/No-Go 1 — Cho phép migration apply
 

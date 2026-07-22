@@ -10,7 +10,7 @@ import {
   WarningCircle,
 } from '@phosphor-icons/react';
 import { apiPost } from '../../lib/api';
-import { SUGGESTIONS } from './CitizenChrome';
+import { SUGGESTIONS } from '../suggestions';
 import { AnswerMarkdown } from '../../../../../packages/ui-legal/src/components/AnswerMarkdown';
 import { CitationCard } from '../../../../../packages/ui-legal/src/components/CitationCard';
 import { HonestyBanner } from '../../../../../packages/ui-legal/src/components/HonestyBanner';

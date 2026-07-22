@@ -3,6 +3,9 @@ from __future__ import annotations
 import pytest
 from httpx import AsyncClient, ASGITransport
 from app.main import app
+from app.core.security import Role, UserToken
+from app.exceptions import PublishGateError
+from app.services.publish_gate import PublishGateService
 
 
 @pytest.mark.asyncio
@@ -26,6 +29,15 @@ async def test_publish_gate_role_and_citation_guardrails():
         assert data_ok["status"] == "published"
         assert "audit_id" in data_ok
         assert data_ok["published_by"] == "user-truyen-thong-1"
+
+
+@pytest.mark.asyncio
+async def test_publish_gate_fails_closed_without_transactional_postgres():
+    actor = UserToken(user_id="reviewer", roles=[Role.ADMIN_TRUYEN_THONG.value])
+    brief = {"status": "review", "citations": []}
+
+    with pytest.raises(PublishGateError, match="Postgres không khả dụng"):
+        await PublishGateService().verify_and_publish_brief("brief-1", actor, brief)
 
 
 @pytest.mark.asyncio

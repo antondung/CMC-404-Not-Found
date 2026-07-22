@@ -1354,7 +1354,11 @@ class QAService:
         as_of_val = (as_of or date.today().isoformat()).strip()
         cfg = get_config()
         if cfg.qa_citation_v2:
-            if not (cfg.legal_provision_v2_read and cfg.temporal_law_v2):
+            if not (
+                cfg.legal_provision_v2_read
+                and cfg.temporal_law_v2
+                and cfg.qa_strict_grounding_v2
+            ):
                 try:
                     requested_date = date.fromisoformat(as_of_val)
                 except ValueError as exc:

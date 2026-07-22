@@ -313,3 +313,301 @@ Admin request with immutable old/new provision IDs
 ### Next phase
 
 PR-L5.2 adds review persistence and Admin workflow APIs only. Transactional Neo4j interval closure and `SUPERSEDED_BY` creation remain PR-L5.3 and stay disabled behind `AMENDMENT_COMMIT_V2=false`.
+
+## Phase PR-L5.2 - Amendment review persistence and APIs
+
+### Completed
+
+- [x] Added `Data/schema/postgres/011_amendment_reviews.sql` with batches, candidates and append-only audit events.
+- [x] Added strict review contracts with immutable `commit_allowed=false` and `auto_approve_eligible=false`.
+- [x] Added PostgreSQL repository operations using parameterized SQL and managed transactions.
+- [x] Added request-hash idempotency and explicit conflict reporting for key reuse.
+- [x] Added batch and candidate revision guards for optimistic concurrency.
+- [x] Added canonical validation for reviewer-edited old/new IDs and target-document boundaries.
+- [x] Reset stale score/reference evidence and recompute the diff whenever a reviewer changes a pair.
+- [x] Added workflow gates for draft, submission, candidate decisions and final review approval/rejection.
+- [x] Restricted review persistence APIs to `admin_phap_che`.
+- [x] Added `AMENDMENT_REVIEW_V2=false` independently from preview and commit flags.
+- [x] Kept PostgreSQL approval semantically separate from a legal-graph commit.
+
+### API contract
+
+```text
+POST  /admin/legal/amendment-reviews
+GET   /admin/legal/amendment-reviews
+GET   /admin/legal/amendment-reviews/{batch_id}
+PATCH /admin/legal/amendment-reviews/{batch_id}/candidates/{candidate_id}
+POST  /admin/legal/amendment-reviews/{batch_id}/submit
+POST  /admin/legal/amendment-reviews/{batch_id}/decision
+```
+
+Every mutating review request uses an idempotency key or expected revision. An `approved` review remains `commit_allowed=false` and cannot mutate Neo4j.
+
+### Verification - 2026-07-21
+
+- Focused L5.2/L5.1/contract tests: 49 passed.
+- Full backend suite: 259 passed.
+- Python compileall and Git whitespace checks: passed.
+- No migration apply, environment flag activation or live/staging mutation was performed.
+
+### Next phase
+
+PR-L5.3 implements the separately gated transactional commit and Admin review UI. The commit service must re-read canonical checksums and intervals, then either close the old interval and create all temporal edges atomically or make no graph change.
+
+## Phase PR-L5.3 - Transactional amendment commit and Admin UI
+
+### Completed
+
+- [x] Added PostgreSQL commit reconciliation metadata in `012_amendment_commits.sql`.
+- [x] Added strict deterministic commit operations and rejected unchanged, split, merge and uncertain candidates before graph write.
+- [x] Re-hydrated immutable canonical versions and revalidated document, lineage, level, checksum and effective-date invariants.
+- [x] Added a single managed Neo4j transaction for each approved batch with conflict guards and full rollback behavior.
+- [x] Added idempotent `SUPERSEDED_BY` and `AMENDED_BY` writes, exclusive old-interval closure and new-version approval.
+- [x] Added retry-safe PostgreSQL reconciliation after graph success.
+- [x] Added a legal-role-only commit API behind `AMENDMENT_COMMIT_V2=false` and the preceding legal feature flags.
+- [x] Added an Admin amendment-review UI with candidate evidence, workflow actions and explicit commit confirmation.
+- [x] Added T16/T17 acceptance queries and commit-key properties to the ontology relationship contract.
+
+### Cross-database consistency contract
+
+PostgreSQL and Neo4j do not share a distributed transaction. The implementation therefore commits the complete graph batch atomically first and stores the graph report in PostgreSQL second. Every graph edge carries the same review ID and commit key. If PostgreSQL reconciliation fails, retrying the same key recognizes the already committed graph state and completes PostgreSQL without duplicating or changing the legal graph. A different key fails closed.
+
+### API contract
+
+```text
+POST /admin/legal/amendment-reviews/{batch_id}/commit
+```
+
+The batch must be `approved`, its revision must match, all accepted candidates must be deterministic, and the caller must have `admin_phap_che`. Approval alone never mutates Neo4j.
+
+### Verification - 2026-07-21
+
+- Focused L5.3/L5.2/L5.1/temporal tests: 64 passed.
+- Full backend suite: 274 passed; Python compileall passed.
+- Frontend contract tests: 6 passed; production build and lint passed.
+- No migration apply, environment flag activation or live/staging mutation was performed.
+
+### Next phase
+
+PR-L6.1 introduces source-neutral misconception evidence and clustering, starting with news pages and retaining adapters for later social-network ingestion. PR-L6.2 adds historical/current verdicts and explainable risk scoring.
+
+## Phase PR-L6.1 - Source-neutral misconception evidence and clustering
+
+### Completed
+
+- [x] Added strict occurrence provenance contracts with exact offsets, canonical URL, publication timestamp and verified content hash.
+- [x] Added deterministic normalization/signatures and conservative cluster matching.
+- [x] Prevented automatic merge when numbers or negation markers differ.
+- [x] Added `Misconception` ontology, uniqueness/indexes and `INSTANCE_OF`, `CONTRADICTS`, `CANH_BAO_VE` relationships.
+- [x] Added one managed Neo4j write transaction per occurrence assignment with competing-cluster guard.
+- [x] Integrated assignment after canonical claim persistence in the shared news/social worker.
+- [x] Grouped eligible alerts by misconception ID when present and retained the legacy topic/provision fallback.
+- [x] Added Admin list/detail APIs behind `MISCONCEPTION_CLUSTER_V2=false`.
+- [x] Added N01/N02 acceptance queries for provenance completeness and single-cluster assignment.
+
+### Clustering contract
+
+```text
+ContentItem (news/social/video/comment/forum)
+  -> source-grounded YKien occurrence
+  -> exact provenance validation
+  -> topic + legal-anchor candidate lookup
+  -> number/negation compatibility guard
+  -> deterministic similarity >= 0.84
+  -> INSTANCE_OF Misconception
+  -> CONTRADICTS canonical legal anchor
+  -> optional alert linkage
+```
+
+Clustering is intentionally precision-first. A claim with a changed amount, threshold, date or negation becomes a separate cluster even when the remaining wording is similar.
+
+### API contract
+
+```text
+GET /admin/misconceptions
+GET /admin/misconceptions/{misconception_id}
+```
+
+Both endpoints require Admin authentication and remain hidden unless `MISCONCEPTION_CLUSTER_V2=true`.
+
+### Verification - 2026-07-21
+
+- Focused L6.1/news/social/temporal tests: 33 passed.
+- Full backend suite: 286 passed; Python compileall passed.
+- No schema apply, feature-flag activation, crawl or external mutation was performed.
+
+### Next phase
+
+PR-L6.2 adds dual-time legal evaluation, `OUTDATED_BUT_PREVIOUSLY_TRUE`, explainable risk factors and the Admin misconception/risk UI. It remains separately gated by `MISCONCEPTION_TEMPORAL_V2=false`.
+
+## Phase PR-L6.2 - Dual-time verdict, risk score and Admin UI
+
+### Completed
+
+- [x] Added immutable historical/current legal-check and temporal-evaluation contracts.
+- [x] Used `TemporalLawService.resolve_version()` at publication date and current as-of date.
+- [x] Required two checksum-verified physical versions and strict NLI gates for the outdated verdict.
+- [x] Added fail-closed outcomes for missing, neutral, low-confidence and inconsistent evidence.
+- [x] Persisted evaluation nodes and both legal-basis relationships in one managed Neo4j transaction.
+- [x] Added idempotent evaluation IDs and prevented an existing evaluation ID from being rebound to another claim/result.
+- [x] Added eight weighted risk factors with a provenance deduction and fixed severity thresholds.
+- [x] Integrated temporal evaluation and risk-aware alert severity into the shared source pipeline.
+- [x] Added a legal-role evaluate endpoint and safe list/detail filters.
+- [x] Added an Admin misconception page with source evidence, old/new law cards and risk breakdown.
+- [x] Added T18/T19 acceptance queries.
+
+### Verdict contract
+
+```text
+claim + publication timestamp + legal anchor
+  -> resolve historical immutable provision
+  -> resolve current immutable provision
+  -> NLI(claim, historical text)
+  -> NLI(claim, current text)
+  -> strict confidence/review gates
+  -> OUTDATED only for historical KHOP + current MAU_THUAN + different IDs
+  -> persist both bases and checksums atomically
+```
+
+### API contract
+
+```text
+POST /admin/misconceptions/{misconception_id}/evaluate
+{
+  "current_as_of": "2026-07-21",
+  "dry_run": false
+}
+```
+
+The write action requires `admin_phap_che`. Read APIs remain available to authenticated Admin users when clustering is enabled.
+
+### Verification - 2026-07-21
+
+- Focused L6.2/L6.1/social/contract tests: 38 passed.
+- Full backend suite: 298 passed; Python compileall passed.
+- Frontend contract tests: 8 passed; production build and lint passed.
+- No schema apply, crawl, flag activation or live/staging mutation was performed.
+
+### Next phase
+
+PR-L7.1 builds independent evaluation datasets, real datastore integration acceptance, benchmark reports and rollout go/no-go evidence.
+
+## Phase L7.1A — evaluation, CI and demo contracts
+
+### Completed
+
+- [x] Added `Backend/app/evaluation/lawgic_quality.py` with objective metrics and per-label reports.
+- [x] Added `Backend/scripts/run_lawgic_quality_gates.py` with strict release-evidence validation.
+- [x] Added separated synthetic gold/prediction fixtures for eight evaluation suites.
+- [x] Added five retrieval profiles and explicit vector-to-full ablation delta.
+- [x] Added T20 and a catalog validator for T01-T20/N01-N02.
+- [x] Added opt-in read-only Neo4j execution with caller-supplied parameters and assertions.
+- [x] Added CI smoke gates, persisted reports and three locked demo cases.
+- [x] Added fail-closed tests proving independently reviewed evidence still receives `NO_GO` when a blocking metric regresses.
+
+### Commands
+
+```text
+python Backend/scripts/run_lawgic_quality_gates.py --manifest eval/manifest.smoke.json --output eval/reports/l7-smoke-report.json
+python Backend/scripts/run_lawgic_acceptance.py --catalog Data/schema/acceptance_queries.cypher --output eval/reports/acceptance-catalog-report.json
+```
+
+`--release` is intentionally stricter than the CI smoke mode. The bundled report has all smoke contract gates passing but `release_decision=NO_GO`, because synthetic cases are not independently reviewed release evidence.
+
+### Verification - 2026-07-21
+
+- Focused L7 tests: 8 passed.
+- Current full backend collection: 230 passed; compileall passed.
+- Acceptance catalog: 22/22 IDs present.
+- Frontend: 8 contract tests, production build and lint passed.
+- Real datastore acceptance, independent holdout metrics, snapshots and shadow-read P95 remain pending.
+
+## Phase L6.2B — lineage and syndication hardening
+
+### Completed
+
+- [x] Reject dual-time legal bases from different lineages before an outdated verdict can be emitted.
+- [x] Bind evaluation IDs to claim/publication/lineage/checksum evidence, not only occurrence and as-of date.
+- [x] Re-check both canonical checksums and lineage IDs inside the managed Neo4j write transaction.
+- [x] Validate immutable occurrence/evaluation fields on idempotent replay.
+- [x] Count independent source bodies by `content_hash` and preserve provider count as a separate dimension.
+- [x] Use independent bodies for risk velocity/diversity and alert volume so syndicated news copies cannot manufacture severity.
+- [x] Propagate content hashes through the worker and recent-signal repository path.
+- [x] Explain occurrences, independent content and providers separately in the Admin UI.
+
+### Verification - 2026-07-21
+
+- Focused L6.2/L6.1/worker/evaluation suite: 54 passed.
+- Full backend suite: 234 passed; compileall passed.
+- Frontend contract suite: 9 passed; build and lint passed.
+- No live/staging mutation or feature activation was performed.
+
+## Phase L7.1B start — independent holdout provenance
+
+### Completed
+
+- [x] Require two distinct reviewer IDs for every `independent_holdout` suite.
+- [x] Require completed adjudication and a non-empty guideline version.
+- [x] Require a valid SHA-256 checksum for the frozen raw-source dataset.
+- [x] Report provenance failures as `review_provenance_issues` and keep the release decision at `NO_GO`.
+- [x] Add a reusable metadata template under `eval/templates/`.
+- [x] Add focused fail-closed tests for incomplete review provenance.
+
+### Verification - 2026-07-21
+
+- 12 focused evaluation/acceptance tests passed.
+- Smoke gates passed but remained intentionally ineligible for release.
+- Python compileall and Git whitespace checks passed.
+- No external datastore was contacted and no rollout flag was enabled.
+
+### Remaining L7.1B work
+
+Independent reviewers must now produce and adjudicate the real holdout labels. Local read-only datastore acceptance and local shadow measurements are complete; after the raw-source bundle is frozen and production-like shadow evidence is captured, invoke the evaluator with `--release`. The repository must continue returning `NO_GO` until both provenance and metric gates pass.
+
+### Multi-datastore acceptance harness
+
+- [x] Add a single aggregate runner for Neo4j, PostgreSQL and Qdrant.
+- [x] Force Neo4j acceptance and leaf-parity sessions into read access mode.
+- [x] Execute PostgreSQL invariants inside a read-only transaction.
+- [x] Require exact Qdrant ID/checksum parity with canonical Neo4j leaves.
+- [x] Require fixture and snapshot identity for all three stores.
+- [x] Reject unresolved template placeholders before opening datastore connections.
+- [x] Preserve per-store errors in one aggregate fail-closed report.
+- [x] Add composite assertion support for multi-field acceptance contracts.
+- [x] Add focused tests and an approved-fixture configuration template.
+
+Focused verification: 31 tests passed. The initial Docker service permission error was resolved by launching Docker Desktop in the user session; runtime evidence is recorded below. No external environment was contacted.
+
+### Local runtime acceptance evidence
+
+- [x] Start the localhost Docker data stack.
+- [x] Apply additive Neo4j/PostgreSQL/Qdrant schema contracts.
+- [x] Load the idempotent synthetic LAWGIC integration fixture.
+- [x] Run all 22 Neo4j acceptance checks in read mode.
+- [x] Run seven PostgreSQL invariants in a read-only transaction.
+- [x] Prove exact 8/8 Qdrant ID and checksum parity.
+- [x] Persist the aggregate runtime report with `passed=true`.
+
+The first runtime round exposed and corrected two harness defects: Neo4j `collect(null)` semantics for T05 and Windows console UTF-8 output. T06 was also tightened to require the complete maximal version path. This local synthetic evidence does not change the release decision; independent holdouts and production-like shadow evidence remain mandatory.
+
+### Measured local temporal shadow reads
+
+- [x] Add a minimum-100-case temporal workload over three effective-date regimes.
+- [x] Compare candidate and baseline with equivalent payloads and managed read transactions.
+- [x] Require exact leaf parity and zero failures.
+- [x] Enforce the 1.2 P95 regression gate.
+- [x] Export measured system-suite gold and predictions.
+- [x] Fix Neo4j `Date`/`DateTime` conversion at the repository boundary.
+
+Measured local result after architecture hardening: 120/120 parity, zero failures, candidate P95 27.3458 ms, baseline P95 25.4420 ms, regression ratio 1.074829, zero external cost and zero LLM calls. This is local synthetic evidence, not release authorization.
+
+### Amendment commit reconciliation observability
+
+- [x] Scan `AMENDED_BY` commit stamps through an explicit Neo4j read transaction.
+- [x] Cross-check graph review IDs and commit keys against PostgreSQL workflow, commit result and append-only audit evidence.
+- [x] Fail the health report to `degraded` for missing, mismatched or incomplete reconciliation provenance.
+- [x] Expose a legal-admin read-only health endpoint.
+- [x] Schedule an opt-in monitor on the legal worker, with no automatic graph or PostgreSQL repair.
+- [x] Keep the monitor flag disabled by default.
+
+Fresh local result: one graph commit scanned, zero issues, 269 backend tests passed, 22/7/8 datastore acceptance passed and the isolated shadow P95 ratio was 1.06108. Operational retry must use the original idempotency key; this monitor does not replace that rule.

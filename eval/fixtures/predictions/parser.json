@@ -1,0 +1,7 @@
+{
+  "predictions": [
+    {"case_id": "parser-points", "predicted_ids_by_level": {"dieu": ["D5"], "khoan": ["D5.K2"], "diem": ["D5.K2.Pa", "D5.K2.Pb"]}, "preserved_character_count": 180, "invariant_errors": 0},
+    {"case_id": "parser-clause-leaf", "predicted_ids_by_level": {"dieu": ["D5"], "khoan": ["D5.K3"], "diem": []}, "preserved_character_count": 80, "invariant_errors": 0},
+    {"case_id": "parser-article-leaf", "predicted_ids_by_level": {"dieu": ["D6"], "khoan": [], "diem": []}, "preserved_character_count": 60, "invariant_errors": 0}
+  ]
+}

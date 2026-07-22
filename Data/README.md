@@ -41,7 +41,7 @@ Biến môi trường tương ứng: `NEO4J_URI`, `DATABASE_URL`, `QDRANT_URL`, 
 ## 3. Áp schema & seed
 
 ### Postgres (tự động)
-Migrations trong `schema/postgres/` được **auto-apply** lần đầu Postgres init (mount vào `docker-entrypoint-initdb.d`). Chạy theo thứ tự tên file: `001_ → 002_ → 003_`.
+Migrations trong `schema/postgres/` được **auto-apply** lần đầu Postgres init (mount vào `docker-entrypoint-initdb.d`). Chạy theo thứ tự tên file từ `001_` đến `012_`.
 
 Áp lại thủ công (nếu cần) hoặc reset:
 ```bash
@@ -88,6 +88,10 @@ Data/
       002_jobs_lineage.sql    # jobs, job_events, lineage, van_ban_files
       003_content_publish.sql # briefs, suggestions, alerts, audit_log
       004_retention_audit.sql # archived_at, v_publish_audit, read-only roles
+      009_alert_provenance.sql # nguồn gốc bằng chứng cảnh báo
+      010_brief_noi_dung.sql  # nội dung brief
+      011_amendment_reviews.sql # batch/candidate/audit review sửa đổi pháp luật
+      012_amendment_commits.sql # idempotency và reconciliation sau Neo4j commit
     qdrant/
       collections.json        # spec khoan/baidang/chude/legal_provision (dim 1536)
       extract_khoan.schema.json # JSON Schema output NER BE1

@@ -216,6 +216,34 @@ async def test_unsupported_claim_is_refused_even_when_quote_is_exact() -> None:
 
 
 @pytest.mark.anyio
+async def test_heuristic_nli_cannot_authorize_citation_v2() -> None:
+    class HeuristicNLI:
+        async def nli_pair(self, *, premise: str, hypothesis: str) -> dict[str, Any]:
+            return {
+                "label": "khop",
+                "score": 0.99,
+                "model": "heuristic-nli",
+                "needs_review": False,
+            }
+
+    current = _point_a_versions()[1]
+    validator = CanonicalCitationValidator(
+        FakeTemporalService(),
+        HeuristicNLI(),
+        entailment_threshold=0.7,
+    )
+
+    outcome = await validator.validate_answer_draft(
+        _draft(current.provision_id),
+        as_of=V2_DATE,
+        audience="citizen",
+    )
+
+    assert outcome.contract.status == QAAnswerStatus.REFUSED
+    assert outcome.contract.reason_code == "claim_not_supported"
+
+
+@pytest.mark.anyio
 async def test_unmapped_material_answer_statement_is_refused() -> None:
     current = _point_a_versions()[1]
     draft = _draft(current.provision_id)

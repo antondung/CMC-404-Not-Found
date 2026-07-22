@@ -18,9 +18,9 @@ p.effective_from AS effective_from,
 p.effective_to AS effective_to,
 p.text_checksum AS text_checksum,
 p.source_checksum AS source_checksum,
-coalesce(p.visibility, 'public') AS visibility,
+p.visibility AS visibility,
 p.recorded_at AS recorded_at,
-coalesce(p.review_status, 'approved') AS review_status
+p.review_status AS review_status
 """
 
 _EFFECTIVE_QUERY = f"""
@@ -34,8 +34,8 @@ WHERE p.effective_from IS NOT NULL
   AND (
     NOT $public_only
     OR (
-      coalesce(p.visibility, 'public') = 'public'
-      AND coalesce(p.review_status, 'approved') = 'approved'
+      p.visibility = 'public'
+      AND p.review_status = 'approved'
     )
   )
 RETURN {_PROVISION_RETURN}
@@ -57,8 +57,8 @@ WHERE (p.provision_id = $identifier OR p.lineage_id = $identifier)
   AND (
     NOT $public_only
     OR (
-      coalesce(p.visibility, 'public') = 'public'
-      AND coalesce(p.review_status, 'approved') = 'approved'
+      p.visibility = 'public'
+      AND p.review_status = 'approved'
     )
   )
 RETURN {_PROVISION_RETURN}
@@ -72,8 +72,8 @@ WHERE p.provision_id IN $provision_ids
   AND (
     NOT $public_only
     OR (
-      coalesce(p.visibility, 'public') = 'public'
-      AND coalesce(p.review_status, 'approved') = 'approved'
+      p.visibility = 'public'
+      AND p.review_status = 'approved'
     )
   )
 RETURN {_PROVISION_RETURN}
@@ -89,8 +89,8 @@ MATCH (p:LegalProvision {{lineage_id: lineage_id}})
 WHERE (
   NOT $public_only
   OR (
-    coalesce(p.visibility, 'public') = 'public'
-    AND coalesce(p.review_status, 'approved') = 'approved'
+    p.visibility = 'public'
+    AND p.review_status = 'approved'
   )
 )
 OPTIONAL MATCH (p)-[:SUPERSEDED_BY]->(next:LegalProvision)
@@ -98,8 +98,8 @@ RETURN {_PROVISION_RETURN},
        collect(DISTINCT CASE
          WHEN next IS NULL THEN null
          WHEN NOT $public_only THEN next.provision_id
-         WHEN coalesce(next.visibility, 'public') = 'public'
-          AND coalesce(next.review_status, 'approved') = 'approved'
+         WHEN next.visibility = 'public'
+          AND next.review_status = 'approved'
          THEN next.provision_id
          ELSE null
        END) AS superseded_by_ids
@@ -114,9 +114,27 @@ class Neo4jTemporalRepository:
         self.driver = driver
 
     @staticmethod
+    def _native_value(value: Any) -> Any:
+        to_native = getattr(value, "to_native", None)
+        if callable(to_native):
+            return to_native()
+        if isinstance(value, list):
+            return [Neo4jTemporalRepository._native_value(item) for item in value]
+        if isinstance(value, dict):
+            return {
+                key: Neo4jTemporalRepository._native_value(item)
+                for key, item in value.items()
+            }
+        return value
+
+    @staticmethod
     def _record_data(record: Any) -> dict[str, Any]:
         data = getattr(record, "data", None)
-        return data() if callable(data) else dict(record)
+        raw = data() if callable(data) else dict(record)
+        return {
+            key: Neo4jTemporalRepository._native_value(value)
+            for key, value in raw.items()
+        }
 
     @classmethod
     async def _collect(cls, runner: Any, query: str, params: dict[str, Any]) -> list[dict[str, Any]]:
@@ -130,7 +148,7 @@ class Neo4jTemporalRepository:
         if not (self.driver and hasattr(self.driver, "session")):
             raise TemporalLawUnavailableError("Temporal legal graph is not available")
         try:
-            async with self.driver.session() as session:
+            async with self.driver.session(default_access_mode="READ") as session:
                 execute_read = getattr(session, "execute_read", None)
                 if callable(execute_read):
                     return await execute_read(self._collect, query, params)

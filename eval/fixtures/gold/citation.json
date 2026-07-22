@@ -1,0 +1,8 @@
+{
+  "metadata": {"dataset_id": "citation-contract-smoke-v1", "dataset_kind": "synthetic_contract_fixture", "independent_review": false},
+  "cases": [
+    {"case_id": "citation-point", "expected_node_id": "FIXTURE-LAW::D5.K2.Pa@2026-07-01", "expected_node_exists": true, "expected_effective": true, "expected_quote_exact": true, "expected_support": true},
+    {"case_id": "citation-clause", "expected_node_id": "FIXTURE-LAW::D5.K3@2020-01-01", "expected_node_exists": true, "expected_effective": true, "expected_quote_exact": true, "expected_support": true},
+    {"case_id": "citation-no-entailment", "expected_node_id": "FIXTURE-LAW::D5.K2.Pb@2020-01-01", "expected_node_exists": true, "expected_effective": true, "expected_quote_exact": true, "expected_support": false}
+  ]
+}

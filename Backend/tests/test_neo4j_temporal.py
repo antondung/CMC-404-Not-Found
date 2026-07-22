@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from datetime import date, datetime
 
 import pytest
 
@@ -46,8 +47,10 @@ class Session:
 class Driver:
     def __init__(self) -> None:
         self.calls: list[tuple[str, dict[str, Any]]] = []
+        self.session_kwargs: list[dict[str, Any]] = []
 
-    def session(self) -> Session:
+    def session(self, **kwargs: Any) -> Session:
+        self.session_kwargs.append(kwargs)
         return Session(self.calls)
 
 
@@ -68,7 +71,10 @@ async def test_effective_read_uses_managed_transaction_and_half_open_interval() 
     assert "temporal_v2_find_effective" in query
     assert "date(p.effective_from) <= date($as_of)" in query
     assert "date($as_of) < date(p.effective_to)" in query
-    assert "coalesce(p.visibility, 'public') = 'public'" in query
+    assert "p.visibility = 'public'" in query
+    assert "p.review_status = 'approved'" in query
+    assert "coalesce(p.visibility, 'public')" not in query
+    assert driver.session_kwargs == [{"default_access_mode": "READ"}]
     assert params == {
         "as_of": "2026-07-01",
         "logical_vb_id": "01/2026/ND-CP",
@@ -99,3 +105,19 @@ async def test_repository_fails_explicitly_without_neo4j_driver() -> None:
 
     with pytest.raises(TemporalLawUnavailableError, match="not available"):
         await repository.find_effective(as_of="2026-07-01", logical_vb_id="law")
+
+
+def test_repository_converts_real_neo4j_temporal_types_at_boundary() -> None:
+    from neo4j.time import Date, DateTime
+
+    row = Neo4jTemporalRepository._record_data(
+        {
+            "effective_from": Date(2026, 7, 1),
+            "recorded_at": DateTime(2026, 7, 1, 8, 30, 0),
+            "nested": [Date(2027, 1, 1)],
+        }
+    )
+
+    assert row["effective_from"] == date(2026, 7, 1)
+    assert row["recorded_at"] == datetime(2026, 7, 1, 8, 30, 0)
+    assert row["nested"] == [date(2027, 1, 1)]

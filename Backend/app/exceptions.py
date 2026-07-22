@@ -33,6 +33,26 @@ class ContractMissingError(BE2Error):
     code = "contract_missing"
 
 
+class AmendmentReviewNotFoundError(BE2Error):
+    code = "amendment_review_not_found"
+
+
+class AmendmentReviewConflictError(BE2Error):
+    code = "amendment_review_conflict"
+
+
+class AmendmentReviewPersistenceError(TransientServiceError):
+    code = "amendment_review_persistence_error"
+
+
+class AmendmentCommitConflictError(BE2Error):
+    code = "amendment_commit_conflict"
+
+
+class AmendmentCommitUnavailableError(TransientServiceError):
+    code = "amendment_commit_unavailable"
+
+
 class ExternalServiceError(TransientServiceError):
     code = "external_service_error"
 

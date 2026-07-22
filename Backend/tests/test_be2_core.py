@@ -324,6 +324,7 @@ async def test_alert_requires_complete_source_provenance():
         "evidence_span": "Doanh nghiệp không cần kê khai thuế.",
         "post_content": "Ý kiến: Doanh nghiệp không cần kê khai thuế.",
         "post_url": "https://youtube.com/watch?v=1&lc=comment-1",
+        "content_hash": "a" * 64,
         "chu_de": "thuế",
         "khoan_id": "k1",
         "label": "mau_thuan",
@@ -333,6 +334,11 @@ async def test_alert_requires_complete_source_provenance():
     assert alert is not None
     assert alert["provenance_status"] == "complete"
     assert repo.saved[0]["signals"] == [signal]
+
+    missing_hash = {**signal, "content_hash": ""}
+    invalid_hash = {**signal, "content_hash": "not-a-sha256"}
+    assert await service.maybe_create_alert(signals=[missing_hash]) is None
+    assert await service.maybe_create_alert(signals=[invalid_hash]) is None
 
 
 @pytest.mark.asyncio
@@ -626,6 +632,38 @@ async def test_daily_social_monitor_ingests_then_chains_topic_link_alert():
                 },
             }]
 
+    class MisconceptionCluster:
+        def __init__(self):
+            self.evidence = []
+
+        async def assign_occurrence(self, evidence):
+            self.evidence.append(evidence)
+
+            class Assignment:
+                misconception_id = "misconception-1"
+
+            return Assignment()
+
+    class TemporalCluster:
+        def __init__(self):
+            self.calls = []
+
+        async def evaluate_cluster(self, misconception_id, **kwargs):
+            self.calls.append((misconception_id, kwargs))
+
+            class Verdict:
+                value = "OUTDATED_BUT_PREVIOUSLY_TRUE"
+
+            class Risk:
+                risk_score = 0.82
+                factors = []
+
+            class Report:
+                cluster_verdict = Verdict()
+                risk = Risk()
+
+            return Report()
+
     repo = ChainRepo()
     ingest = FakeIngestService()
     original_ingest = ingest.ingest
@@ -640,7 +678,11 @@ async def test_daily_social_monitor_ingests_then_chains_topic_link_alert():
         social_monitor_topics=["thuế"],
         alert_volume_threshold=1,
         nli_confidence_threshold=0.7,
+        misconception_cluster_v2=True,
+        misconception_temporal_v2=True,
     )
+    misconception_cluster = MisconceptionCluster()
+    temporal_cluster = TemporalCluster()
     result = await daily_social_monitor(
         {
             "config": config,
@@ -652,6 +694,8 @@ async def test_daily_social_monitor_ingests_then_chains_topic_link_alert():
             "legal_repo": LegalRepo(),
             "claim_checker": Checker(),
             "alert_signal_service": AlertSignalService(repo, config),
+            "misconception_service": misconception_cluster,
+            "temporal_misconception_service": temporal_cluster,
         },
         {"job_id": "chain", "correlation_id": "chain", "payload": {"topics": ["thuế"], "limit_per_topic": 1, "chain": True}, "dry_run": False},
     )
@@ -661,11 +705,19 @@ async def test_daily_social_monitor_ingests_then_chains_topic_link_alert():
     assert chain["link"]["proposed_edges"][0]["khoan_id"] == "k1"
     assert chain["checks"][0]["nli"]["label"] == "mau_thuan"
     assert chain["signals"][0]["ykien_id"] == "ykien-1"
+    assert chain["signals"][0]["misconception_id"] == "misconception-1"
+    assert chain["signals"][0]["temporal_verdict"] == "OUTDATED_BUT_PREVIOUSLY_TRUE"
+    assert chain["signals"][0]["risk_score"] == 0.82
+    assert len(chain["signals"][0]["content_hash"]) == 64
     assert chain["signals"][0]["legal_evidence"]["quote"] == "Doanh nghiệp phải kê khai đúng hạn."
     assert chain["aggregated_signal_count"] == 1
     assert chain["alert"]["alert_id"] == "alert-1"
     assert repo.saved_nli[0]["khoan_id"] == "k1"
     assert repo.saved_alerts[0]["provenance_status"] == "complete"
+    assert repo.saved_alerts[0]["misconception_ids"] == ["misconception-1"]
+    assert repo.saved_alerts[0]["severity"] == "high"
+    assert misconception_cluster.evidence[0].content_id == "youtube:comment-1"
+    assert temporal_cluster.calls[0][0] == "misconception-1"
 
 
 def test_social_post_adapts_to_platform_neutral_content_item():

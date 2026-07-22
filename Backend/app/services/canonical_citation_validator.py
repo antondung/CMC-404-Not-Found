@@ -240,7 +240,8 @@ class CanonicalCitationValidator:
                 label = getattr(raw_label, "value", raw_label)
                 score = max(0.0, min(1.0, float(result.get("score") or 0.0)))
                 if (
-                    label != "khop"
+                    str(result.get("model") or "").startswith("heuristic-nli")
+                    or label != "khop"
                     or bool(result.get("needs_review"))
                     or score < self.entailment_threshold
                 ):

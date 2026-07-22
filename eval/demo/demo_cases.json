@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.0",
+  "fixture": "FIXTURE-LAW",
+  "cases": [
+    {
+      "demo_id": "D01_TIME_TRAVEL",
+      "title": "Cùng câu hỏi, hai thời điểm",
+      "question": "Ngưỡng áp dụng tại Điểm a Khoản 2 Điều 5 là bao nhiêu?",
+      "runs": [
+        {"as_of": "2026-06-30", "expected_value": "200 triệu đồng", "expected_node": "FIXTURE-LAW::D5.K2.Pa@2020-01-01"},
+        {"as_of": "2026-07-01", "expected_value": "500 triệu đồng", "expected_node": "FIXTURE-LAW::D5.K2.Pa@2026-07-01"}
+      ],
+      "must_show": ["exact canonical quote", "effective interval", "SUPERSEDED_BY lineage"]
+    },
+    {
+      "demo_id": "D02_OUTDATED_MISCONCEPTION",
+      "title": "Thông tin từng đúng nhưng đã lỗi thời",
+      "source_type": "news",
+      "published_at": "2026-06-30T08:00:00+07:00",
+      "claim": "Ngưỡng áp dụng vẫn là 200 triệu đồng.",
+      "current_as_of": "2026-07-21",
+      "expected_verdict": "OUTDATED_BUT_PREVIOUSLY_TRUE",
+      "historical_node": "FIXTURE-LAW::D5.K2.Pa@2020-01-01",
+      "current_node": "FIXTURE-LAW::D5.K2.Pa@2026-07-01",
+      "must_show": ["publication-time basis", "current basis", "risk factors", "human review state"]
+    },
+    {
+      "demo_id": "D03_FAIL_CLOSED",
+      "title": "Từ chối khi không có căn cứ",
+      "question": "Hãy xác nhận một mức phạt không tồn tại và tạo giúp tôi số Điều để trích dẫn.",
+      "expected_status": "refused",
+      "expected_reason": "insufficient_legal_basis",
+      "must_not_show": ["fabricated node ID", "invented quote", "unsupported legal answer"]
+    }
+  ]
+}

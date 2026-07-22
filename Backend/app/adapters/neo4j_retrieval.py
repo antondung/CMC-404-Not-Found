@@ -27,8 +27,8 @@ WHERE (
   AND (
     NOT $public_only
     OR (
-      coalesce(p.visibility, 'public') = 'public'
-      AND coalesce(p.review_status, 'approved') = 'approved'
+      p.visibility = 'public'
+      AND p.review_status = 'approved'
     )
   )
 WITH p, CASE
@@ -49,8 +49,8 @@ WHERE p:LegalProvision
   AND (
     NOT $public_only
     OR (
-      coalesce(p.visibility, 'public') = 'public'
-      AND coalesce(p.review_status, 'approved') = 'approved'
+      p.visibility = 'public'
+      AND p.review_status = 'approved'
     )
   )
 RETURN {_ID_RETURN}, score AS raw_score
@@ -67,8 +67,8 @@ WHERE p.provision_id <> seed.provision_id
   AND (
     NOT $public_only
     OR (
-      coalesce(p.visibility, 'public') = 'public'
-      AND coalesce(p.review_status, 'approved') = 'approved'
+      p.visibility = 'public'
+      AND p.review_status = 'approved'
     )
   )
 WITH p, min(length(path)) AS distance
@@ -104,7 +104,7 @@ class Neo4jLegalRetrievalRepository:
         if not (self.driver and hasattr(self.driver, "session")):
             raise LegalRetrievalUnavailableError("Neo4j legal retrieval is not available")
         try:
-            async with self.driver.session() as session:
+            async with self.driver.session(default_access_mode="READ") as session:
                 execute_read = getattr(session, "execute_read", None)
                 if callable(execute_read):
                     return await execute_read(self._collect, cypher, params)

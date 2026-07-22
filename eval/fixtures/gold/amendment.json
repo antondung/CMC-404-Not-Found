@@ -1,0 +1,9 @@
+{
+  "metadata": {"dataset_id": "amendment-contract-smoke-v1", "dataset_kind": "synthetic_contract_fixture", "independent_review": false},
+  "cases": [
+    {"case_id": "amount-raised", "expected_pair": {"old_id": "P-A-V1", "new_id": "P-A-V2"}, "expected_change_type": "TIGHTENED", "auto_approve_allowed": true},
+    {"case_id": "reworded", "expected_pair": {"old_id": "P-B-V1", "new_id": "P-B-V2"}, "expected_change_type": "REWORDED", "auto_approve_allowed": true},
+    {"case_id": "split-review", "expected_pair": null, "expected_change_type": "SPLIT", "auto_approve_allowed": false},
+    {"case_id": "added", "expected_pair": null, "expected_change_type": "ADDED", "auto_approve_allowed": false}
+  ]
+}
